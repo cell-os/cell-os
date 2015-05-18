@@ -9,6 +9,6 @@
 docker::version: 1.5.0+3
 java::version: 7u76
 zookeeper::version: 3.4.6
-mesos::version: 0.22.0-1.2.centos701406
+mesos::version: 0.22.1-1.0.centos701406
 marathon::version: 0.8.2-adobe-SNAPSHOT
 etcd::version: v2.0.5
