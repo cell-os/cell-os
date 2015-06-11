@@ -6,9 +6,17 @@
 # The order is defined by the level of dependency. 
 # For example Docker is low level running directly on the OS and other modules depend on it
 
-docker::version: 1.5.0+3
+docker::version: 1.6.2
 java::version: 7u76
-zookeeper::version: 3.4.6
+zookeeper::version: 3.4.6_1.5.4
 mesos::version: 0.22.1-1.0.centos701406
-marathon::version: 0.8.2-adobe-SNAPSHOT
+marathon::version: 0.8.2-adobe
 etcd::version: v2.0.5
+
+modules:
+  puppet-zookeeper: 0.1.0-adobe-SNAPSHOT
+  puppet-docker: 4.0.2-adobe-SNAPSHOT
+  puppet-mesos: 0.5.4-adobe-SNAPSHOT
+  puppet-marathon: 0.1.2-adobe-SNAPSHOT
+  puppet-etcd: 0.1.0-adobe-SNAPSHOT
+

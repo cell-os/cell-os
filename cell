@@ -1,0 +1,228 @@
+#!/bin/bash
+
+type aws >/dev/null 2>&1 || { echo >&2 "AWS CLI not found (pip install awscli) or see 
+http://docs.aws.amazon.com/cli/latest/userguide/installing.html"; exit 1;}
+
+CF_TEMPLATE_PATH="./deploy/aws/elastic-cell.json"
+AWS_OPTIONS="--output text"
+PROXY_PORT=${PROXY_PORT:-"1234"}
+USAGE="
+  usage: ./cell <action> <cell-name> [nucleus|body] [index] [command]
+   actions:
+     create - creates a new cell
+     delete - deletes an existing cell
+     list - lists existing stacks or the nodes in a cell if cell-name provided
+     scale <role> <desired_capacity> - scales role to desired capacity
+     ssh <role> [index] - ssh to first instance in role or to index
+     log <role> [index] - tail cloud-init.log on first node or index if provided
+     cmd <role> <index> - run command on node n
+     proxy <role> - open SOCKS proxy\n"
+
+# action
+case "$1" in
+  create)
+    action="create"
+    ;;
+
+  delete)
+    action="delete"
+    ;;
+
+  list)
+    action="list"
+    ;;
+
+  scale)
+    action="scale"
+    ;;
+
+  ssh)
+    action="ssh"
+    ;;
+
+  log)
+    action="log"
+    ;;
+
+  cmd)
+    action="cmd"
+    ;;
+
+  proxy)
+    action="proxy"
+    ;;
+
+  help)
+    printf "$USAGE"
+    exit 0
+    ;;
+
+  *)
+  echo "error: invalid action $1"
+  VALIDATION_ERROR=true
+esac
+
+# cell name
+if [[ ! $action == "list" && -z "$2" ]]; then
+  echo "error cell_name can't be empty"
+  VALIDATION_ERROR=true
+fi
+cell_name=$2
+
+if [ -z $AWS_ACCESS_KEY_ID ] || [ -z $AWS_SECRET_ACCESS_KEY ]; then
+  echo "error: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY can't be empty"
+  VALIDATION_ERROR=true
+else
+  # Try to get some defaults from the current account if values not set
+  AWS_KEY_PAIR=${AWS_KEY_PAIR:-`aws $AWS_OPTIONS ec2 describe-key-pairs --query 'KeyPairs[0].KeyName'`}
+
+  # Validate values
+
+  if ! [ `aws $AWS_OPTIONS ec2 describe-key-pairs | grep $AWS_KEY_PAIR | wc -l` -gt 0 ]; then
+    echo error: AWS_KEY_PAIR $AWS_KEY_PAIR doesn\'t exist
+    VALIDATION_ERROR=true
+  fi
+fi
+
+BUCKET_NAME="cell-os-${VPC_ID}-${cell_name}"
+STACK_NAME="${cell_name}" # TODO stack name should read selected region
+
+CONFIG="
+  \n  AWS_KEY_PAIR              = \"$AWS_KEY_PAIR\"   - defaults to first key pair on the account \
+  \n  BUCKET_NAME               = \"$BUCKET_NAME\" (readonly - cell-os-<VPC_ID>-<cell-name>) \
+  \n  STACK_NAME                = \"$STACK_NAME\" (readonly - <cell-name>) \n\n"
+
+if [ "$VALIDATION_ERROR" = true ]; then
+  printf "$USAGE"
+  exit 1
+fi
+
+if [ "$action" == "delete" ]; then
+  aws cloudformation delete-stack --stack-name $STACK_NAME
+  aws s3 rm --recursive s3://$BUCKET_NAME/${cell_name}
+  exit 0
+fi
+
+if [ $action == "list" ]; then
+    if [ -z $2 ]; then
+      aws cloudformation list-stacks --stack-status-filter CREATE_COMPLETE CREATE_IN_PROGRESS \
+      UPDATE_COMPLETE UPDATE_IN_PROGRESS DELETE_IN_PROGRESS --output table \
+      --query 'StackSummaries[*].[StackName,StackStatus,Tags]'
+    else
+      echo load balancers
+      aws elb describe-load-balancers --query 'LoadBalancerDescriptions[*].[LoadBalancerName, DNSName]' --output table | grep $cell_name
+
+      command="aws ec2 describe-instances --query \
+                'Reservations[*].Instances[*].[PublicIpAddress, PrivateIpAddress, ImageId, \
+                  State.Name, KeyName]' \
+                --filters Name=tag:cell,Values=$2 Name=instance-state-name,Values=*ing"
+      echo nucleus
+      sh -c "${command} Name=tag:role,Values=nucleus"
+      echo body
+      sh -c "${command} Name=tag:role,Values=body"
+    fi
+    exit 0
+fi
+
+if [ $action == "scale" ]; then
+  if ! [[ $3 == "nucleus" || $3 == "body" ]]; then
+    echo "please provide role (body, nucleus)" >&2
+    exit 0
+  fi
+  role=$3
+  desired_capacity=$4
+  if ! [ $desired_capacity -eq $desired_capacity ]; then
+    echo desired_capacity must be an integer >&2
+    exit 1
+  fi
+  # --filter or --filters doesn't seem to be working
+  # alternatively this could be done through --query
+  scaling_group=`aws autoscaling describe-auto-scaling-groups --query 'AutoScalingGroups[*].[AutoScalingGroupName]' | grep $cell_name| grep -i $role`
+ echo Scaling group $scaling_group
+ result=`aws autoscaling update-auto-scaling-group --auto-scaling-group-name $scaling_group \
+                                                   --desired-capacity $desired_capacity`
+ exit
+fi
+
+if [[ $action == "ssh" || $action == "log" || $action == "cmd" || $action == "proxy" ]]; then
+
+
+  if [ $action == "proxy" ]; then
+    ssh_options=" -D $PROXY_PORT"
+  fi
+
+  if ! [[ $3 == "nucleus" || $3 == "body" ]]; then
+    echo "please provide role (body, nucleus)" >&2
+    exit 0
+  fi
+  role=$3
+
+  ip_and_keypair=$(aws ec2 describe-instances --query 'Reservations['$index'].Instances[0].[PublicIpAddress, KeyName]' --filters Name=instance-state-code,Values=16 Name=tag:cell,Values=${cell_name} Name=tag:role,Values=${role})
+  if [ "$ip_and_keypair" == "None" ]; then
+    echo "can't find host yet. Is the cell fully up?"
+    exit 1
+  fi
+
+
+  index=$4
+  if [[ -z $index || -n ${index//[0-9]/} ]]; then
+    index=0
+  fi
+
+  if [[ $action == "cmd" &&  -z $5 ]]; then
+    echo "command can't be empty"
+    printf "$USAGE"
+    exit 1
+  fi
+
+  command=$5
+
+  if [ $action == "log" ]; then
+    command="tail -f /var/log/cloud-init.log"
+  fi
+
+  ip=$(echo $ip_and_keypair | cut -d " " -f1)
+  keypair=$(echo $ip_and_keypair | cut -d " " -f2)
+
+  echo ip=$ip
+  echo keypair=$keypair
+  echo command=$command
+  #TODO extract username
+  username="centos"
+  #TODO get key pair
+  key_file=${KEYPATH:-"$HOME/.ssh"}/${keypair}.pem
+  if ! [ -e $key_file ]; then
+    echo "can't find ${key_file}. Set your KEYPATH env var to your .pem location"
+    exit 1
+  fi
+  ssh ${ssh_options} "${username}@${ip}" -i $key_file $command
+  exit
+fi
+
+if [ $action == "create" ]; then
+  echo creating s3 bucket s3://$BUCKET_NAME
+  RET=$({ aws s3 mb s3://$BUCKET_NAME ;} 2>&1)
+  create_error=$?
+  echo $RET | grep AlreadyOwnedByYou > /dev/null
+  already_owned=$?
+
+  if [[ ! $create_error -eq 0 && ! $already_owned -eq 0 ]]; then
+    echo $RET
+    exit 1
+  fi
+
+  aws cloudformation create-stack \
+      --template-body file://${CF_TEMPLATE_PATH} \
+      --stack-name ${STACK_NAME}\
+      --capabilities CAPABILITY_IAM \
+      --parameters \
+          $extra_parameters \
+          ParameterKey=CellName,ParameterValue=${cell_name} \
+          ParameterKey=KeyName,ParameterValue=$AWS_KEY_PAIR \
+          ParameterKey=BucketName,ParameterValue=$BUCKET_NAME \
+          ParameterKey=SaasBaseAccessKeyId,ParameterValue='XXXXXXXXXXXXXXXXXXXX' \
+          ParameterKey=SaasBaseSecretAccessKey,ParameterValue='xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx' \
+          ParameterKey=AccessKeyId,ParameterValue=$AWS_ACCESS_KEY_ID \
+          ParameterKey=SecretAccessKey,ParameterValue=$AWS_SECRET_ACCESS_KEY
+  echo cloudformation ret = $?
+fi

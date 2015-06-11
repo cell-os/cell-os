@@ -1,0 +1,506 @@
+{
+  "AWSTemplateFormatVersion" : "2010-09-09",
+  "Description" : "cell-os-base - https://git.corp.adobe.com/metal-cell/cell-os",
+
+  "Parameters" : {
+    "InstanceType" : {
+      "Description" : "EC2 instance type",
+      "Type" : "String",
+      "Default" : "c3.2xlarge",
+      "AllowedValues" : [
+        "t2.micro", "t2.small", "t2.medium",
+        "m3.medium", "m3.large", "m3.xlarge", "m3.2xlarge",
+        "c4.large", "c4.xlarge", "c4.2xlarge", "c4.4xlarge", "c4.8xlarge",
+        "c3.large", "c3.xlarge", "c3.2xlarge", "c3.4xlarge", "c3.8xlarge",
+        "r3.large", "r3.xlarge", "r3.2xlarge", "r3.4xlarge", "r3.8xlarge",
+        "i2.xlarge", "i2.2xlarge", "i2.4xlarge", "i2.8xlarge",
+        "hs1.8xlarge", "g2.2xlarge"
+      ],
+      "ConstraintDescription" : "must be a valid, HVM-compatible EC2 instance type."
+    },
+    "CellName" : {
+      "Description" : "The name of this cell (e.g. cell-1). This will get prefixed with account id and region to get the full cell id.",
+      "Type" : "String",
+      "Default": "cell-1"
+    },
+    "CellOsVersionBundle" : {
+      "Description" : "cell-os bundle version",
+      "Type" : "String",
+      "Default": "cell-os-base-1.0-SNAPSHOT"
+    },
+    "SaasBaseDeploymentVersion" : {
+      "Description" : "saasbase-deployment version",
+      "Type" : "String",
+      "Default": "1.26"
+    },
+    "KeyName" : {
+      "Description" : "Existing EC2 KeyPair to be associated with all cluster instances for SSH access. The default user is 'centos'",
+      "Type" : "AWS::EC2::KeyPair::KeyName"
+    },
+    "NucleusSize" : {
+      "Description" : "Number of nodes in the cell nucleus",
+      "Type" : "Number",
+      "Default": 1
+    },
+    "StatelessBodySize" : {
+      "Description" : "Number of nodes in the cell sateless body",
+      "Type" : "Number",
+      "Default": 1
+    },
+    "BucketName" : {
+      "Description" : "Cell's S3 bucket name. Used for metadata and backups. Can be one per account as we prefix data with cell name inside",
+      "Type" : "String"
+    },
+    "AvailabilityZones": {
+      "Type" : "CommaDelimitedList",
+      "Default" : "",
+      "Description" : "(Unsupported yet) If passed, will create subnets in these AZs (e.g., 'us-east-1a,us-east-1b')"
+    },
+    "AccessKeyId" : {
+      "Type" : "String",
+      "Description" : "An Access Key ID that can access the cell S3 bucket. It should be restricted to https://github.com/Netflix/exhibitor/wiki/Shared-Configuration#s3--configuration-type-s3"
+    },
+    "SecretAccessKey": {
+      "Type" : "String",
+      "Description" : "A Secret Access Key for the cell S3 bucket. It should be restricted to https://github.com/Netflix/exhibitor/wiki/Shared-Configuration#s3--configuration-type-s3"
+    },
+    "SaasBaseAccessKeyId" : {
+      "Type" : "String",
+      "Description" : "SaasBase S3 repo read-only AWS account Access Key ID (http://saasbase.corp.adobe.com/ops/operations/deployment.html)"
+    },
+    "SaasBaseSecretAccessKey": {
+      "Type" : "String",
+      "Description" : "SaasBase S3 repo read-only AWS account Secret Access Key (http://saasbase.corp.adobe.com/ops/operations/deployment.html)"
+    }
+  },
+
+  "Mappings" : {
+    "RegionMap" : {
+      "us-east-1"     : { "AMI" : "ami-96a818fe" },
+      "us-west-1"     : { "AMI" : "ami-6bcfc42e" },
+      "us-west-2"     : { "AMI" : "ami-c7d092f7" },
+      "eu-central-1"  : { "AMI" : "ami-7cc4f661" },
+      "eu-west-1"     : { "AMI" : "ami-e4ff5c93" },
+      "ap-southeast-1": { "AMI" : "ami-aea582fc" },
+      "ap-southeast-2": { "AMI" : "ami-bd523087" },
+      "ap-northeast-1": { "AMI" : "ami-89634988" },
+      "sa-east-1"     : { "AMI" : "ami-bf9520a2" }
+    }
+  },
+
+  "Conditions" : {
+    "UseAllAvailabilityZones" : {"Fn::Equals" : [{ "Fn::Join" : ["", {"Ref" : "AvailabilityZones"} ]}, ""]}
+  },
+
+  "Resources" : {
+
+    "VPC" : {
+      "Type" : "AWS::EC2::VPC",
+      "Properties" : {
+        "CidrBlock" : "10.0.0.0/16",
+        "EnableDnsSupport": true,
+        "EnableDnsHostnames" : true,
+        "Tags" : [ {"Key" : "Application", "Value" : { "Ref" : "AWS::StackId"} } ]
+      }
+    },
+
+    "Subnet" : {
+      "Type" : "AWS::EC2::Subnet",
+      "Properties" : {
+        "VpcId" : { "Ref" : "VPC" },
+        "CidrBlock" : "10.0.0.0/24",
+        "Tags" : [ {"Key" : "Application", "Value" : { "Ref" : "AWS::StackId"} } ]
+      }
+    },
+
+    "InternetGateway" : {
+      "Type" : "AWS::EC2::InternetGateway",
+      "Properties" : {
+        "Tags" : [ {"Key" : "Application", "Value" : { "Ref" : "AWS::StackId"} } ]
+      }
+    },
+
+    "AttachGateway" : {
+       "Type" : "AWS::EC2::VPCGatewayAttachment",
+       "Properties" : {
+         "VpcId" : { "Ref" : "VPC" },
+         "InternetGatewayId" : { "Ref" : "InternetGateway" }
+       }
+    },
+
+    "RouteTable" : {
+      "Type" : "AWS::EC2::RouteTable",
+      "Properties" : {
+        "VpcId" : {"Ref" : "VPC"},
+        "Tags" : [ {"Key" : "Application", "Value" : { "Ref" : "AWS::StackId"} } ]
+      }
+    },
+
+    "Route" : {
+      "Type" : "AWS::EC2::Route",
+      "DependsOn" : "AttachGateway",
+      "Properties" : {
+        "RouteTableId" : { "Ref" : "RouteTable" },
+        "DestinationCidrBlock" : "0.0.0.0/0",
+        "GatewayId" : { "Ref" : "InternetGateway" }
+      }
+    },
+
+    "SubnetRouteTableAssociation" : {
+      "Type" : "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties" : {
+        "SubnetId" : { "Ref" : "Subnet" },
+        "RouteTableId" : { "Ref" : "RouteTable" }
+      }
+    },
+
+    "Nucleus" : {
+      "Type" : "AWS::AutoScaling::AutoScalingGroup",
+      "Properties" : {
+        "AvailabilityZones" : {
+          "Fn::If" : [
+            "UseAllAvailabilityZones",
+            { "Fn::GetAZs": "AWS::Region" },
+            { "Ref" : "AvailabilityZones" }
+          ]
+        },
+        "LaunchConfigurationName" : { "Ref" : "NucleusLaunchConfig" },
+        "MinSize" : "1",
+        "MaxSize" : "9",
+        "DesiredCapacity" : { "Ref" : "NucleusSize" },
+        "LoadBalancerNames" : [ { "Ref" : "ZookeeperLoadBalancer" } ],
+        "VPCZoneIdentifier" : [{ "Ref" : "Subnet" }],
+        "Tags" : [
+          { "Key" : "role", "Value" : "nucleus", "PropagateAtLaunch" : "true" },
+          { "Key" : "cell", "Value" : {"Ref": "CellName"}, "PropagateAtLaunch" : "true" }
+        ]
+      }
+    },
+
+    "StatelessBody" : {
+      "Type" : "AWS::AutoScaling::AutoScalingGroup",
+      "Properties" : {
+        "AvailabilityZones" : {
+          "Fn::If" : [
+            "UseAllAvailabilityZones",
+            { "Fn::GetAZs": "AWS::Region" },
+            { "Ref" : "AvailabilityZones" }
+          ]
+        },
+        "LaunchConfigurationName" : { "Ref" : "StatelessBodyLaunchConfig" },
+        "MinSize" : "1",
+        "MaxSize" : "100",
+        "DesiredCapacity" : { "Ref" : "StatelessBodySize" },
+        "LoadBalancerNames" : [ { "Ref" : "MesosLoadBalancer" }, { "Ref" : "MarathonLoadBalancer" }],
+        "VPCZoneIdentifier" : [{ "Ref" : "Subnet" }],
+        "Tags" : [
+          { "Key" : "role", "Value" : "body", "PropagateAtLaunch" : "true" },
+          { "Key" : "cell", "Value" : {"Ref": "CellName"}, "PropagateAtLaunch" : "true" }
+        ]
+      }
+    },
+
+    "NucleusLaunchConfig" : {
+      "Type" : "AWS::AutoScaling::LaunchConfiguration",
+      "Properties" : {
+        "KeyName" : { "Ref" : "KeyName" },
+        "ImageId" : { "Fn::FindInMap" : [ "RegionMap", { "Ref" : "AWS::Region" }, "AMI"] },
+        "SecurityGroups" : [ { "Ref" : "NucleusSecurityGroup" }, { "Ref" : "AdminSecurityGroup" }  ],
+        "AssociatePublicIpAddress": "true",
+        "InstanceType" : { "Ref" : "InstanceType" },
+        "UserData"       : { "Fn::Base64" : { "Fn::Join" : ["", [
+          "#!/bin/bash -x\n",
+
+          "# Helper function\n",
+          "function error_exit\n",
+          "{\n",
+          "  cfn-signal -e 1 -r \"$1\" '", { "Ref" : "WaitHandle" }, "'\n",
+          "  exit 1\n",
+          "}\n",
+
+          "export AWS_ACCESS_KEY_ID='", { "Ref" : "SaasBaseAccessKeyId" }, "'\n",
+          "export AWS_SECRET_ACCESS_KEY='", { "Ref" : "SaasBaseSecretAccessKey" }, "'\n",
+          "curl -o /root/saasbase_installer https://s3.amazonaws.com/saasbase-repo/saasbase_installer",
+              { "Ref" : "SaasBaseDeploymentVersion" }, "\n",
+          "bash /root/saasbase_installer fetch SNAPSHOT\n",
+          "curl -o /root/puppet/profiles/", { "Ref" : "CellOsVersionBundle" }, ".yaml ",
+              "https://s3.amazonaws.com/saasbase-repo/cell-os/", { "Ref" : "CellOsVersionBundle" }, ".yaml",  "\n",
+          "mkdir -p /root/cluster/puppet/modules\n",
+          "echo ", { "Ref" : "CellOsVersionBundle" }, " >> /root/cluster/profile\n",
+
+          "echo zookeeper::aws_access_key_id: ", { "Ref" : "AccessKeyId" }, " >> /root/cluster/cluster.yaml\n",
+          "echo zookeeper::aws_secret_access_key: ", { "Ref" : "SecretAccessKey" }, " >> /root/cluster/cluster.yaml\n",
+          "echo zookeeper::aws_s3_bucket: ", {"Ref": "BucketName"}, " >> /root/cluster/cluster.yaml\n",
+          "echo zookeeper::aws_s3_prefix: ", { "Fn::Join" : ["", [{"Ref": "CellName"}, "/nucleus/exhibitor"]]}, " >> /root/cluster/cluster.yaml\n",
+
+          "bash /root/saasbase_installer -v -d /root -m /root/cluster/puppet/modules run-puppet /root/cluster --roles docker,zookeeper \n",
+
+          "# All is well so signal success\n",
+          "cfn-signal -e 0 -r \"Stack setup complete\" '", { "Ref" : "WaitHandle" }, "'\n",
+
+          "#EOF"
+        ]]}}
+      }
+    },
+
+    "StatelessBodyLaunchConfig" : {
+      "Type" : "AWS::AutoScaling::LaunchConfiguration",
+      "Metadata" : {
+        "AWS::CloudFormation::Init" : {
+          "config": {
+            "packages" : {
+              "python": {
+                "pystache": [],
+                "awscli": []
+              }
+            },
+            "files" : {
+              "/usr/local/bin/zk-list-nodes" : {
+                "content" : { "Fn::Join" : ["", [
+                  "#!/bin/bash \n",
+                  "ZK=`curl -s {{zk_discovery_url}}`\n",
+                  "while [[ -z $ZK || ${ZK:0:1} != \"{\" ]]; do >&2 echo \"got $ZK retrying\"; ZK=`curl -s {{zk_discovery_url}}`; done\n",
+                  "echo $ZK | python -c '",
+                    "import sys, json;",
+                    "j=json.load(sys.stdin);",
+                    "servers=[\":\".join([s, str(j[\"port\"])]) for s in j[\"servers\"]];",
+                    "print \",\".join(servers)'\n"
+                ]]},
+                "context" : {
+                  "zk_discovery_url"  : { "Fn::Join" : ["", [
+                    "http://", { "Fn::GetAtt" : [ "ZookeeperLoadBalancer", "DNSName" ]}, "/exhibitor/v1/cluster/list"
+                  ]]}
+                },
+                "mode"    : "000755",
+                "owner"   : "root",
+                "group"   : "root"
+              }
+            }
+          }
+        }
+      },
+
+      "Properties" : {
+        "KeyName" : { "Ref" : "KeyName" },
+        "ImageId" : { "Fn::FindInMap" : [ "RegionMap", { "Ref" : "AWS::Region" }, "AMI"] },
+        "SecurityGroups" : [ { "Ref" : "BodySecurityGroup" }, { "Ref" : "AdminSecurityGroup" }  ],
+        "AssociatePublicIpAddress": "true",
+        "InstanceType" : { "Ref" : "InstanceType" },
+        "UserData"       : { "Fn::Base64" : { "Fn::Join" : ["", [
+          "#!/bin/bash\n",
+
+          "curl -O https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz\n",
+          "tar -xzf aws-cfn-bootstrap-latest.tar.gz\n",
+          "cd aws-cfn*\n",
+          "easy_install pystache\n",
+          "python setup.py install\n",
+
+          "# Helper function\n",
+          "function error_exit\n",
+          "{\n",
+          "  cfn-signal -e 1 -r \"$1\" '", { "Ref" : "WaitHandle" }, "'\n",
+          "  exit 1\n",
+          "}\n",
+
+          "# Process CloudFormation init definitions\n",
+          "cfn-init -s ", { "Ref" : "AWS::StackName" }, " -r StatelessBodyLaunchConfig ",
+          "    --region ", { "Ref" : "AWS::Region" }, " || error_exit 'Failed to run cfn-init'\n",
+
+          "export AWS_ACCESS_KEY_ID='", { "Ref" : "SaasBaseAccessKeyId" }, "'\n",
+          "export AWS_SECRET_ACCESS_KEY='", { "Ref" : "SaasBaseSecretAccessKey" }, "'\n",
+          "curl -o /root/saasbase_installer https://s3.amazonaws.com/saasbase-repo/saasbase_installer",
+              { "Ref" : "SaasBaseDeploymentVersion"}, "\n",
+          "bash /root/saasbase_installer fetch SNAPSHOT\n",
+          "curl -o /root/puppet/profiles/", { "Ref" : "CellOsVersionBundle" }, ".yaml ",
+              "https://s3.amazonaws.com/saasbase-repo/cell-os/", { "Ref" : "CellOsVersionBundle" }, ".yaml", "\n",
+
+          "mkdir -p /root/cluster/puppet/modules\n",
+          "echo ", { "Ref" : "CellOsVersionBundle" }, " >> /root/cluster/profile\n",
+
+          "### Block until we have a ZK quorum\n",
+          "while [ `/usr/local/bin/zk-list-nodes | wc -m` -lt 4 ]; do /usr/local/bin/zk-list-nodes; done\n",
+          "### Block until we can connect to ZK hosts \n",
+          "while ! [ $(zk=`zk-list-nodes`;host=`echo $zk | cut -d: -f 1`; exec 6<>/dev/tcp/$host/2181; echo $?) -eq 0 ]; do echo waiting for good zk $zk; sleep 1; done\n",
+          "zk=`zk-list-nodes`\n",
+
+          "### Minimal inline cluster.yaml\n",
+          "echo mesos::zookeeper:   zk://$zk/mesos      >> /root/cluster/cluster.yaml\n",
+          "echo marathon::zk:       zk://$zk/marathon   >> /root/cluster/cluster.yaml\n",
+          "echo marathon::master:   zk://$zk/mesos      >> /root/cluster/cluster.yaml\n",
+          "echo marathon::bin_path: /opt/marathon/bin   >> /root/cluster/cluster.yaml\n",
+
+          "bash /root/saasbase_installer -v -d /root -m /root/cluster/puppet/modules run-puppet /root/cluster --roles docker,mesos::master,mesos::slave,marathon \n",
+
+          "# All is well so signal success\n",
+          "cfn-signal -e 0 -r \"Stack setup complete\" '", { "Ref" : "WaitHandle" }, "'\n",
+
+          "#EOF"
+        ]]}}
+      }
+    },
+
+    "BodySecurityGroup" : {
+      "Type" : "AWS::EC2::SecurityGroup",
+      "Properties" : {
+        "GroupDescription" : "For ZooKeeper clients. Grants access to the associated ZooKeeper cluster.",
+        "VpcId" : { "Ref" : "VPC" }
+      }
+    },
+
+    "NucleusSecurityGroup" : {
+      "Type" : "AWS::EC2::SecurityGroup",
+      "Properties" : {
+        "GroupDescription" : "Exhibitor, ZK ports",
+        "VpcId" : { "Ref" : "VPC" },
+        "SecurityGroupIngress" :
+          [ { "IpProtocol" : "tcp", "FromPort" : "8181", "ToPort" : "8181", "SourceSecurityGroupId" : { "Ref" : "LbSecurityGroup"} },
+            { "IpProtocol" : "tcp", "FromPort" : "2181", "ToPort" : "2181", "SourceSecurityGroupId" : { "Ref" : "BodySecurityGroup"} },
+            { "IpProtocol" : "tcp", "FromPort" : "2888", "ToPort" : "2888", "SourceSecurityGroupId" : { "Ref" : "BodySecurityGroup"} },
+            { "IpProtocol" : "tcp", "FromPort" : "3888", "ToPort" : "3888", "SourceSecurityGroupId" : { "Ref" : "BodySecurityGroup"} } ]
+      }
+    },
+
+    "AdminSecurityGroup" : {
+      "Type" : "AWS::EC2::SecurityGroup",
+      "Properties" : {
+        "GroupDescription" : "Some Adobe CIDRs. Send an email to metal-cell@adobe.com",
+        "VpcId" : { "Ref" : "VPC" },
+        "SecurityGroupIngress" :[ 
+          { "IpProtocol" : "tcp", "FromPort" : "0", "ToPort" : "65535", "CidrIp" : "127.127.0.0/16" },
+          { "IpProtocol" : "tcp", "FromPort" : "0", "ToPort" : "65535", "CidrIp" : "127.127.216.100/32" },
+          { "IpProtocol" : "tcp", "FromPort" : "0", "ToPort" : "65535", "CidrIp" : "127.127.198.0/24" },
+          { "IpProtocol" : "tcp", "FromPort" : "0", "ToPort" : "65535", "CidrIp" : "127.127.140.131/32" }
+        ]
+      }
+    },
+
+    "NucleusSecurityGroupIngress": {
+      "Type": "AWS::EC2::SecurityGroupIngress",
+      "Properties": {
+        "GroupId": { "Ref": "NucleusSecurityGroup" },
+        "IpProtocol": "-1",
+        "FromPort": "0",
+        "ToPort": "65535",
+        "SourceSecurityGroupId": { "Ref": "NucleusSecurityGroup" }
+      }
+    },
+    "BodySecurityGroupIngress": {
+      "Type": "AWS::EC2::SecurityGroupIngress",
+      "Properties": {
+        "GroupId": { "Ref": "BodySecurityGroup" },
+        "IpProtocol": "-1",
+        "FromPort": "0",
+        "ToPort": "65535",
+        "SourceSecurityGroupId": { "Ref": "BodySecurityGroup" }
+      }
+    },
+
+
+    "LbSecurityGroup" : {
+      "Type" : "AWS::EC2::SecurityGroup",
+      "Properties" : {
+        "GroupDescription" : "Enable Exhibitor access",
+        "VpcId" : { "Ref" : "VPC" },
+        "SecurityGroupIngress" : [ 
+          { "IpProtocol" : "tcp", "FromPort" : "80", "ToPort" : "80", "SourceSecurityGroupId" : { "Ref" : "BodySecurityGroup"} }
+        ]
+      }
+    },
+
+    "MarathonLoadBalancer" : {
+      "Type" : "AWS::ElasticLoadBalancing::LoadBalancer",
+      "Properties" : {
+        "CrossZone": "true",
+        "Scheme": "internal",
+        "SecurityGroups": [{ "Ref": "AdminSecurityGroup" }, { "Ref": "LbSecurityGroup" }, { "Ref": "NucleusSecurityGroup" }, { "Ref": "BodySecurityGroup" }],
+        "Subnets": [{ "Ref": "Subnet" }],
+        "Listeners" : [ 
+          { "LoadBalancerPort" : "80", "InstancePort" : "8080","Protocol" : "HTTP"}
+        ],
+        "HealthCheck" : {
+          "Target" : "HTTP:8080/",
+          "HealthyThreshold" : "3",
+          "UnhealthyThreshold" : "5",
+          "Interval" : "30",
+          "Timeout" : "5"
+        },
+        "Tags" : [
+           { "Key" : "cell", "Value" : {"Ref": "CellName"} }
+        ],
+        "LoadBalancerName" : { "Fn::Join" : ["", [ {"Ref": "CellName"}, "-lb-marathon"]]}
+      }
+    },
+    "ZookeeperLoadBalancer" : {
+      "Type" : "AWS::ElasticLoadBalancing::LoadBalancer",
+      "Properties" : {
+        "CrossZone": "true",
+        "Scheme": "internal",
+        "SecurityGroups": [{ "Ref": "AdminSecurityGroup" },{ "Ref": "LbSecurityGroup" }, { "Ref": "NucleusSecurityGroup" }],
+        "Subnets": [{ "Ref": "Subnet" }],
+        "Listeners" : [ 
+          { "LoadBalancerPort" : "80", "InstancePort" : "8181","Protocol" : "HTTP"}
+        ],
+        "HealthCheck" : {
+          "Target" : "HTTP:8181/exhibitor/v1/cluster/state",
+          "HealthyThreshold" : "3",
+          "UnhealthyThreshold" : "5",
+          "Interval" : "30",
+          "Timeout" : "5"
+        },
+        "Tags" : [
+          { "Key" : "cell", "Value" : {"Ref": "CellName"} }
+        ],
+        "LoadBalancerName" : { "Fn::Join" : ["", [ {"Ref": "CellName"}, "-lb-zk"]]}
+      }
+    },
+
+   "MesosLoadBalancer" : {
+     "Type" : "AWS::ElasticLoadBalancing::LoadBalancer",
+     "Properties" : {
+       "CrossZone": "true",
+       "Scheme": "internal",
+       "SecurityGroups": [{ "Ref": "AdminSecurityGroup" },{ "Ref": "LbSecurityGroup" }, { "Ref": "NucleusSecurityGroup" }, { "Ref": "BodySecurityGroup" }],
+       "Subnets": [{ "Ref": "Subnet" }],
+       "Listeners" : [ 
+         { "LoadBalancerPort" : "80", "InstancePort" : "5050","Protocol" : "HTTP"}
+       ],
+       "HealthCheck" : {
+         "Target" : "HTTP:5050/health",
+         "HealthyThreshold" : "3",
+         "UnhealthyThreshold" : "5",
+         "Interval" : "30",
+         "Timeout" : "5"
+       },
+       "Tags" : [
+         { "Key" : "cell", "Value" : {"Ref": "CellName"} }
+       ],
+       "LoadBalancerName" : { "Fn::Join" : ["", [ {"Ref": "CellName"}, "-lb-mesos"]]}
+     }
+    },
+
+    "WaitHandle" : {
+      "Type" : "AWS::CloudFormation::WaitConditionHandle"
+    }
+  },
+
+  "Outputs" : {
+    "ExhibitorDiscoveryUrl" : {
+      "Value" : { "Fn::Join" : ["", [
+        "http://", { "Fn::GetAtt" : [ "ZookeeperLoadBalancer", "DNSName" ]}, "/exhibitor/v1/cluster/list"
+      ]]}
+    },
+    "MesosUrl" : {
+      "Value" : { "Fn::Join" : ["", [
+        "http://", { "Fn::GetAtt" : [ "MesosLoadBalancer", "DNSName" ]}
+      ]]}
+    },
+    "MarathonUrl" : {
+      "Value" : { "Fn::Join" : ["", [
+        "http://", { "Fn::GetAtt" : [ "MarathonLoadBalancer", "DNSName" ]}
+      ]]}
+    },
+    "BodySecurityGroup" : {
+      "Value" : { "Ref" : "BodySecurityGroup" }
+    }
+  }
+}
