@@ -55,6 +55,8 @@ Delete an existing cell
 The cell-os version bundle captures the necessary module versions that are developed,
 tested and certified to work together.
 
+[cell-os-1.0](cell-os-base-1.0-SNAPSHOT.yaml)
+
 # Documentation
 
 * [Command Line Interface](docs/cli.md)
