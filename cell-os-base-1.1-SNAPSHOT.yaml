@@ -1,0 +1,22 @@
+---
+
+# The CellOS version bundle captures the necessary module versions that are developed,
+# tested and certified to work together.
+# The modules are a [partially ordered set](http://en.wikipedia.org/wiki/Partially_ordered_set) 
+# The order is defined by the level of dependency. 
+# For example Docker is low level running directly on the OS and other modules depend on it
+
+docker::version: 1.8.1
+java::version: 8u51
+zookeeper::version: 3.4.6_1.5.5
+mesos::version: 0.23.0-1.0.centos701406
+marathon::version: 0.10.1-adobe
+etcd::version: v2.1.1
+
+modules:
+  puppet-zookeeper: 0.1.1-adobe-SNAPSHOT
+  puppet-docker: 4.1.0-adobe-SNAPSHOT
+  puppet-mesos: 0.5.4-adobe-SNAPSHOT
+  puppet-marathon: 0.1.2-adobe-SNAPSHOT
+  puppet-etcd: 0.1.0-adobe-SNAPSHOT
+
