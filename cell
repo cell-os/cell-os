@@ -6,6 +6,7 @@ http://docs.aws.amazon.com/cli/latest/userguide/installing.html"; exit 1;}
 CF_TEMPLATE_PATH="./deploy/aws/elastic-cell.json"
 AWS_OPTIONS="--output text"
 PROXY_PORT=${PROXY_PORT:-"1234"}
+SSH_TIMEOUT=${SSH_TIMEOUT:-"5"}
 USAGE="
   usage: ./cell <action> <cell-name> [nucleus|body] [index] [command]
    actions:
@@ -146,9 +147,9 @@ fi
 
 if [[ $action == "ssh" || $action == "log" || $action == "cmd" || $action == "proxy" ]]; then
 
-
+  ssh_options="-o ConnectTimeout=${SSH_TIMEOUT}"
   if [ $action == "proxy" ]; then
-    ssh_options=" -D $PROXY_PORT"
+    ssh_options="${ssh_options} -D $PROXY_PORT"
   fi
 
   if ! [[ $3 == "nucleus" || $3 == "body" ]]; then
