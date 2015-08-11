@@ -175,7 +175,17 @@ if [ $action == "scale" ]; then
  exit
 fi
 
-if [[ $action == "ssh" || $action == "log" || $action == "cmd" || $action == "proxy" ]]; then
+if [[ "${action}" == "ssh" || "${action}" == "log" || "${action}" == "cmd" || "${action}" == "proxy" ]]; then
+  command=$5
+  if [[ "${action}" == "log" ]]; then
+    if [[ -z $3 ]]; then
+      watch -n 1 "aws cloudformation describe-stack-events --stack-name ${STACK_NAME} \
+        --output table --query 'StackEvents[*].[Timestamp, LogicalResourceId, ResourceStatus]' \
+        --max-items 10"
+      exit 0
+    fi
+    command="tail -f /var/log/cloud-init.log"
+  fi
 
   ssh_options="-o ConnectTimeout=${SSH_TIMEOUT}"
   if [ $action == "proxy" ]; then
@@ -207,11 +217,6 @@ if [[ $action == "ssh" || $action == "log" || $action == "cmd" || $action == "pr
     exit 1
   fi
 
-  command=$5
-
-  if [ $action == "log" ]; then
-    command="tail -f /var/log/cloud-init.log"
-  fi
 
   ip=$(echo $ip_and_keypair | cut -d " " -f1)
   keypair=$(echo $ip_and_keypair | cut -d " " -f2)
