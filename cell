@@ -1,5 +1,6 @@
 #!/bin/bash
 
+VERSION=1.0-SNAPSHOT
 type aws >/dev/null 2>&1 || { echo >&2 "AWS CLI not found (pip install awscli) or see 
 http://docs.aws.amazon.com/cli/latest/userguide/installing.html"; exit 1;}
 
@@ -8,6 +9,8 @@ AWS_OPTIONS="--output text"
 PROXY_PORT=${PROXY_PORT:-"1234"}
 SSH_TIMEOUT=${SSH_TIMEOUT:-"5"}
 USAGE="
+  cell-os cli utility ${VERSION}
+
   usage: ./cell <action> <cell-name> [nucleus|body] [index] [command]
    actions:
      create - creates a new cell
@@ -17,7 +20,26 @@ USAGE="
      ssh <role> [index] - ssh to first instance in role or to index
      log <role> [index] - tail cloud-init.log on first node or index if provided
      cmd <role> <index> - run command on node n
-     proxy <role> - open SOCKS proxy\n"
+     proxy <role> - open SOCKS proxy
+
+  Environment variables:
+
+    AWS_KEY_PAIR - EC2 ssh keypir to use (defaults to first on the account)
+    KEYPATH - the local path where <keypair>.pem is found (defaults to ${HOME}/.ssh)
+      the .pem extension is required.
+    PROXY_PORT - the SOCKS5 proxy port (defaults to ${PROXY_PORT})
+
+  All AWS CLI environment variables (e.g. AWS_DEFAULT_REGION,  AWS_ACCESS_KEY_ID,
+  AWS_SECRET_ACCESS_KEY, etc.) and configs apply.
+
+  The cell-os cli is a convenience tool and not intended to be an exhaustive cluster
+  manager. For advanced use-cases please use the AWS CLI or the AWS web console.
+
+  For additional help use dl-metal-cell-users@adobe.com.
+  For development related questions use dl-metal-cell-dev@adobe.com
+  Github git.corp.adobe.com/metal-cell/cell-os
+  Slack https://adobe.slack.com/messages/metal-cell/
+\n"
 
 # action
 case "$1" in
@@ -78,23 +100,23 @@ else
   AWS_KEY_PAIR=${AWS_KEY_PAIR:-`aws $AWS_OPTIONS ec2 describe-key-pairs --query 'KeyPairs[0].KeyName'`}
 
   # Validate values
-
   if ! [ `aws $AWS_OPTIONS ec2 describe-key-pairs | grep $AWS_KEY_PAIR | wc -l` -gt 0 ]; then
     echo error: AWS_KEY_PAIR $AWS_KEY_PAIR doesn\'t exist
     VALIDATION_ERROR=true
   fi
 fi
 
-BUCKET_NAME="cell-os-${VPC_ID}-${cell_name}"
+BUCKET_NAME="cell-os--${cell_name}"
 STACK_NAME="${cell_name}" # TODO stack name should read selected region
 
 CONFIG="
   \n  AWS_KEY_PAIR              = \"$AWS_KEY_PAIR\"   - defaults to first key pair on the account \
-  \n  BUCKET_NAME               = \"$BUCKET_NAME\" (readonly - cell-os-<VPC_ID>-<cell-name>) \
+  \n  BUCKET_NAME               = \"$BUCKET_NAME\" (readonly - cell-os--<cell-name>) \
   \n  STACK_NAME                = \"$STACK_NAME\" (readonly - <cell-name>) \n\n"
 
 if [ "$VALIDATION_ERROR" = true ]; then
   printf "$USAGE"
+  printf "$CONFIG"
   exit 1
 fi
 
@@ -213,6 +235,7 @@ if [ $action == "create" ]; then
     exit 1
   fi
 
+  echo creating stack ${STACK_NAME}...
   aws cloudformation create-stack \
       --template-body file://${CF_TEMPLATE_PATH} \
       --stack-name ${STACK_NAME}\
@@ -227,4 +250,5 @@ if [ $action == "create" ]; then
           ParameterKey=AccessKeyId,ParameterValue=$AWS_ACCESS_KEY_ID \
           ParameterKey=SecretAccessKey,ParameterValue=$AWS_SECRET_ACCESS_KEY
   echo cloudformation ret = $?
+  printf "${CONFIG}"
 fi
