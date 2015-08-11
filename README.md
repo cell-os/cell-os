@@ -45,6 +45,10 @@ Create a new cell
     
     ./cell create cell-1
 
+
+**Go to the AWS Console and accept the CentOS AMI agreement (see https://jira.corp.adobe.com/browse/CELL-58 for details) 
+if you haven't done so. The stack will hang creating the autoscaling groups until you do so.**
+
 Delete an existing cell
 
     ./cell delete cell-1
