@@ -144,7 +144,7 @@ creating a bucket in the right place as
 
 ## TODO
 
-- [ ] Switch to official saasbase-installer (1.26 RC2 should be ready soon)
+- [x] Switch to official saasbase-installer (1.26 RC2 should be ready soon)
 - [x] Add architecture diagram
 - [x] Provision everything including the VPC with networks, etc. (see related work)
 - [ ] Revisit Exhibitor S3 bucket region settings (bucket needs to be in the same region now)

@@ -38,6 +38,8 @@ Currently only AWS is supported by the CLI.
 
 ## Usage
 
+    export AWS_KEY_PAIR=<the EC2 keypair that should be used. Defaults to first key on thee acount>
+    export KEYPATH=<the location of your ${AWS_KEY_PAIR}.pem (must end in .pem).defaults to ~/.ssh>
 
 Create a new cell
     
