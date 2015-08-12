@@ -56,14 +56,6 @@
       "Default" : "",
       "Description" : "(Unsupported yet) If passed, will create subnets in these AZs (e.g., 'us-east-1a,us-east-1b')"
     },
-    "AccessKeyId" : {
-      "Type" : "String",
-      "Description" : "An Access Key ID that can access the cell S3 bucket. It should be restricted to https://github.com/Netflix/exhibitor/wiki/Shared-Configuration#s3--configuration-type-s3"
-    },
-    "SecretAccessKey": {
-      "Type" : "String",
-      "Description" : "A Secret Access Key for the cell S3 bucket. It should be restricted to https://github.com/Netflix/exhibitor/wiki/Shared-Configuration#s3--configuration-type-s3"
-    },
     "SaasBaseAccessKeyId" : {
       "Type" : "String",
       "Description" : "SaasBase S3 repo read-only AWS account Access Key ID (http://saasbase.corp.adobe.com/ops/operations/deployment.html)"
@@ -154,6 +146,60 @@
       }
     },
 
+
+    "NucleusRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version" : "2012-10-17",
+          "Statement": [ {
+            "Effect": "Allow",
+            "Principal": {
+              "Service": [ "ec2.amazonaws.com" ]
+            },
+            "Action": [ "sts:AssumeRole" ]
+          } ]
+        },
+        "Path": "/",
+        "Policies": [ {
+          "PolicyName": "s3_nucleus",
+          "PolicyDocument": {
+            "Version" : "2012-10-17",
+            "Statement": [ {
+              "Effect": "Allow",
+              "Action": [
+                "s3:AbortMultipartUpload",
+                "s3:DeleteObject",
+                "s3:GetBucketAcl",
+                "s3:GetBucketPolicy",
+                "s3:GetObject",
+                "s3:GetObjectAcl",
+                "s3:ListBucket",
+                "s3:ListBucketMultipartUploads",
+                "s3:ListMultipartUploadParts",
+                "s3:PutObject",
+                "s3:PutObjectAcl"
+              ],
+              "Resource": [
+                { "Fn::Join" : ["", ["arn:aws:s3:::", {"Ref": "BucketName"}, "/*"]]},
+                { "Fn::Join" : ["", ["arn:aws:s3:::", {"Ref": "BucketName"}]]}
+              ]
+            } ]
+          }
+        } ]
+      }
+    },
+
+    "NucleusInstanceProfile": {
+      "Type": "AWS::IAM::InstanceProfile",
+      "Properties": {
+        "Path": "/",
+        "Roles": [ {
+          "Ref": "NucleusRole"
+        } ]
+      }
+    },
+
     "Nucleus" : {
       "Type" : "AWS::AutoScaling::AutoScalingGroup",
       "Properties" : {
@@ -207,6 +253,7 @@
         "ImageId" : { "Fn::FindInMap" : [ "RegionMap", { "Ref" : "AWS::Region" }, "AMI"] },
         "SecurityGroups" : [ { "Ref" : "NucleusSecurityGroup" }, { "Ref" : "AdminSecurityGroup" }  ],
         "AssociatePublicIpAddress": "true",
+        "IamInstanceProfile" : { "Ref" : "NucleusInstanceProfile" },
         "InstanceType" : { "Ref" : "InstanceType" },
         "UserData"       : { "Fn::Base64" : { "Fn::Join" : ["", [
           "#!/bin/bash -x\n",
@@ -228,8 +275,6 @@
           "mkdir -p /root/cluster/puppet/modules\n",
           "echo ", { "Ref" : "CellOsVersionBundle" }, " >> /root/cluster/profile\n",
 
-          "echo zookeeper::aws_access_key_id: ", { "Ref" : "AccessKeyId" }, " >> /root/cluster/cluster.yaml\n",
-          "echo zookeeper::aws_secret_access_key: ", { "Ref" : "SecretAccessKey" }, " >> /root/cluster/cluster.yaml\n",
           "echo zookeeper::aws_s3_bucket: ", {"Ref": "BucketName"}, " >> /root/cluster/cluster.yaml\n",
           "echo zookeeper::aws_s3_prefix: ", { "Fn::Join" : ["", [{"Ref": "CellName"}, "/nucleus/exhibitor"]]}, " >> /root/cluster/cluster.yaml\n",
 

@@ -88,21 +88,16 @@ if [[ ! "${action}" == "list" && -z "$2" ]]; then
 fi
 cell_name=$2
 
-if [[ -z "${AWS_ACCESS_KEY_ID}" || -z "${AWS_SECRET_ACCESS_KEY}" ]]; then
-  echo "error: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY can't be empty"
-  VALIDATION_ERROR=true
-else
-  # Try to get some defaults from the current account if values not set
-  AWS_KEY_PAIR=${AWS_KEY_PAIR:-$(aws ${AWS_OPTIONS} ec2 describe-key-pairs \
-    --query 'KeyPairs[0].KeyName')}
+# Try to get some defaults from the current account if values not set
+AWS_KEY_PAIR=${AWS_KEY_PAIR:-$(aws ${AWS_OPTIONS} ec2 describe-key-pairs \
+  --query 'KeyPairs[0].KeyName')}
 
-  # Validate values
-  if ! [[ $(aws ${AWS_OPTIONS} ec2 describe-key-pairs \
-    | grep ${AWS_KEY_PAIR} \
-    | wc -l) -gt 0 ]]; then
-    echo "error: AWS_KEY_PAIR ${AWS_KEY_PAIR} doesn\'t exist."
-    VALIDATION_ERROR=true
-  fi
+# Validate values
+if ! [[ $(aws ${AWS_OPTIONS} ec2 describe-key-pairs \
+  | grep ${AWS_KEY_PAIR} \
+  | wc -l) -gt 0 ]]; then
+  echo "error: AWS_KEY_PAIR ${AWS_KEY_PAIR} doesn\'t exist."
+  VALIDATION_ERROR=true
 fi
 
 BUCKET_NAME="cell-os--${cell_name}"
@@ -265,9 +260,7 @@ if [[ "${action}" == "create" ]]; then
           ParameterKey=KeyName,ParameterValue="${AWS_KEY_PAIR}" \
           ParameterKey=BucketName,ParameterValue="${BUCKET_NAME}" \
           ParameterKey=SaasBaseAccessKeyId,ParameterValue="${SAASBASE_ACCESS_KEY_ID}" \
-          ParameterKey=SaasBaseSecretAccessKey,ParameterValue="${SAASBASE_SECRET_ACCESS_KEY}" \
-          ParameterKey=AccessKeyId,ParameterValue="${AWS_ACCESS_KEY_ID}" \
-          ParameterKey=SecretAccessKey,ParameterValue="${AWS_SECRET_ACCESS_KEY}"
+          ParameterKey=SaasBaseSecretAccessKey,ParameterValue="${SAASBASE_SECRET_ACCESS_KEY}"
   echo "cloudformation ret = $?"
   printf "${CONFIG}"
 fi
