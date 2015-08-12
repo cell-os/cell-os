@@ -6,15 +6,15 @@ The CLI is a convenience wrapper around the [AWS CLI](http://aws.amazon.com/cli/
 
 ## Environment
 
-Set your AWS keys
-
-    export AWS_ACCESS_KEY_ID=<your access key id>
-    export AWS_SECRET_ACCESS_KEY=<your secret access key>
-
 The AWS region is picked from the AWS CLI configuration / environment.  
 Run `./cell help` to see how to customize your EC2 keypair, and all other options.  
 
 ## Usage
+
+**Prerequisites**
+
+    export AWS_KEY_PAIR=<the EC2 keypair that should be used. Defaults to first key on thee acount>
+    export KEYPATH=<the location of your ${AWS_KEY_PAIR}.pem (must end in .pem).defaults to ~/.ssh>
 
 **Create a new cell**
 

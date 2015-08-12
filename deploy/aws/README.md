@@ -150,7 +150,8 @@ creating a bucket in the right place as
 - [ ] Revisit Exhibitor S3 bucket region settings (bucket needs to be in the same region now)
 - [ ] [Confd](https://github.com/kelseyhightower/confd) support to automatically handle nucleus 
       size changes. 
-- [ ] Add IAM user / role and pass restricted keys instead of user keys (need to support both)
+- [x] \[CELL-61\] - Add IAM role instead of using keys stored in configuration
+- [ ] Optionally use keys instead IAM roles
 - [ ] Expand body into 2 scaling groups with different timeouts for pre-emption to support stateless
       vs stateful workloads.
 - [ ] Simplify user data scripts. If we'll not use cached AMIs we can get rid of cleanup steps
