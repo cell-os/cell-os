@@ -248,12 +248,6 @@
       "Metadata" : {
         "AWS::CloudFormation::Init" : {
           "config": {
-            "packages" : {
-              "python": {
-                "pystache": [],
-                "awscli": []
-              }
-            },
             "files" : {
               "/usr/local/bin/zk-list-nodes" : {
                 "content" : { "Fn::Join" : ["", [
