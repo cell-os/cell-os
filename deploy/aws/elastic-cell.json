@@ -381,30 +381,36 @@
     "BodySecurityGroup" : {
       "Type" : "AWS::EC2::SecurityGroup",
       "Properties" : {
-        "GroupDescription" : "For ZooKeeper clients. Grants access to the associated ZooKeeper cluster.",
-        "VpcId" : { "Ref" : "VPC" }
+        "GroupDescription" : "All nodes in body. Grants access to LbSecurityGroup",
+        "VpcId" : { "Ref" : "VPC" },
+        "SecurityGroupIngress" : [
+          { "IpProtocol" : "tcp", "FromPort" : "5050", "ToPort" : "5050", "SourceSecurityGroupId" : { "Ref" : "LbSecurityGroup"} },
+          { "IpProtocol" : "tcp", "FromPort" : "8080", "ToPort" : "8080", "SourceSecurityGroupId" : { "Ref" : "LbSecurityGroup"} },
+          { "IpProtocol" : "tcp", "FromPort" : "8181", "ToPort" : "8181", "SourceSecurityGroupId" : { "Ref" : "LbSecurityGroup"} }
+        ]
       }
     },
 
     "NucleusSecurityGroup" : {
       "Type" : "AWS::EC2::SecurityGroup",
       "Properties" : {
-        "GroupDescription" : "Exhibitor, ZK ports",
+        "GroupDescription" : "All nucleus nodes. Grants access to Exhibitor, ZK ports from LB and Body SG, respectively",
         "VpcId" : { "Ref" : "VPC" },
-        "SecurityGroupIngress" :
-          [ { "IpProtocol" : "tcp", "FromPort" : "8181", "ToPort" : "8181", "SourceSecurityGroupId" : { "Ref" : "LbSecurityGroup"} },
-            { "IpProtocol" : "tcp", "FromPort" : "2181", "ToPort" : "2181", "SourceSecurityGroupId" : { "Ref" : "BodySecurityGroup"} },
-            { "IpProtocol" : "tcp", "FromPort" : "2888", "ToPort" : "2888", "SourceSecurityGroupId" : { "Ref" : "BodySecurityGroup"} },
-            { "IpProtocol" : "tcp", "FromPort" : "3888", "ToPort" : "3888", "SourceSecurityGroupId" : { "Ref" : "BodySecurityGroup"} } ]
+        "SecurityGroupIngress" : [
+          { "IpProtocol" : "tcp", "FromPort" : "8181", "ToPort" : "8181", "SourceSecurityGroupId" : { "Ref" : "LbSecurityGroup"} },
+          { "IpProtocol" : "tcp", "FromPort" : "2181", "ToPort" : "2181", "SourceSecurityGroupId" : { "Ref" : "BodySecurityGroup"} },
+          { "IpProtocol" : "tcp", "FromPort" : "2888", "ToPort" : "2888", "SourceSecurityGroupId" : { "Ref" : "BodySecurityGroup"} },
+          { "IpProtocol" : "tcp", "FromPort" : "3888", "ToPort" : "3888", "SourceSecurityGroupId" : { "Ref" : "BodySecurityGroup"} }
+        ]
       }
     },
 
     "AdminSecurityGroup" : {
       "Type" : "AWS::EC2::SecurityGroup",
       "Properties" : {
-        "GroupDescription" : "Some Adobe CIDRs. Send an email to metal-cell@adobe.com",
+        "GroupDescription" : "All nodes are part of it grants access to some Adobe CIDRs. Email to metal-cell@adobe.com",
         "VpcId" : { "Ref" : "VPC" },
-        "SecurityGroupIngress" :[ 
+        "SecurityGroupIngress" : [
           { "IpProtocol" : "tcp", "FromPort" : "0", "ToPort" : "65535", "CidrIp" : "127.127.0.0/16" },
           { "IpProtocol" : "tcp", "FromPort" : "0", "ToPort" : "65535", "CidrIp" : "127.127.216.100/32" },
           { "IpProtocol" : "tcp", "FromPort" : "0", "ToPort" : "65535", "CidrIp" : "127.127.198.0/24" },
@@ -413,36 +419,34 @@
       }
     },
 
-    "NucleusSecurityGroupIngress": {
-      "Type": "AWS::EC2::SecurityGroupIngress",
-      "Properties": {
-        "GroupId": { "Ref": "NucleusSecurityGroup" },
-        "IpProtocol": "-1",
-        "FromPort": "0",
-        "ToPort": "65535",
-        "SourceSecurityGroupId": { "Ref": "NucleusSecurityGroup" }
-      }
-    },
-    "BodySecurityGroupIngress": {
-      "Type": "AWS::EC2::SecurityGroupIngress",
-      "Properties": {
-        "GroupId": { "Ref": "BodySecurityGroup" },
-        "IpProtocol": "-1",
-        "FromPort": "0",
-        "ToPort": "65535",
-        "SourceSecurityGroupId": { "Ref": "BodySecurityGroup" }
-      }
-    },
-
-
     "LbSecurityGroup" : {
       "Type" : "AWS::EC2::SecurityGroup",
       "Properties" : {
         "GroupDescription" : "Enable Exhibitor access",
-        "VpcId" : { "Ref" : "VPC" },
-        "SecurityGroupIngress" : [ 
-          { "IpProtocol" : "tcp", "FromPort" : "80", "ToPort" : "80", "SourceSecurityGroupId" : { "Ref" : "BodySecurityGroup"} }
-        ]
+        "VpcId" : { "Ref" : "VPC" }
+      }
+    },
+
+   "BodyToLbSecurityGroupIngressToAvoidCircularDeps": {
+      "Type": "AWS::EC2::SecurityGroupIngress",
+      "Properties": {
+        "GroupId": { "Ref": "LbSecurityGroup" },
+        "IpProtocol" : "tcp", "FromPort" : "80", "ToPort" : "80", "SourceSecurityGroupId" : { "Ref" : "BodySecurityGroup"}
+      }
+    },
+
+   "NucleusToNucleusSecurityGroupIngressToAvoidCircularDeps": {
+      "Type": "AWS::EC2::SecurityGroupIngress",
+      "Properties": {
+        "GroupId": { "Ref": "NucleusSecurityGroup" },
+        "IpProtocol" : "tcp", "FromPort" : "0", "ToPort" : "65535", "SourceSecurityGroupId" : { "Ref" : "NucleusSecurityGroup"}
+      }
+    },
+   "BodyToBodySecurityGroupIngressToAvoidCircularDeps": {
+      "Type": "AWS::EC2::SecurityGroupIngress",
+      "Properties": {
+        "GroupId": { "Ref": "BodySecurityGroup" },
+        "IpProtocol" : "tcp", "FromPort" : "0", "ToPort" : "65535", "SourceSecurityGroupId" : { "Ref" : "BodySecurityGroup"}
       }
     },
 
@@ -451,7 +455,7 @@
       "Properties" : {
         "CrossZone": "true",
         "Scheme": "internal",
-        "SecurityGroups": [{ "Ref": "AdminSecurityGroup" }, { "Ref": "LbSecurityGroup" }, { "Ref": "NucleusSecurityGroup" }, { "Ref": "BodySecurityGroup" }],
+        "SecurityGroups": [{ "Ref": "LbSecurityGroup" }],
         "Subnets": [{ "Ref": "Subnet" }],
         "Listeners" : [ 
           { "LoadBalancerPort" : "80", "InstancePort" : "8080","Protocol" : "HTTP"}
@@ -474,7 +478,7 @@
       "Properties" : {
         "CrossZone": "true",
         "Scheme": "internal",
-        "SecurityGroups": [{ "Ref": "AdminSecurityGroup" },{ "Ref": "LbSecurityGroup" }, { "Ref": "NucleusSecurityGroup" }],
+        "SecurityGroups": [{ "Ref": "LbSecurityGroup" }],
         "Subnets": [{ "Ref": "Subnet" }],
         "Listeners" : [ 
           { "LoadBalancerPort" : "80", "InstancePort" : "8181","Protocol" : "HTTP"}
@@ -498,7 +502,7 @@
      "Properties" : {
        "CrossZone": "true",
        "Scheme": "internal",
-       "SecurityGroups": [{ "Ref": "AdminSecurityGroup" },{ "Ref": "LbSecurityGroup" }, { "Ref": "NucleusSecurityGroup" }, { "Ref": "BodySecurityGroup" }],
+       "SecurityGroups": [{ "Ref": "LbSecurityGroup" }],
        "Subnets": [{ "Ref": "Subnet" }],
        "Listeners" : [ 
          { "LoadBalancerPort" : "80", "InstancePort" : "5050","Protocol" : "HTTP"}
