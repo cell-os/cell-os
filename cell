@@ -217,10 +217,14 @@ if [[ "${action}" == "ssh" || "${action}" == "log" || "${action}" == "cmd"
     exit 1
   fi
 
-  if [[ "${action}" == "cmd" &&  -z $5 ]]; then
-    echo "command can't be empty"
-    printf "${USAGE}"
-    exit 1
+  if [[ "${action}" == "cmd" ]]; then
+    if [[ -z $5 ]]; then
+      echo "command can't be empty"
+      printf "${USAGE}"
+      exit 1
+    fi
+    # allocate tty
+    ssh_options="$ssh_options -t"
   fi
 
   ip=$( echo "${ip_and_keypair}" | cut -d$'\t' -f1 )
