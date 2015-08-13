@@ -1,7 +1,6 @@
 #!/bin/bash
 
 # cell-os cli
-VERSION=1.0-SNAPSHOT
 type aws >/dev/null 2>&1 || { echo >&2 "AWS CLI not found
 pip install awscli or brew install awscli
 see http://docs.aws.amazon.com/cli/latest/userguide/installing.html"; exit 1;}
@@ -12,6 +11,7 @@ CF_TEMPLATE_PATH='./deploy/aws/elastic-cell.json'
 AWS_OPTIONS='--output text'
 PROXY_PORT=${PROXY_PORT:-'1234'}
 SSH_TIMEOUT=${SSH_TIMEOUT:-'5'}
+VERSION=$(cat VERSION)
 SSH_USER="centos"
 USAGE="
   cell-os cli utility ${VERSION}
@@ -265,10 +265,12 @@ if [[ "${action}" == "create" ]]; then
       --parameters \
           ${extra_parameters} \
           ParameterKey=CellName,ParameterValue="${cell_name}" \
+          ParameterKey=CellOsVersionBundle,ParameterValue="cell-os-base-${VERSION}" \
           ParameterKey=KeyName,ParameterValue="${AWS_KEY_PAIR}" \
           ParameterKey=BucketName,ParameterValue="${BUCKET_NAME}" \
           ParameterKey=SaasBaseAccessKeyId,ParameterValue="${SAASBASE_ACCESS_KEY_ID}" \
           ParameterKey=SaasBaseSecretAccessKey,ParameterValue="${SAASBASE_SECRET_ACCESS_KEY}"
+
   echo "cloudformation ret = $?"
   printf "${CONFIG}"
 fi

@@ -280,7 +280,7 @@
               "https://s3.amazonaws.com/saasbase-repo/cell-os/", { "Ref" : "CellOsVersionBundle" }, ".yaml",  "\n",
 
           "mkdir -p /root/cluster/puppet/modules\n",
-          "echo ", { "Ref" : "CellOsVersionBundle" }, " >> /root/cluster/profile\n",
+          "echo ", { "Ref" : "CellOsVersionBundle" }, " > /root/cluster/profile\n",
 
           "echo zookeeper::aws_s3_region: ", { "Ref" : "AWS::Region" }, " >> /root/cluster/cluster.yaml\n",
           "echo zookeeper::aws_s3_bucket: ", { "Ref" : "BucketName"}, " >> /root/cluster/cluster.yaml\n",
@@ -363,7 +363,7 @@
               "https://s3.amazonaws.com/saasbase-repo/cell-os/", { "Ref" : "CellOsVersionBundle" }, ".yaml", "\n",
 
           "mkdir -p /root/cluster/puppet/modules\n",
-          "echo ", { "Ref" : "CellOsVersionBundle" }, " >> /root/cluster/profile\n",
+          "echo ", { "Ref" : "CellOsVersionBundle" }, " > /root/cluster/profile\n",
 
           "### Block until we have a ZK quorum\n",
           "while [ `/usr/local/bin/zk-list-nodes | wc -m` -lt 4 ]; do /usr/local/bin/zk-list-nodes; done\n",
