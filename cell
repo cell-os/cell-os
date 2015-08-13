@@ -204,7 +204,7 @@ if [[ "${action}" == "ssh" || "${action}" == "log" || "${action}" == "cmd"
 
   index=$4
   if [[ -z "${index}" || -n "${index//[0-9]/}" ]]; then
-    index=0
+    index=1
   fi
 
   ip_and_keypair=$(aws ec2 describe-instances \
