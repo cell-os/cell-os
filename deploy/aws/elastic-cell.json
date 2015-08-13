@@ -275,7 +275,7 @@
           "export AWS_SECRET_ACCESS_KEY='", { "Ref" : "SaasBaseSecretAccessKey" }, "'\n",
           "curl -o /root/saasbase_installer https://s3.amazonaws.com/saasbase-repo/saasbase_installer",
               { "Ref" : "SaasBaseDeploymentVersion" }, "\n",
-          "bash /root/saasbase_installer fetch SNAPSHOT\n",
+          "bash /root/saasbase_installer fetch ", { "Ref" : "SaasBaseDeploymentVersion" }, "\n",
           "curl -o /root/puppet/profiles/", { "Ref" : "CellOsVersionBundle" }, ".yaml ",
               "https://s3.amazonaws.com/saasbase-repo/cell-os/", { "Ref" : "CellOsVersionBundle" }, ".yaml",  "\n",
           "mkdir -p /root/cluster/puppet/modules\n",
@@ -355,7 +355,7 @@
           "export AWS_SECRET_ACCESS_KEY='", { "Ref" : "SaasBaseSecretAccessKey" }, "'\n",
           "curl -o /root/saasbase_installer https://s3.amazonaws.com/saasbase-repo/saasbase_installer",
               { "Ref" : "SaasBaseDeploymentVersion"}, "\n",
-          "bash /root/saasbase_installer fetch SNAPSHOT\n",
+          "bash /root/saasbase_installer fetch ", { "Ref" : "SaasBaseDeploymentVersion" }, "\n",
           "curl -o /root/puppet/profiles/", { "Ref" : "CellOsVersionBundle" }, ".yaml ",
               "https://s3.amazonaws.com/saasbase-repo/cell-os/", { "Ref" : "CellOsVersionBundle" }, ".yaml", "\n",
 
