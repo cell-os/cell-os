@@ -281,8 +281,8 @@
           "mkdir -p /root/cluster/puppet/modules\n",
           "echo ", { "Ref" : "CellOsVersionBundle" }, " >> /root/cluster/profile\n",
 
-          "echo zookeeper::aws_s3_bucket: ", {"Ref": "BucketName"}, " >> /root/cluster/cluster.yaml\n",
           "echo zookeeper::aws_s3_region: ", { "Ref" : "AWS::Region" }, " >> /root/cluster/cluster.yaml\n",
+          "echo zookeeper::aws_s3_bucket: ", { "Ref" : "BucketName"}, " >> /root/cluster/cluster.yaml\n",
           "echo zookeeper::aws_s3_prefix: ", { "Fn::Join" : ["", [{"Ref": "CellName"}, "/nucleus/exhibitor"]]}, " >> /root/cluster/cluster.yaml\n",
 
           "bash /root/saasbase_installer -v -d /root -m /root/cluster/puppet/modules run-puppet /root/cluster --roles docker,zookeeper \n",
