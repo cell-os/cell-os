@@ -258,6 +258,12 @@
         "UserData"       : { "Fn::Base64" : { "Fn::Join" : ["", [
           "#!/bin/bash -x\n",
 
+          "curl -O https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz\n",
+          "tar -xzf aws-cfn-bootstrap-latest.tar.gz\n",
+          "cd aws-cfn*\n",
+          "easy_install pystache\n",
+          "python setup.py install\n",
+
           "# Helper function\n",
           "function error_exit\n",
           "{\n",
