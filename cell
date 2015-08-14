@@ -144,7 +144,8 @@ if [[ "${action}" == "list" ]]; then
                 'Reservations[*].Instances[*].[PublicIpAddress, \
                 PrivateIpAddress, ImageId, State.Name, KeyName]' \
                 --filters Name=tag:cell,Values=$2 \
-                Name=instance-state-name,Values=*ing"
+                Name=instance-state-name,Values=*ing \
+                --output text"
       echo "nucleus"
       sh -c "${command} Name=tag:role,Values=nucleus"
       echo "body"
