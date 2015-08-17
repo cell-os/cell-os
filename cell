@@ -116,6 +116,8 @@ fi
 
 if [[ "${action}" == "delete" ]]; then
   echo "WARNING: THIS WILL DELETE ALL RESOURCES ASSOCIATED TO ${cell_name}"
+  echo "s3://${BUCKET_NAME}"
+  aws s3 ls --summarize s3://${BUCKET_NAME}
   echo "for verification please type the name of the cell you want to delete"
   read cell_to_delete
   if ! [[ "${cell_to_delete}" -eq "${cell_name}" ]]; then
@@ -123,7 +125,8 @@ if [[ "${action}" == "delete" ]]; then
     exit 1
   fi
   aws cloudformation delete-stack --stack-name ${STACK_NAME}
-  aws s3 rm --recursive s3://${BUCKET_NAME}/${cell_name}
+  aws s3 rm --recursive --include "*" s3://${BUCKET_NAME}
+  aws s3 rb s3://${BUCKET_NAME}
   exit 0
 fi
 
