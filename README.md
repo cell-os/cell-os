@@ -10,7 +10,7 @@ It currently consista of Zookeeper, Docker, Mesos and Marathon.
 
 | Version              | Provider      | Region        |       | Notes |
 | -------------------- | ------------- |:-------------:| ----- | ----- |
-| cell-os-base-1.0-SNAPSHOT | AWS           | us-west-2     | [![](https://s3.amazonaws.com/cloudformation-examples/cloudformation-launch-stack.png)](https://console.aws.amazon.com/cloudformation/home?region=us-west-2#/stacks/new?stackName=cell-os-us-west-2&templateURL=https://s3-us-west-2.amazonaws.com/cell-os-public/elastic-cell.json) | All regions available. Access through bastion / socks proxy|
+| cell-os-base-1.0-SNAPSHOT | AWS           | us-west-2     | [![](https://s3.amazonaws.com/cloudformation-examples/cloudformation-launch-stack.png)](https://console.aws.amazon.com/cloudformation/home?region=us-west-2#/stacks/new?stackName=cell-os-us-west-2&templateURL=https://s3.amazonaws.com/saasbase-repo/cell-os/deploy/aws/elastic-cell-1.1-SNAPSHOT.json) | All regions available. Access through bastion / socks proxy|
 | cell-os-base-1.0-SNAPSHOT | Vagrant       | your laptop   | [Amoeba](https://git.corp.adobe.com/metal-cell/amoeba) ||
 | cell-os-base-1.0-SNAPSHOT | vanilla / DIY | *             | [existing clusters](https://git.corp.adobe.com/metal-cell/clusters)    ||
 | cell-os-base-1.0-SNAPSHOT | CMDB          | TBD           | TBD ||
