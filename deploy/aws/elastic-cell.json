@@ -43,18 +43,13 @@
       "Default": 1
     },
     "StatelessBodySize" : {
-      "Description" : "Number of nodes in the cell sateless body",
+      "Description" : "Number of nodes in the cell stateless body",
       "Type" : "Number",
       "Default": 1
     },
     "BucketName" : {
       "Description" : "Cell's S3 bucket name. Used for metadata and backups. Can be one per account as we prefix data with cell name inside",
       "Type" : "String"
-    },
-    "AvailabilityZones": {
-      "Type" : "CommaDelimitedList",
-      "Default" : "",
-      "Description" : "(Unsupported yet) If passed, will create subnets in these AZs (e.g., 'us-east-1a,us-east-1b')"
     },
     "SaasBaseAccessKeyId" : {
       "Type" : "String",
@@ -63,6 +58,11 @@
     "SaasBaseSecretAccessKey": {
       "Type" : "String",
       "Description" : "SaasBase S3 repo read-only AWS account Secret Access Key (http://saasbase.corp.adobe.com/ops/operations/deployment.html)"
+    },
+    "BodyStackTemplate": {
+      "Type" : "String",
+      "Default" : "elastic-cell-scaling-group.json",
+      "Description" : ""
     }
   },
 
@@ -77,11 +77,22 @@
       "us-west-2"      : { "AMI" : "ami-bd5b4f8d" },
       "ap-southeast-2" : { "AMI" : "ami-f54d0fcf" },
       "ap-southeast-1" : { "AMI" : "ami-3e9e906c" }
-    }
-  },
+    },
 
-  "Conditions" : {
-    "UseAllAvailabilityZones" : {"Fn::Equals" : [{ "Fn::Join" : ["", {"Ref" : "AvailabilityZones"} ]}, ""]}
+    "UserData" : {
+      "body"   : {
+        "mesos" :  [
+          "### Minimal inline cluster.yaml\n",
+          "echo mesos::zookeeper:   zk://$zk/mesos      >> /root/cluster/cluster.yaml\n"
+        ],
+        "marathon" : [
+          "### Minimal inline cluster.yaml\n",
+          "echo marathon::zk:       zk://$zk/marathon   >> /root/cluster/cluster.yaml\n",
+          "echo marathon::master:   zk://$zk/mesos      >> /root/cluster/cluster.yaml\n",
+          "echo marathon::bin_path: /opt/marathon/bin   >> /root/cluster/cluster.yaml\n"
+        ]
+      }
+    }
   },
 
   "Resources" : {
@@ -146,7 +157,6 @@
       }
     },
 
-
     "NucleusRole": {
       "Type": "AWS::IAM::Role",
       "Properties": {
@@ -193,197 +203,95 @@
     "NucleusInstanceProfile": {
       "Type": "AWS::IAM::InstanceProfile",
       "Properties": {
-        "Path": "/",
-        "Roles": [ {
-          "Ref": "NucleusRole"
-        } ]
+        "Path": "/", "Roles": [ { "Ref": "NucleusRole" } ]
       }
     },
 
-    "Nucleus" : {
-      "Type" : "AWS::AutoScaling::AutoScalingGroup",
-      "Properties" : {
-        "AvailabilityZones" : {
-          "Fn::If" : [
-            "UseAllAvailabilityZones",
-            { "Fn::GetAZs": "AWS::Region" },
-            { "Ref" : "AvailabilityZones" }
-          ]
-        },
-        "LaunchConfigurationName" : { "Ref" : "NucleusLaunchConfig" },
-        "MinSize" : "1",
-        "MaxSize" : "9",
-        "DesiredCapacity" : { "Ref" : "NucleusSize" },
-        "LoadBalancerNames" : [ { "Ref" : "ZookeeperLoadBalancer" } ],
-        "VPCZoneIdentifier" : [{ "Ref" : "Subnet" }],
-        "Tags" : [
-          { "Key" : "role", "Value" : "nucleus", "PropagateAtLaunch" : "true" },
-          { "Key" : "cell", "Value" : {"Ref": "CellName"}, "PropagateAtLaunch" : "true" }
-        ]
-      }
-    },
+    "NucleusStack": {
+      "Type": "AWS::CloudFormation::Stack",
+      "Properties": {
 
-    "StatelessBody" : {
-      "Type" : "AWS::AutoScaling::AutoScalingGroup",
-      "Properties" : {
-        "AvailabilityZones" : {
-          "Fn::If" : [
-            "UseAllAvailabilityZones",
-            { "Fn::GetAZs": "AWS::Region" },
-            { "Ref" : "AvailabilityZones" }
-          ]
-        },
-        "LaunchConfigurationName" : { "Ref" : "StatelessBodyLaunchConfig" },
-        "MinSize" : "1",
-        "MaxSize" : "100",
-        "DesiredCapacity" : { "Ref" : "StatelessBodySize" },
-        "LoadBalancerNames" : [ { "Ref" : "MesosLoadBalancer" }, { "Ref" : "MarathonLoadBalancer" }],
-        "VPCZoneIdentifier" : [{ "Ref" : "Subnet" }],
-        "Tags" : [
-          { "Key" : "role", "Value" : "body", "PropagateAtLaunch" : "true" },
-          { "Key" : "cell", "Value" : {"Ref": "CellName"}, "PropagateAtLaunch" : "true" }
-        ]
-      }
-    },
+        "TemplateURL": { "Fn::Join" : ["", ["https://s3.amazonaws.com/", {"Ref" : "BucketName"},
+          "/", { "Ref" : "BodyStackTemplate" }]]},
+        "TimeoutInMinutes": "10",
 
-    "NucleusLaunchConfig" : {
-      "Type" : "AWS::AutoScaling::LaunchConfiguration",
-      "Properties" : {
-        "KeyName" : { "Ref" : "KeyName" },
-        "ImageId" : { "Fn::FindInMap" : [ "RegionMap", { "Ref" : "AWS::Region" }, "AMI"] },
-        "SecurityGroups" : [ { "Ref" : "NucleusSecurityGroup" }, { "Ref" : "AdminSecurityGroup" }  ],
-        "AssociatePublicIpAddress": "true",
-        "IamInstanceProfile" : { "Ref" : "NucleusInstanceProfile" },
-        "InstanceType" : { "Ref" : "InstanceType" },
-        "UserData"       : { "Fn::Base64" : { "Fn::Join" : ["", [
-          "#!/bin/bash -x\n",
+        "Parameters" : {
+          "Role" : "nucleus",
+          "Tags" : "nucleus",
 
-          "curl -O https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz\n",
-          "tar -xzf aws-cfn-bootstrap-latest.tar.gz\n",
-          "cd aws-cfn*\n",
-          "easy_install pystache\n",
-          "python setup.py install\n",
+          "SaasBaseDeploymentModules" : "docker,zookeeper",
+          "SaasBaseUserData" : { "Fn::Join" : ["", [
+            "echo zookeeper::aws_s3_region: ", { "Ref" : "AWS::Region" }, " >> /root/cluster/cluster.yaml\n",
+            "echo zookeeper::aws_s3_bucket: ", { "Ref" : "BucketName"}, " >> /root/cluster/cluster.yaml\n",
+            "echo zookeeper::aws_s3_prefix: ", { "Fn::Join" : ["", [
+              { "Ref" : "CellName" }, "/nucleus/exhibitor"
+            ]]}, " >> /root/cluster/cluster.yaml\n"
+          ]]},
+          "BlockForZookeeper" : "false",
+          "IamInstanceProfile" :          { "Ref" : "NucleusInstanceProfile" },
+          "SecurityGroups" : { "Fn::Join" : [ ",", [
+                                          { "Ref" : "NucleusSecurityGroup" },
+                                          { "Ref" : "ExternalWhitelistSecurityGroup" }  ]
+          ]},
+          "LoadBalancerNames" :           { "Fn::Join" : [ ",", [ { "Ref" : "ZookeeperLoadBalancer" } ]]},
+          "ZookeeperLoadBalancer" :       { "Fn::GetAtt" : [ "ZookeeperLoadBalancer", "DNSName" ]},
+          "AssociatePublicIpAddress" :    "true",
 
-          "# Helper function\n",
-          "function error_exit\n",
-          "{\n",
-          "  cfn-signal -e 1 -r \"$1\" '", { "Ref" : "WaitHandle" }, "'\n",
-          "  exit 1\n",
-          "}\n",
-
-          "export AWS_ACCESS_KEY_ID='", { "Ref" : "SaasBaseAccessKeyId" }, "'\n",
-          "export AWS_SECRET_ACCESS_KEY='", { "Ref" : "SaasBaseSecretAccessKey" }, "'\n",
-          "curl -o /root/saasbase_installer https://s3.amazonaws.com/saasbase-repo/saasbase_installer",
-              { "Ref" : "SaasBaseDeploymentVersion" }, "\n",
-          "bash /root/saasbase_installer fetch ", { "Ref" : "SaasBaseDeploymentVersion" }, "\n",
-          "curl -o /root/puppet/profiles/", { "Ref" : "CellOsVersionBundle" }, ".yaml ",
-              "https://s3.amazonaws.com/saasbase-repo/cell-os/", { "Ref" : "CellOsVersionBundle" }, ".yaml",  "\n",
-
-          "mkdir -p /root/cluster/puppet/modules\n",
-          "echo ", { "Ref" : "CellOsVersionBundle" }, " > /root/cluster/profile\n",
-
-          "echo zookeeper::aws_s3_region: ", { "Ref" : "AWS::Region" }, " >> /root/cluster/cluster.yaml\n",
-          "echo zookeeper::aws_s3_bucket: ", { "Ref" : "BucketName"}, " >> /root/cluster/cluster.yaml\n",
-          "echo zookeeper::aws_s3_prefix: ", { "Fn::Join" : ["", [{"Ref": "CellName"}, "/nucleus/exhibitor"]]},
-              " >> /root/cluster/cluster.yaml\n",
-
-          "bash /root/saasbase_installer -v -d /root -m /root/cluster/puppet/modules run-puppet /root/cluster --roles docker,zookeeper \n",
-
-          "# All is well so signal success\n",
-          "cfn-signal -e 0 -r \"Stack setup complete\" '", { "Ref" : "WaitHandle" }, "'\n",
-
-          "#EOF"
-        ]]}}
-      }
-    },
-
-    "StatelessBodyLaunchConfig" : {
-      "Type" : "AWS::AutoScaling::LaunchConfiguration",
-      "Metadata" : {
-        "AWS::CloudFormation::Init" : {
-          "config": {
-            "files" : {
-              "/usr/local/bin/zk-list-nodes" : {
-                "content" : { "Fn::Join" : ["", [
-                  "#!/bin/bash \n",
-                  "ZK=`curl -s {{zk_discovery_url}}`\n",
-                  "while [[ -z $ZK || ${ZK:0:1} != \"{\" ]]; do >&2 echo \"got $ZK retrying\"; ZK=`curl -s {{zk_discovery_url}}`; done\n",
-                  "echo $ZK | python -c '",
-                    "import sys, json;",
-                    "j=json.load(sys.stdin);",
-                    "servers=[\":\".join([s, str(j[\"port\"])]) for s in j[\"servers\"]];",
-                    "print \",\".join(servers)'\n"
-                ]]},
-                "context" : {
-                  "zk_discovery_url"  : { "Fn::Join" : ["", [
-                    "http://", { "Fn::GetAtt" : [ "ZookeeperLoadBalancer", "DNSName" ]}, "/exhibitor/v1/cluster/list"
-                  ]]}
-                },
-                "mode"    : "000755",
-                "owner"   : "root",
-                "group"   : "root"
-              }
-            }
-          }
+          "GroupSize" :                   { "Ref" : "NucleusSize" },
+          "ImageId" :                     { "Fn::FindInMap" : [ "RegionMap", { "Ref" : "AWS::Region" }, "AMI"] },
+          "CellName" :                    { "Ref" : "CellName" },
+          "CellOsVersionBundle" :         { "Ref" : "CellOsVersionBundle" },
+          "InstanceType" :                { "Ref" : "InstanceType" },
+          "Subnet" :                      { "Ref" : "Subnet" },
+          "KeyName" :                     { "Ref" : "KeyName" },
+          "SaasBaseDeploymentVersion" :   { "Ref" : "SaasBaseDeploymentVersion"},
+          "SaasBaseAccessKeyId" :         { "Ref" : "SaasBaseAccessKeyId"},
+          "SaasBaseSecretAccessKey":      { "Ref" : "SaasBaseSecretAccessKey"},
+          "WaitHandle" :                  { "Ref" : "WaitHandle"}
         }
-      },
+      }
+    },
 
-      "Properties" : {
-        "KeyName" : { "Ref" : "KeyName" },
-        "ImageId" : { "Fn::FindInMap" : [ "RegionMap", { "Ref" : "AWS::Region" }, "AMI"] },
-        "SecurityGroups" : [ { "Ref" : "BodySecurityGroup" }, { "Ref" : "AdminSecurityGroup" }  ],
-        "AssociatePublicIpAddress": "true",
-        "InstanceType" : { "Ref" : "InstanceType" },
-        "UserData"       : { "Fn::Base64" : { "Fn::Join" : ["", [
-          "#!/bin/bash\n",
+    "StatelessBodyStack": {
+      "Type": "AWS::CloudFormation::Stack",
+      "Properties": {
 
-          "curl -O https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz\n",
-          "tar -xzf aws-cfn-bootstrap-latest.tar.gz\n",
-          "cd aws-cfn*\n",
-          "easy_install pystache\n",
-          "python setup.py install\n",
+        "TemplateURL": { "Fn::Join" : ["", ["https://s3.amazonaws.com/", {"Ref" : "BucketName"},
+          "/", { "Ref" : "BodyStackTemplate" }]]},
+        "TimeoutInMinutes": "10",
 
-          "# Helper function\n",
-          "function error_exit\n",
-          "{\n",
-          "  cfn-signal -e 1 -r \"$1\" '", { "Ref" : "WaitHandle" }, "'\n",
-          "  exit 1\n",
-          "}\n",
+        "Parameters" : {
+          "Role" : "stateless-body",
+          "Tags" : "slave,body,stateless,stateless-body",
+          "SaasBaseDeploymentModules" : "docker,mesos::master,mesos::slave,marathon",
+          "SaasBaseUserData" : { "Fn::Join" : ["", [
+            {"Fn::Join" : ["", { "Fn::FindInMap" : [ "UserData", "body", "mesos"] }]},
+            {"Fn::Join" : ["", { "Fn::FindInMap" : [ "UserData", "body", "marathon"] }]}
+          ]]},
+          "SecurityGroups" : { "Fn::Join" : [ ",", [
+                                            { "Ref" : "BodySecurityGroup" },
+                                            { "Ref" : "ExternalWhitelistSecurityGroup" }
+          ]]},
+          "LoadBalancerNames" : { "Fn::Join" : [ ",", [
 
-          "# Process CloudFormation init definitions\n",
-          "cfn-init -s ", { "Ref" : "AWS::StackName" }, " -r StatelessBodyLaunchConfig ",
-          "    --region ", { "Ref" : "AWS::Region" }, " || error_exit 'Failed to run cfn-init'\n",
+                                            { "Ref" : "MesosLoadBalancer" },
+                                            { "Ref" : "MarathonLoadBalancer" }]
+          ]},
+          "ZookeeperLoadBalancer" :         { "Fn::GetAtt" : [ "ZookeeperLoadBalancer", "DNSName" ]},
+          "AssociatePublicIpAddress" :      "true",
+          "GroupSize" :                     { "Ref" : "StatelessBodySize" },
 
-          "export AWS_ACCESS_KEY_ID='", { "Ref" : "SaasBaseAccessKeyId" }, "'\n",
-          "export AWS_SECRET_ACCESS_KEY='", { "Ref" : "SaasBaseSecretAccessKey" }, "'\n",
-          "curl -o /root/saasbase_installer https://s3.amazonaws.com/saasbase-repo/saasbase_installer",
-              { "Ref" : "SaasBaseDeploymentVersion"}, "\n",
-          "bash /root/saasbase_installer fetch ", { "Ref" : "SaasBaseDeploymentVersion" }, "\n",
-          "curl -o /root/puppet/profiles/", { "Ref" : "CellOsVersionBundle" }, ".yaml ",
-              "https://s3.amazonaws.com/saasbase-repo/cell-os/", { "Ref" : "CellOsVersionBundle" }, ".yaml", "\n",
-
-          "mkdir -p /root/cluster/puppet/modules\n",
-          "echo ", { "Ref" : "CellOsVersionBundle" }, " > /root/cluster/profile\n",
-
-          "### Block until we have a ZK quorum\n",
-          "while [ `/usr/local/bin/zk-list-nodes | wc -m` -lt 4 ]; do /usr/local/bin/zk-list-nodes; done\n",
-          "### Block until we can connect to ZK hosts \n",
-          "while ! [ $(zk=`zk-list-nodes`;host=`echo $zk | cut -d: -f 1`; exec 6<>/dev/tcp/$host/2181; echo $?) -eq 0 ]; do echo waiting for good zk $zk; sleep 1; done\n",
-          "zk=`zk-list-nodes`\n",
-
-          "### Minimal inline cluster.yaml\n",
-          "echo mesos::zookeeper:   zk://$zk/mesos      >> /root/cluster/cluster.yaml\n",
-          "echo marathon::zk:       zk://$zk/marathon   >> /root/cluster/cluster.yaml\n",
-          "echo marathon::master:   zk://$zk/mesos      >> /root/cluster/cluster.yaml\n",
-          "echo marathon::bin_path: /opt/marathon/bin   >> /root/cluster/cluster.yaml\n",
-
-          "bash /root/saasbase_installer -v -d /root -m /root/cluster/puppet/modules run-puppet /root/cluster --roles docker,mesos::master,mesos::slave,marathon \n",
-
-          "# All is well so signal success\n",
-          "cfn-signal -e 0 -r \"Stack setup complete\" '", { "Ref" : "WaitHandle" }, "'\n",
-
-          "#EOF"
-        ]]}}
+          "ImageId" :                       { "Fn::FindInMap" : [ "RegionMap", { "Ref" : "AWS::Region" }, "AMI"] },
+          "CellName" :                      { "Ref" : "CellName" },
+          "CellOsVersionBundle" :           { "Ref" : "CellOsVersionBundle" },
+          "InstanceType" :                  { "Ref" : "InstanceType" },
+          "Subnet" :                        { "Ref" : "Subnet" },
+          "KeyName" :                       { "Ref" : "KeyName" },
+          "SaasBaseDeploymentVersion" :     { "Ref" : "SaasBaseDeploymentVersion" },
+          "SaasBaseAccessKeyId" :           { "Ref" : "SaasBaseAccessKeyId" },
+          "SaasBaseSecretAccessKey":        { "Ref" : "SaasBaseSecretAccessKey" },
+          "WaitHandle" :                    { "Ref" : "WaitHandle" }
+        }
       }
     },
 
@@ -393,6 +301,7 @@
         "GroupDescription" : "All nodes in body. Grants access to LbSecurityGroup",
         "VpcId" : { "Ref" : "VPC" },
         "SecurityGroupIngress" : [
+          { "IpProtocol" : "tcp", "FromPort" :   "80", "ToPort" :   "80", "SourceSecurityGroupId" : { "Ref" : "LbSecurityGroup"} },
           { "IpProtocol" : "tcp", "FromPort" : "5050", "ToPort" : "5050", "SourceSecurityGroupId" : { "Ref" : "LbSecurityGroup"} },
           { "IpProtocol" : "tcp", "FromPort" : "8080", "ToPort" : "8080", "SourceSecurityGroupId" : { "Ref" : "LbSecurityGroup"} },
           { "IpProtocol" : "tcp", "FromPort" : "8181", "ToPort" : "8181", "SourceSecurityGroupId" : { "Ref" : "LbSecurityGroup"} }
@@ -414,7 +323,7 @@
       }
     },
 
-    "AdminSecurityGroup" : {
+    "ExternalWhitelistSecurityGroup" : {
       "Type" : "AWS::EC2::SecurityGroup",
       "Properties" : {
         "GroupDescription" : "All nodes are part of it grants access to some Adobe CIDRs. Email to metal-cell@adobe.com",
@@ -436,7 +345,19 @@
       }
     },
 
-   "BodyToLbSecurityGroupIngressToAvoidCircularDeps": {
+    "PublicSecurityGroup" : {
+      "Type" : "AWS::EC2::SecurityGroup",
+      "Properties" : {
+        "GroupDescription" : "Public access for all nodes in this group. Tread carefully.",
+        "VpcId" : { "Ref" : "VPC" },
+        "SecurityGroupIngress" : [
+          { "IpProtocol" : "tcp", "FromPort" :  "80", "ToPort" :  "80", "CidrIp" : "0.0.0.0/0" },
+          { "IpProtocol" : "tcp", "FromPort" : "443", "ToPort" : "443", "CidrIp" : "0.0.0.0/0" }
+        ]
+      }
+    },
+
+    "BodyToLbSecurityGroupIngressToAvoidCircularDeps": {
       "Type": "AWS::EC2::SecurityGroupIngress",
       "Properties": {
         "GroupId": { "Ref": "LbSecurityGroup" },
@@ -444,14 +365,15 @@
       }
     },
 
-   "NucleusToNucleusSecurityGroupIngressToAvoidCircularDeps": {
+    "NucleusToNucleusSecurityGroupIngressToAvoidCircularDeps": {
       "Type": "AWS::EC2::SecurityGroupIngress",
       "Properties": {
         "GroupId": { "Ref": "NucleusSecurityGroup" },
         "IpProtocol" : "tcp", "FromPort" : "0", "ToPort" : "65535", "SourceSecurityGroupId" : { "Ref" : "NucleusSecurityGroup"}
       }
     },
-   "BodyToBodySecurityGroupIngressToAvoidCircularDeps": {
+
+    "BodyToBodySecurityGroupIngressToAvoidCircularDeps": {
       "Type": "AWS::EC2::SecurityGroupIngress",
       "Properties": {
         "GroupId": { "Ref": "BodySecurityGroup" },
@@ -482,6 +404,7 @@
         "LoadBalancerName" : { "Fn::Join" : ["", [ {"Ref": "CellName"}, "-lb-marathon"]]}
       }
     },
+
     "ZookeeperLoadBalancer" : {
       "Type" : "AWS::ElasticLoadBalancing::LoadBalancer",
       "Properties" : {
@@ -506,7 +429,7 @@
       }
     },
 
-   "MesosLoadBalancer" : {
+    "MesosLoadBalancer" : {
      "Type" : "AWS::ElasticLoadBalancing::LoadBalancer",
      "Properties" : {
        "CrossZone": "true",
@@ -533,26 +456,6 @@
     "WaitHandle" : {
       "Type" : "AWS::CloudFormation::WaitConditionHandle"
     }
-  },
-
-  "Outputs" : {
-    "ExhibitorDiscoveryUrl" : {
-      "Value" : { "Fn::Join" : ["", [
-        "http://", { "Fn::GetAtt" : [ "ZookeeperLoadBalancer", "DNSName" ]}, "/exhibitor/v1/cluster/list"
-      ]]}
-    },
-    "MesosUrl" : {
-      "Value" : { "Fn::Join" : ["", [
-        "http://", { "Fn::GetAtt" : [ "MesosLoadBalancer", "DNSName" ]}
-      ]]}
-    },
-    "MarathonUrl" : {
-      "Value" : { "Fn::Join" : ["", [
-        "http://", { "Fn::GetAtt" : [ "MarathonLoadBalancer", "DNSName" ]}
-      ]]}
-    },
-    "BodySecurityGroup" : {
-      "Value" : { "Ref" : "BodySecurityGroup" }
-    }
   }
+
 }
