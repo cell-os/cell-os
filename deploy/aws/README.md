@@ -30,6 +30,13 @@ Nucleus and body can be scaled up independently.
 The cell-os-base consists of Zookeeper / Exhibitor, Mesos and Marathon.  
 All other services typically run on top of the base using one of the cell schedulers.  
 
+Internals
+
+There are two Cloud Formation templates. One that established the global infrastructure
+including the VPC, Subnet, Load Balancers, Internet Gateway, Routing Tables, Security Groups,
+etc. and another which sets up individual scaling groups (nucleus, body, membrane) that is 
+nested.
+
 
 **To troubleshoot**
 
@@ -152,9 +159,9 @@ creating a bucket in the right place as
       size changes. 
 - [x] \[CELL-61\] - Add IAM role instead of using keys stored in configuration
 - [ ] Optionally use keys instead IAM roles
-- [ ] Expand body into 2 scaling groups with different timeouts for pre-emption to support stateless
+- [x] Expand body into 2 scaling groups with different timeouts for pre-emption to support stateless
       vs stateful workloads.
-- [ ] Simplify user data scripts. If we'll not use cached AMIs we can get rid of cleanup steps
+- [x] Simplify user data scripts. If we'll not use cached AMIs we can get rid of cleanup steps
 - [ ] Create an AWS cluster manifest instead of writing it inline (only need to pass ZK as fact)
 - [ ] Reconcile with existing implementation if possible (see Related Work below)
 - [ ] Pick key id, secret from awscli configuration
