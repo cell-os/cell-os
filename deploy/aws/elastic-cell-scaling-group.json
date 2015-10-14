@@ -1,0 +1,234 @@
+{
+  "AWSTemplateFormatVersion" : "2010-09-09",
+  "Description" : "cell-os-base - https://git.corp.adobe.com/metal-cell/cell-os",
+
+  "Parameters" : {
+    "InstanceType" : {
+      "Description" : "EC2 instance type",
+      "Type" : "String",
+      "Default" : "c3.2xlarge",
+      "AllowedValues" : [
+        "t2.micro", "t2.small", "t2.medium",
+        "m3.medium", "m3.large", "m3.xlarge", "m3.2xlarge",
+        "c4.large", "c4.xlarge", "c4.2xlarge", "c4.4xlarge", "c4.8xlarge",
+        "c3.large", "c3.xlarge", "c3.2xlarge", "c3.4xlarge", "c3.8xlarge",
+        "r3.large", "r3.xlarge", "r3.2xlarge", "r3.4xlarge", "r3.8xlarge",
+        "i2.xlarge", "i2.2xlarge", "i2.4xlarge", "i2.8xlarge",
+        "hs1.8xlarge", "g2.2xlarge"
+      ],
+      "ConstraintDescription" : "must be a valid, HVM-compatible EC2 instance type."
+    },
+    "CellName" : {
+      "Description" : "The name of this cell (e.g. cell-1). This will get prefixed with account id and region to get the full cell id.",
+      "Type" : "String",
+      "Default": "cell-1"
+    },
+    "CellOsVersionBundle" : {
+      "Description" : "cell-os bundle version",
+      "Type" : "String",
+      "Default": "cell-os-base-1.1-SNAPSHOT"
+    },
+    "KeyName" : {
+      "Description" : "Existing EC2 KeyPair to be associated with all cluster instances for SSH access. The default user is 'centos'",
+      "Type" : "AWS::EC2::KeyPair::KeyName"
+    },
+    "GroupSize" : {
+      "Description" : "Number of nodes in the scaling group",
+      "Type" : "Number",
+      "Default": 1
+    },
+    "LoadBalancerNames" : {
+      "Description" : "List of ELBs that ",
+      "Type" : "CommaDelimitedList"
+    },
+    "ZookeeperLoadBalancer" : {
+      "Description" : "ZK ELB Endpoint",
+      "Type" : "String"
+    },
+    "Subnet" : {
+      "Description" : "Subnet",
+      "Type" : "AWS::EC2::Subnet::Id"
+    },
+    "Tags" : {
+      "Description" : "Comma separated list of tags",
+      "Type" : "CommaDelimitedList"
+    },
+    "ImageId" : {
+      "Description" : "AMI ID",
+      "Type" : "AWS::EC2::Image::Id"
+    },
+    "SecurityGroups" : {
+      "Description" : "AMI ID",
+      "Type" : "List<AWS::EC2::SecurityGroup::Id>"
+    },
+    "IamInstanceProfile" : {
+      "Description" : "IAM Profile if any",
+      "Type" : "String",
+      "Default": ""
+    },
+    "Role" : {
+      "Description" : "The role of the autoscaling group (stateless-body, membrane, etc.)",
+      "Type" : "String"
+    },
+    "WaitHandle" : {
+      "Description" : "",
+      "Type" : "String"
+    },
+    "AssociatePublicIpAddress" : {
+      "Description" : "AMI ID",
+      "Type" : "String",
+      "AllowedValues" : ["true", "false"],
+      "Default" : "false"
+    },
+    "SaasBaseDeploymentModules" : {
+      "Description" : "Comma separated list of modules (e.g. docker,mesos::slave)",
+      "Type" : "String"
+    },
+    "SaasBaseDeploymentVersion" : {
+      "Description" : "saasbase-deployment version",
+      "Type" : "String"
+    },
+    "SaasBaseAccessKeyId" : {
+      "Type" : "String",
+      "Description" : "SaasBase S3 repo read-only AWS account Access Key ID (http://saasbase.corp.adobe.com/ops/operations/deployment.html)"
+    },
+    "SaasBaseSecretAccessKey": {
+      "Type" : "String",
+      "Description" : "SaasBase S3 repo read-only AWS account Secret Access Key (http://saasbase.corp.adobe.com/ops/operations/deployment.html)"
+    },
+    "SaasBaseUserData": {
+      "Type" : "String",
+      "Description" : "Run after ZK quorum is found and before starting deployment. Base64, new line delimited string"
+    },
+    "BlockForZookeeper": {
+      "Type" : "String",
+      "AllowedValues" : ["true", "false"],
+      "Default" : "true",
+      "Description" : "Whether provisioning should block until there's a functional zookeeper cluster"
+    }
+  },
+
+  "Conditions" : {
+    "BlockForZookeeper" : { "Fn::Equals" : [{"Ref" : "BlockForZookeeper"}, "true"] },
+    "HasIamInstanceProfile" : { "Fn::Not": [{ "Fn::Equals" : [{ "Ref" : "IamInstanceProfile" }, ""] }] }
+  },
+
+  "Resources" : {
+    "Body" : {
+      "Type" : "AWS::AutoScaling::AutoScalingGroup",
+      "Properties" : {
+        "LaunchConfigurationName" : { "Ref" : "BodyLaunchConfig" },
+        "MinSize" : "0",
+        "MaxSize" : "1000",
+        "DesiredCapacity" : { "Ref" : "GroupSize" },
+        "LoadBalancerNames" : { "Ref" : "LoadBalancerNames" },
+        "VPCZoneIdentifier" : [{ "Ref" : "Subnet" }],
+        "Tags" : [
+          { "Key" : "role", "Value" : {"Ref": "Role"},     "PropagateAtLaunch" : "true" },
+          { "Key" : "cell", "Value" : {"Ref": "CellName"}, "PropagateAtLaunch" : "true" }
+        ]
+      }
+    },
+    
+    "BodyLaunchConfig" : {
+      "Type" : "AWS::AutoScaling::LaunchConfiguration",
+      "Metadata" : {
+        "AWS::CloudFormation::Init" : {
+          "config": {
+            "files" : {
+              "/usr/local/bin/zk-list-nodes" : {
+                "content" : { "Fn::Join" : ["", [
+                  "#!/bin/bash \n",
+                  "ZK=`curl -s {{zk_discovery_url}}`\n",
+                  "while [[ -z $ZK || ${ZK:0:1} != \"{\" ]]; do >&2 echo \"got $ZK retrying\"; ZK=`curl -s {{zk_discovery_url}}`; done\n",
+                  "echo $ZK | python -c '",
+                  "import sys, json;",
+                  "j=json.load(sys.stdin);",
+                  "servers=[\":\".join([s, str(j[\"port\"])]) for s in j[\"servers\"]];",
+                  "print \",\".join(servers)'\n"
+                ]]},
+                "context" : {
+                  "zk_discovery_url"  : { "Fn::Join" : ["", [
+                    "http://", { "Ref" : "ZookeeperLoadBalancer" }, "/exhibitor/v1/cluster/list"
+                  ]]}
+                },
+                "mode"    : "000755",
+                "owner"   : "root",
+                "group"   : "root"
+              }
+            }
+          }
+        }
+      },
+
+      "Properties" : {
+        "KeyName" : { "Ref" : "KeyName" },
+        "ImageId" : { "Ref" : "ImageId" },
+        "SecurityGroups" : { "Ref" : "SecurityGroups" },
+        "IamInstanceProfile" : {
+          "Fn::If": [
+            "HasIamInstanceProfile",
+            { "Ref": "IamInstanceProfile" },
+            { "Ref": "AWS::NoValue" }
+          ]
+        },
+        "AssociatePublicIpAddress": { "Ref" : "AssociatePublicIpAddress" },
+        "InstanceType" : { "Ref" : "InstanceType" },
+        "UserData"       : { "Fn::Base64" : { "Fn::Join" : ["", [
+          "#!/bin/bash\n",
+
+          "curl -O https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz\n",
+          "tar -xzf aws-cfn-bootstrap-latest.tar.gz\n",
+          "cd aws-cfn*\n",
+          "easy_install pystache\n",
+          "python setup.py install\n",
+
+          "# Helper function\n",
+          "function error_exit\n",
+          "{\n",
+          "  cfn-signal -e 1 -r \"$1\" '", { "Ref" : "WaitHandle" }, "'\n",
+          "  exit 1\n",
+          "}\n",
+
+          "# Process CloudFormation init definitions\n",
+          "cfn-init -s ", { "Ref" : "AWS::StackName" }, " -r BodyLaunchConfig",
+          "    --region ", { "Ref" : "AWS::Region" }, " || error_exit 'Failed to run cfn-init'\n",
+
+          "export AWS_ACCESS_KEY_ID='", { "Ref" : "SaasBaseAccessKeyId" }, "'\n",
+          "export AWS_SECRET_ACCESS_KEY='", { "Ref" : "SaasBaseSecretAccessKey" }, "'\n",
+          "curl -o /root/saasbase_installer https://s3.amazonaws.com/saasbase-repo/saasbase_installer",
+          { "Ref" : "SaasBaseDeploymentVersion"}, "\n",
+          "bash /root/saasbase_installer fetch ", { "Ref" : "SaasBaseDeploymentVersion" }, "\n",
+          "curl -o /root/puppet/profiles/", { "Ref" : "CellOsVersionBundle" }, ".yaml ",
+          "https://s3.amazonaws.com/saasbase-repo/cell-os/", { "Ref" : "CellOsVersionBundle" }, ".yaml", "\n",
+
+          "mkdir -p /root/cluster/puppet/modules\n",
+          "echo ", { "Ref" : "CellOsVersionBundle" }, " > /root/cluster/profile\n",
+
+          {"Fn::If" : [
+            "BlockForZookeeper",
+            { "Fn::Join" : ["", [
+              "### Block until we have a ZK quorum\n",
+              "while [ `/usr/local/bin/zk-list-nodes | wc -m` -lt 4 ]; do /usr/local/bin/zk-list-nodes; done\n",
+              "### Block until we can connect to ZK hosts \n",
+              "while ! [ $(zk=`zk-list-nodes`;host=`echo $zk | cut -d: -f 1`; exec 6<>/dev/tcp/$host/2181; echo $?) -eq 0 ]; do echo waiting for good zk $zk; sleep 1; done\n",
+              "zk=`zk-list-nodes`\n"
+            ]]},
+            ""
+          ]},
+          "\n",
+          { "Ref" : "SaasBaseUserData" },
+
+          "\nbash /root/saasbase_installer -v -d /root -m /root/cluster/puppet/modules run-puppet /root/cluster --roles ", { "Ref" : "SaasBaseDeploymentModules" }, " \n",
+
+          "# All is well so signal success\n",
+          "cfn-signal -e 0 -r \"Stack setup complete\" '", { "Ref" : "WaitHandle" }, "'\n",
+
+          "#EOF"
+        ]]}}
+      }
+    }
+
+  }
+
+}
