@@ -6,12 +6,12 @@
 # The order is defined by the level of dependency. 
 # For example Docker is low level running directly on the OS and other modules depend on it
 
-docker::version: 1.8.1
-java::version: 8u51
-zookeeper::version: 3.4.6_1.5.5
-mesos::version: 0.23.0-1.0.centos701406
-marathon::version: 0.10.1-adobe
-etcd::version: v2.1.1
+docker::version: 1.8.3
+java::version: 8u60
+zookeeper::version: latest
+mesos::version: 0.25.0-0.2.70.centos701406
+marathon::version: 0.12.0-adobe-SNAPSHOT
+etcd::version: v2.2.0
 
 modules:
   puppet-zookeeper: 0.1.1-adobe-SNAPSHOT
