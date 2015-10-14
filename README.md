@@ -62,4 +62,5 @@ tested and certified to work together.
 
 * [Command Line Interface](docs/cli.md)
 * [cell-os deployment implemenatation](docs/deployment-implementation.md)
-* [AWS deployment](deploy/aws/README.md).
+* [AWS deployment](deploy/aws/README.md)
+* [Builds and Packaging](docs/packaging.md)
