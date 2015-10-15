@@ -155,7 +155,20 @@
                 "mode"    : "000755",
                 "owner"   : "root",
                 "group"   : "root"
+              },
+              "/usr/local/bin/zk-barrier" : {
+                "content" : { "Fn::Join" : ["", [
+                  "#!/bin/bash \n",
+                  "### Block until we have a ZK quorum\n",
+                  "while [ `/usr/local/bin/zk-list-nodes | wc -m` -lt 4 ]; do /usr/local/bin/zk-list-nodes; done\n",
+                  "### Block until we can connect to ZK hosts \n",
+                  "while ! [ $(zk=`zk-list-nodes`;host=`echo $zk | cut -d: -f 1`; exec 6<>/dev/tcp/$host/2181; echo $?) -eq 0 ]; do echo waiting for good zk $zk; sleep 1; done\n"
+                ]]},
+                "mode"    : "000755",
+                "owner"   : "root",
+                "group"   : "root"
               }
+
             }
           }
         }
@@ -207,15 +220,9 @@
 
           {"Fn::If" : [
             "BlockForZookeeper",
-            { "Fn::Join" : ["", [
-              "### Block until we have a ZK quorum\n",
-              "while [ `/usr/local/bin/zk-list-nodes | wc -m` -lt 4 ]; do /usr/local/bin/zk-list-nodes; done\n",
-              "### Block until we can connect to ZK hosts \n",
-              "while ! [ $(zk=`zk-list-nodes`;host=`echo $zk | cut -d: -f 1`; exec 6<>/dev/tcp/$host/2181; echo $?) -eq 0 ]; do echo waiting for good zk $zk; sleep 1; done\n",
-              "zk=`zk-list-nodes`\n"
-            ]]},
-            ""
+            "/usr/local/bin/zk-barrier\nzk=`zk-list-nodes`\n", ""
           ]},
+
           "\n",
           { "Ref" : "SaasBaseUserData" },
 
