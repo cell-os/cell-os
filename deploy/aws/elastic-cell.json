@@ -47,6 +47,11 @@
       "Type" : "Number",
       "Default": 1
     },
+    "StatefulBodySize" : {
+      "Description" : "Number of nodes in the cell stateful body (local disk access)",
+      "Type" : "Number",
+      "Default": 0
+    },
     "MembraneSize" : {
       "Description" : "Number of nodes in the cell membrane, which is publicly exposed",
       "Type" : "Number",
@@ -339,6 +344,51 @@
         }
       }
     },
+
+    "StatefulBodyStack": {
+      "Type": "AWS::CloudFormation::Stack",
+      "Properties": {
+
+        "TemplateURL": { "Fn::Join" : ["", ["https://s3.amazonaws.com/", {"Ref" : "BucketName"},
+          "/", { "Ref" : "BodyStackTemplate" }]]},
+        "TimeoutInMinutes": "10",
+
+        "Parameters" : {
+          "Role" : "stateful-body",
+          "Tags" : "slave,body,stateful,stateful-body",
+          "SaasBaseDeploymentModules" : "docker,mesos::master,mesos::slave,marathon",
+          "SaasBaseUserData" : { "Fn::Join" : ["", [
+            {"Fn::Join" : ["", { "Fn::FindInMap" : [ "UserData", "body", "mesos"] }]},
+            {"Fn::Join" : ["", { "Fn::FindInMap" : [ "UserData", "body", "marathon"] }]}
+          ]]},
+          "SecurityGroups" : { "Fn::Join" : [ ",", [
+            { "Ref" : "BodySecurityGroup" },
+            { "Ref" : "ExternalWhitelistSecurityGroup" }
+          ]]},
+          "LoadBalancerNames" : { "Fn::Join" : [ ",", [
+
+            { "Ref" : "MesosLoadBalancer" },
+            { "Ref" : "MarathonLoadBalancer" }]
+          ]},
+          "ZookeeperLoadBalancer" :         { "Fn::GetAtt" : [ "ZookeeperLoadBalancer", "DNSName" ]},
+          "AssociatePublicIpAddress" :      "true",
+          "GroupSize" :                     { "Ref" : "StatefulBodySize" },
+
+          "ImageId" :                       { "Fn::FindInMap" : [ "RegionMap", { "Ref" : "AWS::Region" }, "AMI"] },
+          "CellName" :                      { "Ref" : "CellName" },
+          "CellOsVersionBundle" :           { "Ref" : "CellOsVersionBundle" },
+          "InstanceType" :                  { "Ref" : "InstanceType" },
+          "Subnet" :                        { "Ref" : "Subnet" },
+          "KeyName" :                       { "Ref" : "KeyName" },
+          "SaasBaseDeploymentVersion" :     { "Ref" : "SaasBaseDeploymentVersion" },
+          "SaasBaseAccessKeyId" :           { "Ref" : "SaasBaseAccessKeyId" },
+          "SaasBaseSecretAccessKey":        { "Ref" : "SaasBaseSecretAccessKey" },
+          "WaitHandle" :                    { "Ref" : "WaitHandle" }
+        }
+      }
+    },
+
+
 
     "BodySecurityGroup" : {
       "Type" : "AWS::EC2::SecurityGroup",
