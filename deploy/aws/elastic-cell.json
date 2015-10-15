@@ -99,7 +99,8 @@
           "### Minimal inline cluster.yaml\n",
           "echo marathon::zk:       zk://$zk/marathon   >> /root/cluster/cluster.yaml\n",
           "echo marathon::master:   zk://$zk/mesos      >> /root/cluster/cluster.yaml\n",
-          "echo marathon::bin_path: /opt/marathon/bin   >> /root/cluster/cluster.yaml\n"
+          "echo marathon::bin_path: /opt/marathon/bin   >> /root/cluster/cluster.yaml\n",
+          "echo marathon::install_java: false           >> /root/cluster/cluster.yaml\n"
         ]
       }
     }
