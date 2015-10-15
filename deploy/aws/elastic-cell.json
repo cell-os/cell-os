@@ -461,6 +461,14 @@
       }
     },
 
+    "NucleusToLbSecurityGroupIngressToAvoidCircularDeps": {
+      "Type": "AWS::EC2::SecurityGroupIngress",
+      "Properties": {
+        "GroupId": { "Ref": "LbSecurityGroup" }, "SourceSecurityGroupId" : { "Ref" : "NucleusSecurityGroup"},
+        "IpProtocol" : "tcp", "FromPort" : "80", "ToPort" : "80"
+      }
+    },
+
     "NucleusToNucleusSecurityGroupIngressToAvoidCircularDeps": {
       "Type": "AWS::EC2::SecurityGroupIngress",
       "Properties": {
