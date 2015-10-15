@@ -16,7 +16,7 @@ SSH_USER="centos"
 USAGE="
   cell-os cli utility ${VERSION}
 
-  usage: ./cell <action> <cell-name> [nucleus|body] [<index>] [<command>]
+  usage: ./cell <action> <cell-name> [nucleus|stateless-body|stateful-body|membrane] [<index>] [<command>]
    actions:
      create <cell-name> - creates a new cell
      delete <cell-name> - deletes an existing cell
@@ -45,6 +45,8 @@ USAGE="
   Github git.corp.adobe.com/metal-cell/cell-os
   Slack https://adobe.slack.com/messages/metal-cell/
 \n"
+
+ROLES="nucleus, stateless-body, stateful-body, membrane"
 
 # action
 case "$1" in
@@ -120,8 +122,8 @@ if [[ "${action}" == "delete" ]]; then
   aws s3 ls --summarize s3://${BUCKET_NAME}
   echo "for verification please type the name of the cell you want to delete"
   read cell_to_delete
-  if ! [[ "${cell_to_delete}" -eq "${cell_name}" ]]; then
-    echo "cell name doesn't match cell to delete" 1>&2
+  if [[ "${cell_to_delete}" != "${cell_name}" ]]; then
+    echo "cell name doesn't match cell to delete" #1>&2
     exit 1
   fi
   aws cloudformation delete-stack --stack-name ${STACK_NAME}
@@ -151,15 +153,17 @@ if [[ "${action}" == "list" ]]; then
                 --output text"
       echo "nucleus"
       sh -c "${command} Name=tag:role,Values=nucleus"
-      echo "body"
-      sh -c "${command} Name=tag:role,Values=body"
+      echo "stateless-body"
+      sh -c "${command} Name=tag:role,Values=stateless-body"
+      echo "membrane"
+      sh -c "${command} Name=tag:role,Values=membrane"
     fi
     exit 0
 fi
 
 if [[ "${action}" == "scale" ]]; then
-  if ! [[ $3 == "nucleus" || $3 == "body" ]]; then
-    echo "please provide role (body, nucleus)" >&2
+  if ! [[ $3 == "nucleus" || $3 == "stateless-body" || $3 == "stateful-body" || $3 == "membrane"  ]]; then
+    echo "please provide role (${ROLES})" >&2
     exit 0
   fi
   role=$3
@@ -200,8 +204,8 @@ if [[ "${action}" == "ssh" || "${action}" == "log" || "${action}" == "cmd"
     ssh_options="${ssh_options} -D ${PROXY_PORT}"
   fi
 
-  if ! [[ $3 == "nucleus" || $3 == "body" ]]; then
-    echo "please provide role (body, nucleus)" >&2
+  if ! [[ $3 == "nucleus" || $3 == "stateless-body" || $3 == "stateful-body" || $3 == "membrane"  ]]; then
+    echo "please provide role (${ROLES})" >&2
     exit 0
   fi
   role=$3
@@ -256,6 +260,12 @@ if [[ "${action}" == "create" ]]; then
     exit 1
   fi
 
+  # Copy nested stack
+  RET=$(aws s3 cp deploy/aws/elastic-cell-scaling-group.json s3://"${BUCKET_NAME}"/)
+  if [[ ! $? -eq 0 ]]; then
+    exit 1
+  fi
+
   echo "creating stack ${STACK_NAME}..."
   aws cloudformation create-stack \
       --template-body "file://${CF_TEMPLATE_PATH}" \
@@ -269,8 +279,12 @@ if [[ "${action}" == "create" ]]; then
           ParameterKey=KeyName,ParameterValue="${AWS_KEY_PAIR}" \
           ParameterKey=BucketName,ParameterValue="${BUCKET_NAME}" \
           ParameterKey=SaasBaseAccessKeyId,ParameterValue="${SAASBASE_ACCESS_KEY_ID}" \
-          ParameterKey=SaasBaseSecretAccessKey,ParameterValue="${SAASBASE_SECRET_ACCESS_KEY}"
+          ParameterKey=SaasBaseSecretAccessKey,ParameterValue="${SAASBASE_SECRET_ACCESS_KEY}" \
+  || { exit 1; }
 
   echo "cloudformation ret = $?"
   printf "${CONFIG}"
+
+  echo "To watch your cell infrastructure provisioning log you can ./cell log ${cell_name}" 
+  echo "For detailed node provisioning ./cell log ${cell_name} nucleus 1"
 fi
