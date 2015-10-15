@@ -456,24 +456,24 @@
     "BodyToLbSecurityGroupIngressToAvoidCircularDeps": {
       "Type": "AWS::EC2::SecurityGroupIngress",
       "Properties": {
-        "GroupId": { "Ref": "LbSecurityGroup" },
-        "IpProtocol" : "tcp", "FromPort" : "80", "ToPort" : "80", "SourceSecurityGroupId" : { "Ref" : "BodySecurityGroup"}
+        "GroupId": { "Ref": "LbSecurityGroup" }, "SourceSecurityGroupId" : { "Ref" : "BodySecurityGroup"},
+        "IpProtocol" : "tcp", "FromPort" : "80", "ToPort" : "80"
       }
     },
 
     "NucleusToNucleusSecurityGroupIngressToAvoidCircularDeps": {
       "Type": "AWS::EC2::SecurityGroupIngress",
       "Properties": {
-        "GroupId": { "Ref": "NucleusSecurityGroup" },
-        "IpProtocol" : "tcp", "FromPort" : "0", "ToPort" : "65535", "SourceSecurityGroupId" : { "Ref" : "NucleusSecurityGroup"}
+        "GroupId": { "Ref": "NucleusSecurityGroup" }, "SourceSecurityGroupId" : { "Ref" : "NucleusSecurityGroup"},
+        "IpProtocol" : "tcp", "FromPort" : "0", "ToPort" : "65535"
       }
     },
 
     "BodyToBodySecurityGroupIngressToAvoidCircularDeps": {
       "Type": "AWS::EC2::SecurityGroupIngress",
       "Properties": {
-        "GroupId": { "Ref": "BodySecurityGroup" },
-        "IpProtocol" : "tcp", "FromPort" : "0", "ToPort" : "65535", "SourceSecurityGroupId" : { "Ref" : "BodySecurityGroup"}
+        "GroupId": { "Ref": "BodySecurityGroup" }, "SourceSecurityGroupId" : { "Ref" : "BodySecurityGroup"},
+        "IpProtocol" : "tcp", "FromPort" : "0", "ToPort" : "65535"
       }
     },
 
