@@ -30,7 +30,28 @@ Nucleus and body can be scaled up independently.
 The cell-os-base consists of Zookeeper / Exhibitor, Mesos and Marathon.  
 All other services typically run on top of the base using one of the cell schedulers.  
 
-Internals
+## Internals: How it works
+### General stack: VPC, Subnet, Load Balancers, Internet Gateway, Routes, Security Groups, Nested Stacks
+This sets up the infrastructure and creates separate scaling groups for each subdivision of the cell using nested stacks.
+
+Each cell subdivision is created by passing the role, tags, os-level modules and
+configurations to the nested stack.
+
+The critical part of the cell is the nucleus, which runs Zookeeper and HDFS namenodes.
+
+The zk ensemble can be disovered through an ELB over the Zookeeper Exhibitor REST API.
+Two helper scripts `zk-list-nodes` and `zk-barrier` can be used to get and block for 
+the zk enesemble. 
+
+Roles and tags are used to identify the EC2 instances and to set attributes.
+Modules
+`PreZkModules` are saasbase deployment modules that don't require zookeeper 
+`PostZkModules` are modules that need to be run after the ZK ensemble is functional
+by using the `zk-barrier` which will block polling for zk
+
+### Nested Stacks: nucleus, stateless-body, stateful-body, membrane scaling groups
+
+
 
 There are two Cloud Formation templates. One that established the global infrastructure
 including the VPC, Subnet, Load Balancers, Internet Gateway, Routing Tables, Security Groups,
