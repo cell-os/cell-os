@@ -139,7 +139,7 @@ if [[ "${action}" == "list" ]]; then
         DELETE_IN_PROGRESS --output table \
         --query 'StackSummaries[*].[StackName,StackStatus,Tags]'
     else
-      echo "load balancers"
+      echo "[load balancers]"
       aws elb describe-load-balancers \
         --query 'LoadBalancerDescriptions[*].[LoadBalancerName, DNSName]' \
         --output table \
@@ -151,11 +151,13 @@ if [[ "${action}" == "list" ]]; then
                 --filters Name=tag:cell,Values=$2 \
                 Name=instance-state-name,Values=*ing \
                 --output text"
-      echo "nucleus"
+      echo "[nucleus]"
       sh -c "${command} Name=tag:role,Values=nucleus"
-      echo "stateless-body"
+      echo "[stateless-body]"
       sh -c "${command} Name=tag:role,Values=stateless-body"
-      echo "membrane"
+      echo "[stateful-body]"
+      sh -c "${command} Name=tag:role,Values=stateful-body"
+      echo "[membrane]"
       sh -c "${command} Name=tag:role,Values=membrane"
     fi
     exit 0
