@@ -80,8 +80,12 @@
       "AllowedValues" : ["true", "false"],
       "Default" : "false"
     },
-    "SaasBaseDeploymentModules" : {
-      "Description" : "Comma separated list of modules (e.g. docker,mesos::slave)",
+    "PreZkModules" : {
+      "Description" : "Comma separated list of modules that don't require a running zk (e.g. docker,java) ",
+      "Type" : "String"
+    },
+    "PostZkModules" : {
+      "Description" : "Comma separated list of modules that require a running zk (e.g. hdfs, mesos::slave)",
       "Type" : "String"
     },
     "SaasBaseDeploymentVersion" : {
@@ -99,17 +103,10 @@
     "SaasBaseUserData": {
       "Type" : "String",
       "Description" : "Run after ZK quorum is found and before starting deployment. Base64, new line delimited string"
-    },
-    "BlockForZookeeper": {
-      "Type" : "String",
-      "AllowedValues" : ["true", "false"],
-      "Default" : "true",
-      "Description" : "Whether provisioning should block until there's a functional zookeeper cluster"
     }
   },
 
   "Conditions" : {
-    "BlockForZookeeper" : { "Fn::Equals" : [{"Ref" : "BlockForZookeeper"}, "true"] },
     "HasIamInstanceProfile" : { "Fn::Not": [{ "Fn::Equals" : [{ "Ref" : "IamInstanceProfile" }, ""] }] }
   },
 
@@ -218,15 +215,21 @@
           "mkdir -p /root/cluster/puppet/modules\n",
           "echo ", { "Ref" : "CellOsVersionBundle" }, " > /root/cluster/profile\n",
 
-          {"Fn::If" : [
-            "BlockForZookeeper",
-            "/usr/local/bin/zk-barrier\nzk=`zk-list-nodes`\n", ""
-          ]},
-
+          { "Ref" : "SaasBaseUserData" },
           "\n",
+          "# pre zk\n",
+          "bash /root/saasbase_installer -v -d /root -m /root/cluster/puppet/modules run-puppet /root/cluster --roles ", { "Ref" : "PreZkModules" }, " \n",
+
+          "# post zk\n",
+          "/usr/local/bin/zk-barrier\n",
+          "export zk=`zk-list-nodes`\n",
+
+          "# regenerate cluster.yaml\n",
+          "echo '' > /root/cluster/cluster.yaml\n",
           { "Ref" : "SaasBaseUserData" },
 
-          "\nbash /root/saasbase_installer -v -d /root -m /root/cluster/puppet/modules run-puppet /root/cluster --roles ", { "Ref" : "SaasBaseDeploymentModules" }, " \n",
+          "\nbash /root/saasbase_installer -v -d /root -m /root/cluster/puppet/modules:/root/puppet/modules run-puppet /root/cluster --roles ", { "Ref" : "PostZkModules" }, " \n",
+
 
           "# All is well so signal success\n",
           "cfn-signal -e 0 -r \"Stack setup complete\" '", { "Ref" : "WaitHandle" }, "'\n",
