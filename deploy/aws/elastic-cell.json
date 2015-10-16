@@ -90,6 +90,10 @@
     },
 
     "UserData" : {
+      "base" : {
+        "base" :  [
+        ]
+      },
       "body"   : {
         "mesos" :  [
           "### Minimal inline cluster.yaml\n",
@@ -234,6 +238,7 @@
           "PostZkModules" : "mesos::slave,hadoop_2_namenode,hadoop_2::hdfs::journalnode",
 
           "SaasBaseUserData" : { "Fn::Join" : ["", [
+            {"Fn::Join" : ["", { "Fn::FindInMap" : [ "UserData", "base", "base"] }]},
             "echo zookeeper::aws_s3_region: ", { "Ref" : "AWS::Region" }, " >> /root/cluster/cluster.yaml\n",
             "echo zookeeper::aws_s3_bucket: ", { "Ref" : "BucketName"}, " >> /root/cluster/cluster.yaml\n",
             "echo zookeeper::aws_s3_prefix: ", { "Fn::Join" : ["", [
@@ -278,6 +283,7 @@
           "PostZkModules" : "mesos::slave",
 
           "SaasBaseUserData" : { "Fn::Join" : ["", [
+            {"Fn::Join" : ["", { "Fn::FindInMap" : [ "UserData", "base", "base"] }]},
             {"Fn::Join" : ["", { "Fn::FindInMap" : [ "UserData", "body", "mesos"] }]}
           ]]},
 
@@ -323,6 +329,7 @@
           "PostZkModules" : "mesos::master,mesos::slave,marathon",
 
           "SaasBaseUserData" : { "Fn::Join" : ["", [
+            {"Fn::Join" : ["", { "Fn::FindInMap" : [ "UserData", "base", "base"] }]},
             {"Fn::Join" : ["", { "Fn::FindInMap" : [ "UserData", "body", "mesos"] }]},
             {"Fn::Join" : ["", { "Fn::FindInMap" : [ "UserData", "body", "marathon"] }]}
           ]]},
@@ -369,6 +376,7 @@
           "PostZkModules" : "mesos::slave,hadoop_2_datanode",
 
           "SaasBaseUserData" : { "Fn::Join" : ["", [
+            {"Fn::Join" : ["", { "Fn::FindInMap" : [ "UserData", "base", "base"] }]},
             {"Fn::Join" : ["", { "Fn::FindInMap" : [ "UserData", "body", "mesos"] }]},
             {"Fn::Join" : ["", { "Fn::FindInMap" : [ "UserData", "body", "marathon"] }]}
           ]]},
