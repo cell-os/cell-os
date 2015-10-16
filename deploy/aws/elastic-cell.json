@@ -506,7 +506,7 @@
           { "LoadBalancerPort" : "80", "InstancePort" : "8080","Protocol" : "HTTP"}
         ],
         "HealthCheck" : {
-          "Target" : "HTTP:8080/",
+          "Target" : "HTTP:8080/status",
           "HealthyThreshold" : "3",
           "UnhealthyThreshold" : "5",
           "Interval" : "30",
