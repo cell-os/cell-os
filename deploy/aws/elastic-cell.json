@@ -230,7 +230,9 @@
           "Role" : "nucleus",
           "Tags" : "nucleus",
 
-          "SaasBaseDeploymentModules" : "docker,zookeeper,java",
+          "PreZkModules"  : "docker,zookeeper,java",
+          "PostZkModules" : "mesos::slave,hadoop_2_namenode,hadoop_2::hdfs::journalnode",
+
           "SaasBaseUserData" : { "Fn::Join" : ["", [
             "echo zookeeper::aws_s3_region: ", { "Ref" : "AWS::Region" }, " >> /root/cluster/cluster.yaml\n",
             "echo zookeeper::aws_s3_bucket: ", { "Ref" : "BucketName"}, " >> /root/cluster/cluster.yaml\n",
@@ -238,7 +240,6 @@
               { "Ref" : "CellName" }, "/nucleus/exhibitor"
             ]]}, " >> /root/cluster/cluster.yaml\n"
           ]]},
-          "BlockForZookeeper" : "false",
           "IamInstanceProfile" :          { "Ref" : "NucleusInstanceProfile" },
           "SecurityGroups" : { "Fn::Join" : [ ",", [
                                           { "Ref" : "NucleusSecurityGroup" },
@@ -273,10 +274,13 @@
           "Role" :                        "membrane",
           "Tags" :                        "membrane,slave,body",
 
-          "SaasBaseDeploymentModules" :   "docker,mesos::slave",
-          "SaasBaseUserData" : { "Fn::Join" : ["", { "Fn::FindInMap" :
-                                          [ "UserData", "body", "mesos"] }
-          ]},
+          "PreZkModules"  : "docker",
+          "PostZkModules" : "mesos::slave",
+
+          "SaasBaseUserData" : { "Fn::Join" : ["", [
+            {"Fn::Join" : ["", { "Fn::FindInMap" : [ "UserData", "body", "mesos"] }]}
+          ]]},
+
           "SecurityGroups" : { "Fn::Join" : [ ",", [
 
                                           { "Ref" : "PublicSecurityGroup" },
@@ -314,7 +318,10 @@
         "Parameters" : {
           "Role" : "stateless-body",
           "Tags" : "slave,body,stateless,stateless-body",
-          "SaasBaseDeploymentModules" : "docker,java,mesos::master,mesos::slave,marathon",
+
+          "PreZkModules"  : "docker,java",
+          "PostZkModules" : "mesos::master,mesos::slave,marathon",
+
           "SaasBaseUserData" : { "Fn::Join" : ["", [
             {"Fn::Join" : ["", { "Fn::FindInMap" : [ "UserData", "body", "mesos"] }]},
             {"Fn::Join" : ["", { "Fn::FindInMap" : [ "UserData", "body", "marathon"] }]}
@@ -357,7 +364,10 @@
         "Parameters" : {
           "Role" : "stateful-body",
           "Tags" : "slave,body,stateful,stateful-body",
-          "SaasBaseDeploymentModules" : "docker,java,mesos::master,mesos::slave,marathon",
+
+          "PreZkModules"  : "docker,java",
+          "PostZkModules" : "mesos::slave,hadoop_2_datanode",
+
           "SaasBaseUserData" : { "Fn::Join" : ["", [
             {"Fn::Join" : ["", { "Fn::FindInMap" : [ "UserData", "body", "mesos"] }]},
             {"Fn::Join" : ["", { "Fn::FindInMap" : [ "UserData", "body", "marathon"] }]}
