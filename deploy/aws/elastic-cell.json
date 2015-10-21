@@ -92,6 +92,12 @@
     "UserData" : {
       "base" : {
         "base" :  [
+        ], 
+        "nucleus": [
+          "echo \"zookeeper::aws_s3_region: ${aws_region}\" >> /root/cluster/cluster.yaml\n",
+          "echo \"zookeeper::aws_s3_bucket: ${cell_bucket_name}\" >> /root/cluster/cluster.yaml\n",
+          "echo \"zookeeper::aws_s3_prefix: ${cell_name}/nucleus/exhibitor\" >> /root/cluster/cluster.yaml\n", 
+          ""
         ]
       },
       "body"   : {
@@ -236,12 +242,8 @@
           "PostZkModules" : "mesos::slave,hadoop_2_namenode,hadoop_2::hdfs::journalnode",
 
           "SaasBaseUserData" : { "Fn::Join" : ["", [
-            {"Fn::Join" : ["", { "Fn::FindInMap" : [ "UserData", "base", "base"] }]},
-            "echo zookeeper::aws_s3_region: ", { "Ref" : "AWS::Region" }, " >> /root/cluster/cluster.yaml\n",
-            "echo zookeeper::aws_s3_bucket: ", { "Ref" : "BucketName"}, " >> /root/cluster/cluster.yaml\n",
-            "echo zookeeper::aws_s3_prefix: ", { "Fn::Join" : ["", [
-              { "Ref" : "CellName" }, "/nucleus/exhibitor"
-            ]]}, " >> /root/cluster/cluster.yaml\n"
+            {"Fn::Join" : ["", { "Fn::FindInMap" : [ "UserData", "base", "base"] }]}, 
+            {"Fn::Join" : ["", { "Fn::FindInMap" : [ "UserData", "base", "nucleus"] }]}
           ]]},
           "IamInstanceProfile" :          { "Ref" : "NucleusInstanceProfile" },
           "SecurityGroups" : { "Fn::Join" : [ ",", [
@@ -255,6 +257,7 @@
           "GroupSize" :                   { "Ref" : "NucleusSize" },
           "ImageId" :                     { "Fn::FindInMap" : [ "RegionMap", { "Ref" : "AWS::Region" }, "AMI"] },
           "CellName" :                    { "Ref" : "CellName" },
+          "BucketName" :                  { "Ref" : "BucketName" },
           "CellOsVersionBundle" :         { "Ref" : "CellOsVersionBundle" },
           "InstanceType" :                { "Ref" : "InstanceType" },
           "Subnet" :                      { "Ref" : "Subnet" },
@@ -298,6 +301,7 @@
 
           "ImageId" :                     { "Fn::FindInMap" : [ "RegionMap", { "Ref" : "AWS::Region" }, "AMI"] },
           "CellName" :                    { "Ref" : "CellName" },
+          "BucketName" :                  { "Ref" : "BucketName" },
           "CellOsVersionBundle" :         { "Ref" : "CellOsVersionBundle" },
           "InstanceType" :                { "Ref" : "InstanceType" },
           "Subnet" :                      { "Ref" : "Subnet" },
@@ -346,6 +350,7 @@
 
           "ImageId" :                       { "Fn::FindInMap" : [ "RegionMap", { "Ref" : "AWS::Region" }, "AMI"] },
           "CellName" :                      { "Ref" : "CellName" },
+          "BucketName" :                    { "Ref" : "BucketName" },
           "CellOsVersionBundle" :           { "Ref" : "CellOsVersionBundle" },
           "InstanceType" :                  { "Ref" : "InstanceType" },
           "Subnet" :                        { "Ref" : "Subnet" },
@@ -393,6 +398,7 @@
 
           "ImageId" :                       { "Fn::FindInMap" : [ "RegionMap", { "Ref" : "AWS::Region" }, "AMI"] },
           "CellName" :                      { "Ref" : "CellName" },
+          "BucketName" :                    { "Ref" : "BucketName" },
           "CellOsVersionBundle" :           { "Ref" : "CellOsVersionBundle" },
           "InstanceType" :                  { "Ref" : "InstanceType" },
           "Subnet" :                        { "Ref" : "Subnet" },

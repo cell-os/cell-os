@@ -23,6 +23,10 @@
       "Type" : "String",
       "Default": "cell-1"
     },
+    "BucketName" : {
+      "Description" : "Cell's S3 bucket name. Used for metadata and backups. Can be one per account as we prefix data with cell name inside",
+      "Type" : "String"
+    },
     "CellOsVersionBundle" : {
       "Description" : "cell-os bundle version",
       "Type" : "String",
@@ -133,22 +137,52 @@
         "AWS::CloudFormation::Init" : {
           "config": {
             "files" : {
+              "/etc/profile.d/cellos.sh": {
+                "content" : { "Fn::Join" : ["", [
+                "#!/bin/bash\n", 
+                "export zk_discovery_url=\"{{zk_discovery_url}}\"\n", 
+                "export aws_stack_name=\"{{aws_stack_name}}\"\n",
+                "export aws_region=\"{{aws_region}}\"\n",
+                "export aws_access_key_id=\"{{aws_access_key_id}}\"\n",
+                "export aws_secret_access_key=\"{{aws_secret_access_key}}\"\n",
+                "export AWS_ACCESS_KEY_ID=\"{{aws_access_key_id}}\"\n",
+                "export AWS_SECRET_ACCESS_KEY=\"{{aws_secret_access_key}}\"\n",
+                "export saasbase_version=\"{{saasbase_version}}\"\n",
+                "export cellos_version=\"{{cellos_version}}\"\n",
+                "export cell_bucket_name=\"{{cell_bucket_name}}\"\n", 
+                "export cell_name=\"{{cell_name}}\"\n", 
+                "export cell_role=\"{{cell_role}}\"\n", 
+                "export instance_id=`wget -qO- http://169.254.169.254/latest/meta-data/instance-id`\n", 
+                "export aws_region=`wget -qO- http://169.254.169.254/latest/meta-data/placement/availability-zone | sed 's/.$//'`\n"
+                ]]}, 
+                "context" : {
+                  "zk_discovery_url"  : { "Fn::Join" : ["", [
+                    "http://", { "Ref" : "ZookeeperLoadBalancer" }, "/exhibitor/v1/cluster/list"
+                  ]]}, 
+                  "aws_stack_name": { "Ref": "AWS::StackName" }, 
+                  "aws_region": { "Ref": "AWS::Region" }, 
+                  "aws_access_key_id": { "Ref": "SaasBaseAccessKeyId" }, 
+                  "aws_secret_access_key": { "Ref": "SaasBaseSecretAccessKey" }, 
+                  "saasbase_version": { "Ref": "SaasBaseDeploymentVersion" }, 
+                  "cellos_version": { "Ref": "CellOsVersionBundle" }, 
+                  "cell_bucket_name": { "Ref": "BucketName" }, 
+                  "cell_name": { "Ref": "CellName" }, 
+                  "cell_role": { "Ref": "Role" }, 
+                  "cell_tags": { "Ref": "Tags" }
+                }
+              }, 
               "/usr/local/bin/zk-list-nodes" : {
                 "content" : { "Fn::Join" : ["", [
                   "#!/bin/bash \n",
-                  "ZK=`curl -s {{zk_discovery_url}}`\n",
-                  "while [[ -z $ZK || ${ZK:0:1} != \"{\" ]]; do >&2 echo \"got $ZK retrying\"; ZK=`curl -s {{zk_discovery_url}}`; done\n",
+                  "source /etc/profile.d/cellos.sh\n",
+                  "ZK=`curl -s ${zk_discovery_url}`\n",
+                  "while [[ -z $ZK || ${ZK:0:1} != \"{\" ]]; do >&2 echo \"got $ZK retrying\"; ZK=`curl -s ${zk_discovery_url}`; done\n",
                   "echo $ZK | python -c '",
                   "import sys, json;",
                   "j=json.load(sys.stdin);",
                   "servers=[\":\".join([s, str(j[\"port\"])]) for s in j[\"servers\"]];",
                   "print \",\".join(servers)'\n"
                 ]]},
-                "context" : {
-                  "zk_discovery_url"  : { "Fn::Join" : ["", [
-                    "http://", { "Ref" : "ZookeeperLoadBalancer" }, "/exhibitor/v1/cluster/list"
-                  ]]}
-                },
                 "mode"    : "000755",
                 "owner"   : "root",
                 "group"   : "root"
@@ -165,7 +199,6 @@
                 "owner"   : "root",
                 "group"   : "root"
               }
-
             }
           }
         }
@@ -186,6 +219,16 @@
         "InstanceType" : { "Ref" : "InstanceType" },
         "UserData"       : { "Fn::Base64" : { "Fn::Join" : ["", [
           "#!/bin/bash\n",
+          "# Base packages\n", 
+          "yum install -y wget ruby ruby-devel kpartx parted\n", 
+          "curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py\n", 
+          "python get-pip.py\n", 
+          "\n", 
+          "pip install --upgrade awscli\n", 
+          "rpm -ivh http://s3.amazonaws.com/saasbase-repo/yumrepo/ec2-utils-0.6-2.el7.centos.noarch.rpm\n", 
+          "rpm -ivh http://s3.amazonaws.com/saasbase-repo/yumrepo/ec2-net-utils-0.6-2.el7.centos.noarch.rpm\n", 
+          "pip uninstall -y certifi\n", 
+          "pip install certifi==2015.04.28\n", 
 
           "curl -O https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz\n",
           "tar -xzf aws-cfn-bootstrap-latest.tar.gz\n",
@@ -199,26 +242,27 @@
           "  cfn-signal -e 1 -r \"$1\" '", { "Ref" : "WaitHandle" }, "'\n",
           "  exit 1\n",
           "}\n",
+          "# export vars\n", 
+          "source /etc/profile.d/cellos.sh\n", 
+          "export pre_zk_modules='", { "Ref" : "PreZkModules" }, "'\n",
+          "export post_zk_modules='", { "Ref" : "PostZkModules" }, "'\n",
+          "export wait_handle='", { "Ref" : "WaitHandle" }, "'\n",
 
           "# Process CloudFormation init definitions\n",
-          "cfn-init -s ", { "Ref" : "AWS::StackName" }, " -r BodyLaunchConfig",
-          "    --region ", { "Ref" : "AWS::Region" }, " || error_exit 'Failed to run cfn-init'\n",
+          "cfn-init -s $aws_stack_name -r BodyLaunchConfig  --region $aws_region || error_exit 'Failed to run cfn-init'\n",
 
-          "export AWS_ACCESS_KEY_ID='", { "Ref" : "SaasBaseAccessKeyId" }, "'\n",
-          "export AWS_SECRET_ACCESS_KEY='", { "Ref" : "SaasBaseSecretAccessKey" }, "'\n",
-          "curl -o /root/saasbase_installer https://s3.amazonaws.com/saasbase-repo/saasbase_installer",
-          { "Ref" : "SaasBaseDeploymentVersion"}, "\n",
-          "bash /root/saasbase_installer fetch ", { "Ref" : "SaasBaseDeploymentVersion" }, "\n",
-          "curl -o /root/puppet/profiles/", { "Ref" : "CellOsVersionBundle" }, ".yaml ",
-          "https://s3.amazonaws.com/saasbase-repo/cell-os/", { "Ref" : "CellOsVersionBundle" }, ".yaml", "\n",
+          "curl -o /root/saasbase_installer https://s3.amazonaws.com/saasbase-repo/saasbase_installer${saasbase_version}\n",
+          "bash /root/saasbase_installer fetch ${saasbase_version}\n",
+          "curl -o /root/puppet/profiles/${cellos_version}.yaml ", 
+          "https://s3.amazonaws.com/saasbase-repo/cell-os/${cellos_version}.yaml", "\n",
 
           "mkdir -p /root/cluster/puppet/modules\n",
-          "echo ", { "Ref" : "CellOsVersionBundle" }, " > /root/cluster/profile\n",
+          "echo ${cellos_version} > /root/cluster/profile\n",
 
           { "Ref" : "SaasBaseUserData" },
           "\n",
           "# pre zk\n",
-          "bash /root/saasbase_installer -v -d /root -m /root/cluster/puppet/modules run-puppet /root/cluster --roles ", { "Ref" : "PreZkModules" }, " \n",
+          "bash /root/saasbase_installer -v -d /root -m /root/cluster/puppet/modules run-puppet /root/cluster --roles ${pre_zk_modules} \n",
 
           "# post zk\n",
           "/usr/local/bin/zk-barrier\n",
@@ -228,8 +272,7 @@
           "echo '' > /root/cluster/cluster.yaml\n",
           { "Ref" : "SaasBaseUserData" },
 
-          "\nbash /root/saasbase_installer -v -d /root -m /root/cluster/puppet/modules:/root/puppet/modules run-puppet /root/cluster --roles ", { "Ref" : "PostZkModules" }, " \n",
-
+          "\nbash /root/saasbase_installer -v -d /root -m /root/cluster/puppet/modules:/root/puppet/modules run-puppet /root/cluster --roles ${post_zk_modules} \n",
 
           "# All is well so signal success\n",
           "cfn-signal -e 0 -r \"Stack setup complete\" '", { "Ref" : "WaitHandle" }, "'\n",
