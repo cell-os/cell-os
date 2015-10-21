@@ -145,7 +145,7 @@ if [[ "${action}" == "list" ]]; then
         --output table \
         | grep "${cell_name}"
 
-      command="aws ec2 describe-instances --query \
+      command="aws ${AWS_OPTIONS} ec2 describe-instances --query \
                 'Reservations[*].Instances[*].[PublicIpAddress, \
                 PrivateIpAddress, ImageId, State.Name, KeyName]' \
                 --filters Name=tag:cell,Values=$2 \
@@ -217,7 +217,7 @@ if [[ "${action}" == "ssh" || "${action}" == "log" || "${action}" == "cmd"
     index=1
   fi
 
-  ip_and_keypair=$(aws ec2 describe-instances \
+  ip_and_keypair=$(aws ${AWS_OPTIONS} ec2 describe-instances \
     --query 'Reservations[*].Instances[*].[PublicIpAddress, KeyName]' \
     --filters Name=instance-state-code,Values=16 \
     Name=tag:cell,Values=${cell_name} Name=tag:role,Values=${role} \
