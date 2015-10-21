@@ -2,7 +2,7 @@
 
 An initial working prototype for the Amazon EC2-based elastic cell.  
 
-It consists of CloudFormation template to stand a cell running cell-os-base.  
+It consists of a CloudFormation template to stand a cell running cell-os-base.  
 
                    cell-os-base deployment diagram
 
@@ -44,51 +44,47 @@ Two helper scripts `zk-list-nodes` and `zk-barrier` can be used to get and block
 the zk enesemble. 
 
 Roles and tags are used to identify the EC2 instances and to set attributes.
-Modules
-`PreZkModules` are saasbase deployment modules that don't require zookeeper 
+Modules `PreZkModules` are saasbase deployment modules that don't require zookeeper. 
 `PostZkModules` are modules that need to be run after the ZK ensemble is functional
-by using the `zk-barrier` which will block polling for zk
+by using the `zk-barrier` which will block polling for zk.
 
 ### Nested Stacks: nucleus, stateless-body, stateful-body, membrane scaling groups
-
-
 
 There are two Cloud Formation templates. One that established the global infrastructure
 including the VPC, Subnet, Load Balancers, Internet Gateway, Routing Tables, Security Groups,
 etc. and another which sets up individual scaling groups (nucleus, body, membrane) that is 
 nested.
 
-
 **To troubleshoot**
 
-First check if the stack has succeeded and all VMs are up and finished initializing
+First check if the stack has succeeded and all VMs are up and finished initializing.
 It takes a while after.
 
-If your LBs are empty (or some of them are empty) and you're out of patience
+If your LBs are empty (or some of them are empty) and you're out of patience.
 
-Tail the logs on a  nucleus node
+* Tail the logs on a  nucleus node
 
     ./cell log <cell-name> nucleus
 
-Alternatively you could ssh into the node
+* Alternatively you could ssh into the node
 
     ./cell ssh <cell-name> nucleus
 
 On nucleus:
 
-Check if Exhibitor is running
+Check if Exhibitor is running:
 
     ./cell cmd <cell-name> nucleus 0 "curl -v localhost:8181/exhibitor/v1/cluster/status"
     ...
     [{"code":3,"description":"serving","hostname":"ip-10-0-0-12","isLeader":true}]
 
-If it doesn't work check if the Zookeeper container is running
+If it doesn't work check if the Zookeeper container is running:
 
     docker ps
     CONTAINER ID        IMAGE                                  COMMAND                CREATED             STATUS              PORTS                                                                                            NAMES
     6b17f546e911        mbabineau/zookeeper-exhibitor:latest   "bash -ex /opt/exhib   9 minutes ago       Up 9 minutes        0.0.0.0:2181->2181/tcp, 0.0.0.0:2888->2888/tcp, 0.0.0.0:3888->3888/tcp, 0.0.0.0:8181->8181/tcp   zk_zk-1
 
-You should see it there. Look at the logs
+You should see it there. Look at the logs:
 
     docker logs -f zk_zk-1
 
@@ -97,18 +93,18 @@ If it complains about the S3 URL, the bucket may be in a separate region.
 
 On body
 
-First make sure it's not still blocking for ZK
+First make sure it's not still blocking for ZK:
 
     ./cell log cell-1 body
 
 When blocking it will continuously echo something
 
-IF you want to check the ZK cluster
+IF you want to check the ZK cluster:
 
     ./cell cmd cell-1 body 0 /usr/local/bin/zk-list-nodes
 
 
-This should output at least one entry like
+This should output at least one entry like:
 
     ip-10-0-0-173:2181
 
@@ -132,9 +128,9 @@ If they're dead check why
     journalctl -xn -u mesos-mater
 
 They are configured to retry on failure so you can just tail (or look into)
-`/var/log/messages` to see what's going on
+`/var/log/messages` to see what's going on.
 
-I've seen bugs that caused a faulty ZK URI to get into the configurations
+I've seen bugs that caused a faulty ZK URI to get into the configurations.
 
 The main place where the config is driven from is `cluster.yaml`
 
@@ -189,17 +185,17 @@ creating a bucket in the right place as
 
 Speed
 
-- [x] Try removing host/core role to speed things up (added as it complained about `pip2.7)
+- [x] Try removing host/core role to speed things up (added as it complained about `pip2.7`)
 - [ ] Configure Exhibitor to converge faster
 - [ ] Cache VM AMIs once successfully created and reuse them - need to figure out
       access rights to these AMIs (no CF API for AMIs)
 - [ ] Generate AMIs at build time with basic stuff on them (packages and Docker layers?)
 
-## Raw CF JSON vs Troposhpere vs Terraform
+## Raw CF JSON vs Troposphere vs Terraform
 I wrote this directly in CF as it was simpler to get started (i.e. copy pasting from examples) but
 then I realized JSON is not that bad.  
 
-Troposhpere is a nice Python wrapper that can generate a CF template.  
+Troposphere is a nice Python wrapper that can generate a CF template.  
 Having python is nice, but I'm not sure it's necessarily simpler or with less code:  
 
 * This template has less than 500 lines
@@ -213,7 +209,7 @@ programmatically.
 
 ## Related work
 
-Behance has some nice work similar to this using Troposhpere and CoreOS instead of CentOS.
+Behance has some nice work similar to this using Troposphere and CoreOS instead of CentOS.
 Github repo here https://github.com/behance/mesos-cluster (note that it requires explicit
 access - talk to fortier@adobe.com).  
 It would be worthwhile evaluating if we shouldn't try to have a common base which we can reuse.  
@@ -223,7 +219,7 @@ look the same and could have some specifics layered on top.
 
 ## Current node layout
 This setup currently places only Zookeeper in the Nucleus and Mesos master and Marathon are part
-of the body.  
+of the body. 
 While this may seem weird, the reason is that neither Mesos master, nor Marathon are
 stateful nor do they require special care (they can be stopped and restarted anytime
 without a big impact.  

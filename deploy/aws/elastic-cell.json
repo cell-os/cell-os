@@ -544,51 +544,51 @@
     },
 
     "MesosLoadBalancer" : {
-     "Type" : "AWS::ElasticLoadBalancing::LoadBalancer",
-     "Properties" : {
-       "CrossZone": "true",
-       "Scheme": "internal",
-       "SecurityGroups": [{ "Ref": "LbSecurityGroup" }],
-       "Subnets": [{ "Ref": "Subnet" }],
-       "Listeners" : [ 
-         { "LoadBalancerPort" : "80", "InstancePort" : "5050","Protocol" : "HTTP"}
-       ],
-       "HealthCheck" : {
-         "Target" : "HTTP:5050/health",
-         "HealthyThreshold" : "3",
-         "UnhealthyThreshold" : "5",
-         "Interval" : "30",
-         "Timeout" : "5"
-       },
-       "Tags" : [
-         { "Key" : "cell", "Value" : {"Ref": "CellName"} }
-       ],
-       "LoadBalancerName" : { "Fn::Join" : ["", [ {"Ref": "CellName"}, "-lb-mesos"]]}
-     }
+      "Type" : "AWS::ElasticLoadBalancing::LoadBalancer",
+      "Properties" : {
+        "CrossZone": "true",
+        "Scheme": "internal",
+        "SecurityGroups": [{ "Ref": "LbSecurityGroup" }],
+        "Subnets": [{ "Ref": "Subnet" }],
+        "Listeners" : [ 
+          { "LoadBalancerPort" : "80", "InstancePort" : "5050","Protocol" : "HTTP"}
+        ],
+        "HealthCheck" : {
+          "Target" : "HTTP:5050/health",
+          "HealthyThreshold" : "3",
+          "UnhealthyThreshold" : "5",
+          "Interval" : "30",
+          "Timeout" : "5"
+        },
+        "Tags" : [
+          { "Key" : "cell", "Value" : {"Ref": "CellName"} }
+        ],
+        "LoadBalancerName" : { "Fn::Join" : ["", [ {"Ref": "CellName"}, "-lb-mesos"]]}
+      }
     },
 
     "MembraneLoadBalancer" : {
-     "Type" : "AWS::ElasticLoadBalancing::LoadBalancer",
-     "Properties" : {
-       "CrossZone": "true",
-       "Scheme": "internal",
-       "SecurityGroups": [{ "Ref": "LbSecurityGroup" }],
-       "Subnets": [{ "Ref": "Subnet" }],
-       "Listeners" : [
-         { "LoadBalancerPort" : "80", "InstancePort" : "80","Protocol" : "HTTP"}
-       ],
-       "HealthCheck" : {
-         "Target" : "HTTP:80/health-check",
-         "HealthyThreshold" : "3",
-         "UnhealthyThreshold" : "5",
-         "Interval" : "30",
-         "Timeout" : "5"
-       },
-       "Tags" : [
-         { "Key" : "cell", "Value" : {"Ref": "CellName"} }
-       ],
-       "LoadBalancerName" : { "Fn::Join" : ["", [ {"Ref": "CellName"}, "-lb-gw"]]}
-     }
+      "Type" : "AWS::ElasticLoadBalancing::LoadBalancer",
+      "Properties" : {
+        "CrossZone": "true",
+        "Scheme": "internal",
+        "SecurityGroups": [{ "Ref": "LbSecurityGroup" }],
+        "Subnets": [{ "Ref": "Subnet" }],
+        "Listeners" : [
+          { "LoadBalancerPort" : "80", "InstancePort" : "80","Protocol" : "HTTP"}
+        ],
+        "HealthCheck" : {
+          "Target" : "HTTP:80/health-check",
+          "HealthyThreshold" : "3",
+          "UnhealthyThreshold" : "5",
+          "Interval" : "30",
+          "Timeout" : "5"
+        },
+        "Tags" : [
+          { "Key" : "cell", "Value" : {"Ref": "CellName"} }
+        ],
+        "LoadBalancerName" : { "Fn::Join" : ["", [ {"Ref": "CellName"}, "-lb-gw"]]}
+      }
     },
 
     "WaitHandle" : {
