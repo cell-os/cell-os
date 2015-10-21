@@ -219,6 +219,8 @@
         "InstanceType" : { "Ref" : "InstanceType" },
         "UserData"       : { "Fn::Base64" : { "Fn::Join" : ["", [
           "#!/bin/bash\n",
+          "echo \"UTC\" > /etc/timezone\n", 
+          "ln -sf /usr/share/zoneinfo/UTC /etc/localtime\n", 
           "# Base packages\n", 
           "yum install -y wget ruby ruby-devel kpartx parted\n", 
           "curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py\n", 
