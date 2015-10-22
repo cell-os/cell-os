@@ -254,16 +254,16 @@ scale() {
     echo capacity must be an integer >&2
     exit 1
   fi
-  # --filter or --filters doesn't seem to be working
-  # alternatively this could be done through --query
-  scaling_group=$(aws autoscaling describe-auto-scaling-groups --query \
-    'AutoScalingGroups[*].[AutoScalingGroupName]' \
-    | grep "${cell_name}" \
-    | grep -i "${role}")
- echo "Scaling group ${scaling_group}"
- result=$(aws autoscaling update-auto-scaling-group --auto-scaling-group-name \
-   ${scaling_group} --desired-capacity ${capacity})
- exit
+  # jmespath outputs some trash which we need to filter out
+  scaling_group=$(aws autoscaling describe-auto-scaling-groups --output text \
+    --query "AutoScalingGroups[? (Tags[? Key=='role' && Value=='${role}'] \
+    && Tags[?Key=='cell' && Value=='${cell_name}'])]\
+    .AutoScalingGroupName")
+  echo "Scaling ${cell_name}.${role}(${scaling_group}) to ${capacity}"
+  result=$(aws autoscaling update-auto-scaling-group --auto-scaling-group-name \
+    ${scaling_group} --desired-capacity ${capacity})
+  echo "${result}"
+exit
 }
 
 cell_ssh() {
