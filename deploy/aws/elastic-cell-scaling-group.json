@@ -143,10 +143,8 @@
                 "export zk_discovery_url=\"{{zk_discovery_url}}\"\n", 
                 "export aws_stack_name=\"{{aws_stack_name}}\"\n",
                 "export aws_region=\"{{aws_region}}\"\n",
-                "export aws_access_key_id=\"{{aws_access_key_id}}\"\n",
-                "export aws_secret_access_key=\"{{aws_secret_access_key}}\"\n",
-                "export AWS_ACCESS_KEY_ID=\"{{aws_access_key_id}}\"\n",
-                "export AWS_SECRET_ACCESS_KEY=\"{{aws_secret_access_key}}\"\n",
+                "export SAASBASE_ACCESS_KEY_ID=\"{{saasbase_access_key_id}}\"\n",
+                "export SAASBASE_SECRET_ACCESS_KEY=\"{{saasbase_secret_access_key}}\"\n",
                 "export saasbase_version=\"{{saasbase_version}}\"\n",
                 "export cellos_version=\"{{cellos_version}}\"\n",
                 "export cell_bucket_name=\"{{cell_bucket_name}}\"\n", 
@@ -161,8 +159,8 @@
                   ]]}, 
                   "aws_stack_name": { "Ref": "AWS::StackName" }, 
                   "aws_region": { "Ref": "AWS::Region" }, 
-                  "aws_access_key_id": { "Ref": "SaasBaseAccessKeyId" }, 
-                  "aws_secret_access_key": { "Ref": "SaasBaseSecretAccessKey" }, 
+                  "saasbase_access_key_id": { "Ref": "SaasBaseAccessKeyId" }, 
+                  "saasbase_secret_access_key": { "Ref": "SaasBaseSecretAccessKey" }, 
                   "saasbase_version": { "Ref": "SaasBaseDeploymentVersion" }, 
                   "cellos_version": { "Ref": "CellOsVersionBundle" }, 
                   "cell_bucket_name": { "Ref": "BucketName" }, 
@@ -223,38 +221,45 @@
           "ln -sf /usr/share/zoneinfo/UTC /etc/localtime\n", 
           "# Base packages\n", 
           "yum install -y wget ruby ruby-devel kpartx parted\n", 
+
+          "# Pip \n", 
           "curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py\n", 
           "python get-pip.py\n", 
-          "\n", 
+
+          "# aws-cli \n", 
           "pip install --upgrade awscli\n", 
           "rpm -ivh http://s3.amazonaws.com/saasbase-repo/yumrepo/ec2-utils-0.6-2.el7.centos.noarch.rpm\n", 
           "rpm -ivh http://s3.amazonaws.com/saasbase-repo/yumrepo/ec2-net-utils-0.6-2.el7.centos.noarch.rpm\n", 
           "pip uninstall -y certifi\n", 
           "pip install certifi==2015.04.28\n", 
 
+          "# cfn bootstrap \n", 
           "curl -O https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz\n",
           "tar -xzf aws-cfn-bootstrap-latest.tar.gz\n",
           "cd aws-cfn*\n",
           "easy_install pystache\n",
           "python setup.py install\n",
 
-          "# Helper function\n",
+          "# Helper functions\n",
           "function error_exit\n",
           "{\n",
           "  cfn-signal -e 1 -r \"$1\" '", { "Ref" : "WaitHandle" }, "'\n",
           "  exit 1\n",
           "}\n",
+
+          "# Process CloudFormation init definitions\n",
+          "cfn-init -s ", { "Ref": "AWS::StackName" }, " -r BodyLaunchConfig  --region ", { "Ref": "AWS::Region" }, " || error_exit 'Failed to run cfn-init'\n",
+
           "# export vars\n", 
           "source /etc/profile.d/cellos.sh\n", 
           "export pre_zk_modules='", { "Ref" : "PreZkModules" }, "'\n",
           "export post_zk_modules='", { "Ref" : "PostZkModules" }, "'\n",
           "export wait_handle='", { "Ref" : "WaitHandle" }, "'\n",
 
-          "# Process CloudFormation init definitions\n",
-          "cfn-init -s $aws_stack_name -r BodyLaunchConfig  --region $aws_region || error_exit 'Failed to run cfn-init'\n",
 
+          "# Provisioning \n", 
           "curl -o /root/saasbase_installer https://s3.amazonaws.com/saasbase-repo/saasbase_installer${saasbase_version}\n",
-          "bash /root/saasbase_installer fetch ${saasbase_version}\n",
+          "AWS_ACCESS_KEY_ID=\"${SAASBASE_ACCESS_KEY_ID}\" AWS_SECRET_ACCESS_KEY=\"${SAASBASE_SECRET_ACCESS_KEY}\" bash /root/saasbase_installer fetch ${saasbase_version}\n",
           "curl -o /root/puppet/profiles/${cellos_version}.yaml ", 
           "https://s3.amazonaws.com/saasbase-repo/cell-os/${cellos_version}.yaml", "\n",
 
@@ -264,7 +269,7 @@
           { "Ref" : "SaasBaseUserData" },
           "\n",
           "# pre zk\n",
-          "bash /root/saasbase_installer -v -d /root -m /root/cluster/puppet/modules run-puppet /root/cluster --roles ${pre_zk_modules} \n",
+          "AWS_ACCESS_KEY_ID=\"${SAASBASE_ACCESS_KEY_ID}\" AWS_SECRET_ACCESS_KEY=\"${SAASBASE_SECRET_ACCESS_KEY}\" bash /root/saasbase_installer -v -d /root -m /root/cluster/puppet/modules run-puppet /root/cluster --roles ${pre_zk_modules} \n",
 
           "# post zk\n",
           "/usr/local/bin/zk-barrier\n",
@@ -273,11 +278,11 @@
           "# regenerate cluster.yaml\n",
           "echo '' > /root/cluster/cluster.yaml\n",
           { "Ref" : "SaasBaseUserData" },
-
-          "\nbash /root/saasbase_installer -v -d /root -m /root/cluster/puppet/modules:/root/puppet/modules run-puppet /root/cluster --roles ${post_zk_modules} \n",
+          "\n", 
+          "AWS_ACCESS_KEY_ID=\"${SAASBASE_ACCESS_KEY_ID}\" AWS_SECRET_ACCESS_KEY=\"${SAASBASE_SECRET_ACCESS_KEY}\" bash /root/saasbase_installer -v -d /root -m /root/cluster/puppet/modules:/root/puppet/modules run-puppet /root/cluster --roles ${post_zk_modules} \n",
 
           "# All is well so signal success\n",
-          "cfn-signal -e 0 -r \"Stack setup complete\" '", { "Ref" : "WaitHandle" }, "'\n",
+          "cfn-signal -e 0 -r \"Stack setup complete\" \"${wait_handle}\"\n",
 
           "#EOF"
         ]]}}
