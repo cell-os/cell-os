@@ -1,6 +1,5 @@
 #!/bin/bash
 
-
 # cell-os cli
 type aws >/dev/null 2>&1 || { echo >&2 "AWS CLI not found
 pip install awscli or brew install awscli
@@ -34,8 +33,17 @@ USAGE="
       ${HOME}/.ssh). The .pem extension is required.
     PROXY_PORT - the SOCKS5 proxy port (defaults to ${PROXY_PORT})
 
-  All AWS CLI environment variables (e.g. AWS_DEFAULT_REGION, AWS_ACCESS_KEY_ID,
-  AWS_SECRET_ACCESS_KEY, etc.) and configs apply.
+usage: ./cell <action> <cell-name> [nucleus|stateless-body|stateful-body|membrane] [<index>] [<command>]
+  actions:
+    create <cell-name> - creates a new cell
+    delete <cell-name> - deletes an existing cell
+    list <cell-name> - lists existing stacks or the nodes in a cell
+    scale <cell-name> <role> <capacity> - scales role to desired capacity
+    ssh <cell-name> <role> [<index>] - ssh to first node in role or to index
+    i2ssh <cell-name> <role> - ssh to all nodes  (requires i2cssh)
+    log <cell-name> [<role>] [<index>] - tail stack events or nodes deploy log
+    cmd <cell-name> <role> <index> - run command on node n
+    proxy <cell-name> <role> - open SOCKS proxy to first node in <role>
 
   This CLI is a convenience tool, not intended as an exhaustive cluster manager.
   For advanced use-cases please use the AWS CLI or the AWS web console.
@@ -61,6 +69,9 @@ case "$1" in
     ;;
   scale)
     action="scale"
+    ;;
+  sshall)
+    action="sshall"
     ;;
   ssh)
     action="ssh"
@@ -201,6 +212,7 @@ if [[ "${action}" == "sshall" ]]; then
     exit 1
   fi
   i2cssh -l ${SSH_USER} -m $machines -Xi="${key_file}"
+
 fi
 
 if [[ "${action}" == "ssh" || "${action}" == "log" || "${action}" == "cmd" 
