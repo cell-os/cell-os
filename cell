@@ -23,8 +23,8 @@ SAASBASE_SECRET_ACCESS_KEY='xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
 AWS_OPTIONS='--output text'
 PROXY_PORT=${PROXY_PORT:-'1234'}
 SSH_TIMEOUT=${SSH_TIMEOUT:-'5'}
-VERSION=$(cat VERSION)
-SSH_USER="centos"
+VERSION=${VERSION:-$(cat VERSION)}
+SSH_USER=${SSH_USER:-'centos'} # used to login on instances, specific to VM image
 USAGE="
   cell-os cli utility ${VERSION}
 
