@@ -126,14 +126,14 @@ if ! [[ $(aws ${AWS_OPTIONS} ec2 describe-key-pairs \
   VALIDATION_ERROR=true
 fi
 
-BUCKET_NAME="cell-os--${cell_name}"
-STACK_NAME="${cell_name}" # TODO stack name should read selected region
+bucket_name="cell-os--${cell_name}"
+stack_name="${cell_name}" # TODO stack name should read selected region
 
 CONFIG="
   \n  AWS_KEY_PAIR  = \"${AWS_KEY_PAIR}\" - defaults to first key pair on the \
                       account \
-  \n  BUCKET_NAME   = \"${BUCKET_NAME}\" (readonly - cell-os--<cell-name>) \
-  \n  STACK_NAME    = \"${STACK_NAME}\" (readonly - <cell-name>) \n\n"
+  \n  BUCKET_NAME   = \"${bucket_name}\" (readonly - cell-os--<cell-name>) \
+  \n  STACK_NAME    = \"${stack_name}\" (readonly - <cell-name>) \n\n"
 
 if [[ "${VALIDATION_ERROR}" == true ]]; then
   printf "${CONFIG}"
@@ -142,17 +142,17 @@ fi
 
 if [[ "${action}" == "delete" ]]; then
   echo "WARNING: THIS WILL DELETE ALL RESOURCES ASSOCIATED TO ${cell_name}"
-  echo "s3://${BUCKET_NAME}"
-  aws s3 ls --summarize s3://${BUCKET_NAME}
+  echo "s3://${bucket_name}"
+  aws s3 ls --summarize s3://${bucket_name}
   echo "for verification please type the name of the cell you want to delete"
   read cell_to_delete
   if [[ "${cell_to_delete}" != "${cell_name}" ]]; then
     echo "cell name doesn't match cell to delete" #1>&2
     exit 1
   fi
-  aws cloudformation delete-stack --stack-name ${STACK_NAME}
-  aws s3 rm --recursive --include "*" s3://${BUCKET_NAME}
-  aws s3 rb s3://${BUCKET_NAME}
+  aws cloudformation delete-stack --stack-name ${stack_name}
+  aws s3 rm --recursive --include "*" s3://${bucket_name}
+  aws s3 rb s3://${bucket_name}
   exit 0
 fi
 
@@ -235,7 +235,7 @@ if [[ "${action}" == "ssh" || "${action}" == "log" || "${action}" == "cmd"
   if [[ "${action}" == "log" ]]; then
     if [[ -z $3 ]]; then
       watch -n 1 "aws cloudformation describe-stack-events \
-        --stack-name ${STACK_NAME} --output table \
+        --stack-name ${stack_name} --output table \
         --query 'StackEvents[*].[Timestamp, LogicalResourceId, ResourceStatus]' \
         --max-items 10"
       exit 0
@@ -316,15 +316,15 @@ if [[ "${action}" == "create" ]]; then
   fi
 
   # Copy nested stack
-  RET=$(aws s3 cp deploy/aws/elastic-cell-scaling-group.json s3://"${BUCKET_NAME}"/)
+  RET=$(aws s3 cp $sub_stack s3://"${bucket_name}"/)
   if [[ ! $? -eq 0 ]]; then
     exit 1
   fi
 
-  echo "creating stack ${STACK_NAME}..."
+  echo "creating stack ${stack_name}..."
   aws cloudformation create-stack \
       --template-body "file://${base_stack}" \
-      --stack-name "${STACK_NAME}" \
+      --stack-name "${stack_name}" \
       --tags Key=name,Value="${cell_name}" Key=version,Value="${VERSION}" \
       --capabilities CAPABILITY_IAM \
       --parameters \
@@ -332,7 +332,7 @@ if [[ "${action}" == "create" ]]; then
           ParameterKey=CellName,ParameterValue="${cell_name}" \
           ParameterKey=CellOsVersionBundle,ParameterValue="cell-os-base-${VERSION}" \
           ParameterKey=KeyName,ParameterValue="${AWS_KEY_PAIR}" \
-          ParameterKey=BucketName,ParameterValue="${BUCKET_NAME}" \
+          ParameterKey=BucketName,ParameterValue="${bucket_name}" \
           ParameterKey=SaasBaseAccessKeyId,ParameterValue="${SAASBASE_ACCESS_KEY_ID}" \
           ParameterKey=SaasBaseSecretAccessKey,ParameterValue="${SAASBASE_SECRET_ACCESS_KEY}" \
   || { exit 1; }
