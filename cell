@@ -52,7 +52,7 @@ usage: ./cell <action> <cell-name> [nucleus|stateless-body|stateful-body|membran
 
 Environment variables:
 
-  AWS_KEY_PAIR - EC2 ssh keypir to use (defaults to first on the account)
+  AWS_KEY_PAIR - EC2 ssh keypair to use (defaults to first on the account)
   KEYPATH - the local path where <keypair>.pem is found (defaults to
     ${HOME}/.ssh). The .pem extension is required.
   PROXY_PORT - the SOCKS5 proxy port (defaults to ${PROXY_PORT})
@@ -172,8 +172,7 @@ update() {
   cfn update
 
   echo "cloudformation ret = $?"
-  printf "${CONFIG}"
-
+  printf "${CONFIG}\n"
   echo "To watch your cell infrastructure provisioning log you can ./cell log ${cell_name}" 
   echo "For detailed node provisioning ./cell log ${cell_name} nucleus 1"
   exit 0
