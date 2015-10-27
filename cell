@@ -323,7 +323,7 @@ proxy() {
   cell_ssh "-N -g -C -D ${PROXY_PORT}" ""
 }
 
-sshall() {
+i2cssh() {
   ssh_options="-o ConnectTimeout=${SSH_TIMEOUT}"
   machines=$(for role in nucleus stateful-body membrane stateless-body; do 
     aws ${AWS_OPTIONS} ec2 describe-instances \
@@ -365,8 +365,8 @@ case "$1" in
   scale)
     scale
     ;;
-  sshall)
-    sshall
+  i2cssh)
+    i2cssh
     ;;
   ssh)
     cell_ssh
