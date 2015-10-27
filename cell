@@ -126,17 +126,13 @@ cfn() {
 }
 
 build_stack_files() {
-  if [[ $GENERATE ]]; then
-    echo "creating stacks"
-    python $DIR/deploy/aws/tools/elastic-cell.py > $DIR/deploy/aws/tools/elastic-cell.json
-    python $DIR/deploy/aws/tools/elastic-cell-scaling-group.py > $DIR/deploy/aws/tools/elastic-cell-scaling-group.json
-    
-    base_stack=$DIR/deploy/aws/tools/elastic-cell.json
-    sub_stack=$DIR/deploy/aws/tools/elastic-cell-scaling-group.json
-  else
-    base_stack=$DIR/deploy/aws/elastic-cell.json
-    sub_stack=$DIR/deploy/aws/elastic-cell-scaling-group.json
-  fi
+  echo "creating stacks"
+  rm -rf "$DIR/deploy/aws/build"
+  mkdir "$DIR/deploy/aws/build"
+  python $DIR/deploy/aws/elastic-cell.py > $DIR/deploy/aws/build/elastic-cell.json
+  python $DIR/deploy/aws/elastic-cell-scaling-group.py > $DIR/deploy/aws/build/elastic-cell-scaling-group.json
+  base_stack=$DIR/deploy/aws/build/elastic-cell.json
+  sub_stack=$DIR/deploy/aws/build/elastic-cell-scaling-group.json
 }
 
 create_bucket() {
