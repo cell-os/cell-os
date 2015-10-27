@@ -37,6 +37,10 @@ Currently only AWS is supported by the CLI.
     pip install awscli
     aws configure
 
+#### Install [Troposphere](https://github.com/cloudtools/troposphere) and [awacs](https://github.com/cloudtools/awacs)
+    pip install troposphere
+    pip install awacs
+
 ## Usage
 
     export AWS_KEY_PAIR=<the EC2 keypair that should be used. Defaults to first key on the AWS account>
