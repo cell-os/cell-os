@@ -8,13 +8,31 @@
       "Type" : "String",
       "Default" : "c3.2xlarge",
       "AllowedValues" : [
-        "t2.micro", "t2.small", "t2.medium",
+        "t2.micro", "t2.small", "t2.medium", "t2.large", 
         "m3.medium", "m3.large", "m3.xlarge", "m3.2xlarge",
         "c4.large", "c4.xlarge", "c4.2xlarge", "c4.4xlarge", "c4.8xlarge",
         "c3.large", "c3.xlarge", "c3.2xlarge", "c3.4xlarge", "c3.8xlarge",
         "r3.large", "r3.xlarge", "r3.2xlarge", "r3.4xlarge", "r3.8xlarge",
         "i2.xlarge", "i2.2xlarge", "i2.4xlarge", "i2.8xlarge",
         "hs1.8xlarge", "g2.2xlarge"
+      ],
+      "ConstraintDescription" : "must be a valid, HVM-compatible EC2 instance type."
+    },
+    "InstanceTypeStatefulBody" : {
+      "Description" : "EC2 instance type for Stateful Body",
+      "Type" : "String",
+      "Default" : "c3.2xlarge",
+      "AllowedValues" : [
+        "c3.large", "c3.xlarge", "c3.2xlarge", "c3.4xlarge", "c3.8xlarge",
+        "cc2.8xlarge", 
+        "cr1.8xlarge",
+        "d2.xlarge", "d2.2xlarge", "d2.4xlarge", "d2.8xlarge", 
+        "g2.2xlarge", "g2.8xlarge", 
+        "hi1.4xlarge",
+        "hs1.8xlarge", 
+        "i2.xlarge", "i2.2xlarge", "i2.4xlarge", "i2.8xlarge", 
+        "m3.medium", "m3.large", "m3.xlarge", "m3.2xlarge",
+        "r3.large", "r3.xlarge", "r3.2xlarge", "r3.4xlarge", "r3.8xlarge"
       ],
       "ConstraintDescription" : "must be a valid, HVM-compatible EC2 instance type."
     },
@@ -88,19 +106,11 @@
       "ap-southeast-2" : { "AMI" : "ami-f54d0fcf" },
       "ap-southeast-1" : { "AMI" : "ami-3e9e906c" }
     },
-
     "UserData" : {
-      "base" : {
+      "config" : {
         "base" :  [
-        ], 
-        "nucleus": [
-          "echo \"zookeeper::aws_s3_region: ${aws_region}\" >> /root/cluster/cluster.yaml\n",
-          "echo \"zookeeper::aws_s3_bucket: ${cell_bucket_name}\" >> /root/cluster/cluster.yaml\n",
-          "echo \"zookeeper::aws_s3_prefix: ${cell_name}/nucleus/exhibitor\" >> /root/cluster/cluster.yaml\n", 
           ""
-        ]
-      },
-      "body"   : {
+        ], 
         "mesos" :  [
           "echo mesos::zookeeper:   zk://$zk/mesos      >> /root/cluster/cluster.yaml\n"
         ],
@@ -109,6 +119,70 @@
           "echo marathon::master:   zk://$zk/mesos      >> /root/cluster/cluster.yaml\n",
           "echo marathon::bin_path: /opt/marathon/bin   >> /root/cluster/cluster.yaml\n",
           "echo marathon::install_java: false           >> /root/cluster/cluster.yaml\n"
+        ], 
+        "zookeeper": [
+          "echo \"zookeeper::aws_s3_region: ${aws_region}\" >> /root/cluster/cluster.yaml\n",
+          "echo \"zookeeper::aws_s3_bucket: ${cell_bucket_name}\" >> /root/cluster/cluster.yaml\n",
+          "echo \"zookeeper::aws_s3_prefix: ${cell_name}/nucleus/exhibitor\" >> /root/cluster/cluster.yaml\n", 
+          ""
+        ], 
+        "hadoop": [
+          "echo \"\" >> /root/cluster/cluster.yaml\n", 
+          "### HDFS setup \n",
+          "echo hadoop_version: 2.6.0-cdh5.4.2-adobe    >> /root/cluster/cluster.yaml\n", 
+          "echo \"hadoop_lzo_version: 0.4.20\" >> /root/cluster/cluster.yaml\n", 
+          "export nn1_host=$(eval $search_instance_cmd Name=tag:role,Values=nucleus | jq -r '.[][][1]' | head -n 1)\n", 
+          "export nn2_host=$(eval $search_instance_cmd Name=tag:role,Values=nucleus | jq -r '.[][][1]' | head -2 | tail -1)\n", 
+          "echo \"nn1_host: ${nn1_host}\" >> /root/cluster/cluster.yaml\n", 
+          "echo \"nn2_host: ${nn2_host}\" >> /root/cluster/cluster.yaml\n", 
+          "echo \"zk_quorum:\" >> /root/cluster/cluster.yaml\n", 
+          "zk-list-nodes 2>/dev/null | sed 's/,/\\n/g' | sed 's/:.*$//g' | sed 's/^/-  /' >> /root/cluster/cluster.yaml\n", 
+          "echo \"hadoop_data_nodes: []\" >> /root/cluster/cluster.yaml\n", 
+          "echo \"hadoop_number_of_disks: $(/usr/local/bin/detect-and-mount-disks)\" >> /root/cluster/cluster.yaml\n", 
+          "echo \"hadoop::historyserver_host: $(eval $command | jq -r '.[][][1]' | head -n 1)\" >> /root/cluster/cluster.yaml\n", 
+          "echo \"hadoop::proxyusers: {}\" >> /root/cluster/cluster.yaml\n", 
+          "echo \"hadoop_data_nodes: []\" >> /root/cluster/cluster.yaml\n", 
+          ""
+        ]
+      },
+      "provision": {
+        "pre": [
+          "provision puppet ${pre_zk_modules}\n"
+        ], 
+        "post": [
+          "provision puppet ${post_zk_modules}\n"
+        ]
+      }, 
+      "orchestrate": {
+        "namenode": [
+          "export host=$(hostname -f)\n", 
+          "service hadoop-hdfs-journalnode start\n", 
+          "sleep 10\n", 
+          "aws s3api put-object --bucket ${cell_bucket_name} --key orch/${aws_parent_stack_name}/zk/$host\n", 
+          "if [[ $host == $nn1_host ]]; then\n", 
+          "  aws_wait \"aws s3api list-objects --bucket ${cell_bucket_name} --prefix orch/${aws_parent_stack_name}/zk/\" \".Contents | length\" \"3\"\n", 
+          "  su --login hadoop -c \"/home/hadoop/hadoop/bin/hdfs namenode -format -nonInteractive\"\n", 
+          "  su --login hadoop -c \"/home/hadoop/hadoop/bin/hdfs zkfc -formatZK -nonInteractive\"\n", 
+          "  systemctl start hadoop-hdfs-zkfc\n", 
+          "  systemctl start hadoop-hdfs-namenode\n", 
+          "  aws s3api put-object --bucket ${cell_bucket_name} --key orch/${aws_parent_stack_name}/nn1\n", 
+          "fi\n", 
+          "if [[ $host == $nn2_host ]]; then\n", 
+          "  aws_wait \"aws s3api list-objects --bucket ${cell_bucket_name} --prefix orch/${aws_parent_stack_name}/zk/\" \".Contents | length\" \"3\"\n", 
+          "  aws_wait \"aws s3api list-objects --bucket ${cell_bucket_name} --prefix orch/${aws_parent_stack_name}/nn1\" \".Contents | length\" \"1\"\n", 
+          "  su --login hadoop -c \"/home/hadoop/hadoop/bin/hdfs namenode -bootstrapStandby -nonInteractive\"\n", 
+          "  systemctl start hadoop-hdfs-zkfc\n", 
+          "  systemctl start hadoop-hdfs-namenode\n", 
+          "  sleep 10\n", 
+          "  aws s3api put-object --bucket ${cell_bucket_name} --key orch/${aws_parent_stack_name}/nn2\n", 
+          "fi\n", 
+          ""
+        ], 
+        "datanode": [
+          "aws_wait \"aws s3api list-objects --bucket ${cell_bucket_name} --prefix orch/${aws_parent_stack_name}/nn2\" \".Contents | length\" \"1\"\n", 
+          "systemctl start hadoop-hdfs-datanode\n", 
+          "aws s3api put-object --bucket ${cell_bucket_name} --key orch/${aws_parent_stack_name}/dn/${host}\n", 
+          ""
         ]
       }
     }
@@ -190,32 +264,66 @@
           } ]
         },
         "Path": "/",
-        "Policies": [ {
-          "PolicyName": "s3_nucleus",
-          "PolicyDocument": {
-            "Version" : "2012-10-17",
-            "Statement": [ {
-              "Effect": "Allow",
-              "Action": [
-                "s3:AbortMultipartUpload",
-                "s3:DeleteObject",
-                "s3:GetBucketAcl",
-                "s3:GetBucketPolicy",
-                "s3:GetObject",
-                "s3:GetObjectAcl",
-                "s3:ListBucket",
-                "s3:ListBucketMultipartUploads",
-                "s3:ListMultipartUploadParts",
-                "s3:PutObject",
-                "s3:PutObjectAcl"
-              ],
-              "Resource": [
-                { "Fn::Join" : ["", ["arn:aws:s3:::", {"Ref": "BucketName"}, "/*"]]},
-                { "Fn::Join" : ["", ["arn:aws:s3:::", {"Ref": "BucketName"}]]}
+        "Policies": [
+          {
+            "PolicyName": "s3_nucleus",
+            "PolicyDocument": {
+              "Version" : "2012-10-17",
+              "Statement": [ {
+                "Effect": "Allow",
+                "Action": [
+                  "s3:AbortMultipartUpload",
+                  "s3:DeleteObject",
+                  "s3:GetBucketAcl",
+                  "s3:GetBucketPolicy",
+                  "s3:GetObject",
+                  "s3:GetObjectAcl",
+                  "s3:ListBucket",
+                  "s3:ListBucketMultipartUploads",
+                  "s3:ListMultipartUploadParts",
+                  "s3:PutObject",
+                  "s3:PutObjectAcl"
+                ],
+                "Resource": [
+                  { "Fn::Join" : ["", ["arn:aws:s3:::", {"Ref": "BucketName"}, "/*"]]},
+                  { "Fn::Join" : ["", ["arn:aws:s3:::", {"Ref": "BucketName"}]]}
+                ]
+              }
               ]
-            } ]
+            }
+          }, 
+          {
+            "PolicyName": "ec2_nucleus",
+            "PolicyDocument": {
+              "Version" : "2012-10-17",
+              "Statement": [ {
+                "Effect": "Allow",
+                "Action": [
+                  "ec2:Describe*"
+                ],
+                "Resource": ["*"]
+              } ]
+            }
+          }, 
+          {
+            "PolicyName": "cfn_nucleus",
+            "PolicyDocument": {
+              "Version" : "2012-10-17",
+              "Statement": [ {
+                "Effect": "Allow",
+                "Action": [
+                  "autoscaling:Describe*",
+                  "cloudformation:Describe*",
+                  "cloudformation:GetStackPolicy",
+                  "cloudformation:GetTemplate*",
+                  "cloudformation:ListStacks",
+                  "cloudformation:ListStackResources"
+                ],
+                "Resource": ["*"]
+              } ]
+            }
           }
-        } ]
+        ]
       }
     },
 
@@ -239,12 +347,21 @@
           "Tags" : "nucleus",
 
           "PreZkModules"  : "docker,zookeeper,java",
-          "PostZkModules" : "mesos::slave,hadoop_2_namenode,hadoop_2::hdfs::journalnode",
+          "PostZkModules" : "mesos::slave,base,hadoop_2_namenode,hadoop_2,hadoop_2_journalnode",
 
           "SaasBaseUserData" : { "Fn::Join" : ["", [
-            {"Fn::Join" : ["", { "Fn::FindInMap" : [ "UserData", "base", "base"] }]}, 
-            {"Fn::Join" : ["", { "Fn::FindInMap" : [ "UserData", "base", "nucleus"] }]}
+            {"Fn::Join" : ["", { "Fn::FindInMap" : [ "UserData", "config", "base"] }]}, 
+            {"Fn::Join" : ["", { "Fn::FindInMap" : [ "UserData", "config", "zookeeper"] }]}, 
+            {"Fn::Join" : ["", { "Fn::FindInMap" : [ "UserData", "provision", "pre"] }]}
           ]]},
+          "SaasBaseUserDataPost" : { "Fn::Join" : ["", [
+            {"Fn::Join" : ["", { "Fn::FindInMap" : [ "UserData", "config", "base"] }]}, 
+            {"Fn::Join" : ["", { "Fn::FindInMap" : [ "UserData", "config", "zookeeper"] }]}, 
+            {"Fn::Join" : ["", { "Fn::FindInMap" : [ "UserData", "config", "hadoop"] }]}, 
+            {"Fn::Join" : ["", { "Fn::FindInMap" : [ "UserData", "provision", "post"] }]}, 
+            {"Fn::Join" : ["", { "Fn::FindInMap" : [ "UserData", "orchestrate", "namenode"] }]}
+          ]]},
+          "ParentStackName"    :          { "Ref" : "AWS::StackName" },
           "IamInstanceProfile" :          { "Ref" : "NucleusInstanceProfile" },
           "SecurityGroups" : { "Fn::Join" : [ ",", [
                                           { "Ref" : "NucleusSecurityGroup" },
@@ -284,10 +401,17 @@
           "PostZkModules" : "mesos::slave",
 
           "SaasBaseUserData" : { "Fn::Join" : ["", [
-            {"Fn::Join" : ["", { "Fn::FindInMap" : [ "UserData", "base", "base"] }]},
-            {"Fn::Join" : ["", { "Fn::FindInMap" : [ "UserData", "body", "mesos"] }]}
+            {"Fn::Join" : ["", { "Fn::FindInMap" : [ "UserData", "config", "base"] }]},
+            {"Fn::Join" : ["", { "Fn::FindInMap" : [ "UserData", "config", "mesos"] }]}, 
+            {"Fn::Join" : ["", { "Fn::FindInMap" : [ "UserData", "provision", "pre"] }]}
           ]]},
-
+          "SaasBaseUserDataPost" : { "Fn::Join" : ["", [
+            {"Fn::Join" : ["", { "Fn::FindInMap" : [ "UserData", "config", "base"] }]},
+            {"Fn::Join" : ["", { "Fn::FindInMap" : [ "UserData", "config", "mesos"] }]}, 
+            {"Fn::Join" : ["", { "Fn::FindInMap" : [ "UserData", "provision", "post"] }]}
+          ]]},
+          "ParentStackName"    :          { "Ref" : "AWS::StackName" },
+          "IamInstanceProfile" :          { "Ref" : "NucleusInstanceProfile" },
           "SecurityGroups" : { "Fn::Join" : [ ",", [
 
                                           { "Ref" : "PublicSecurityGroup" },
@@ -331,10 +455,19 @@
           "PostZkModules" : "mesos::master,mesos::slave,marathon",
 
           "SaasBaseUserData" : { "Fn::Join" : ["", [
-            {"Fn::Join" : ["", { "Fn::FindInMap" : [ "UserData", "base", "base"] }]},
-            {"Fn::Join" : ["", { "Fn::FindInMap" : [ "UserData", "body", "mesos"] }]},
-            {"Fn::Join" : ["", { "Fn::FindInMap" : [ "UserData", "body", "marathon"] }]}
+            {"Fn::Join" : ["", { "Fn::FindInMap" : [ "UserData", "config", "base"] }]},
+            {"Fn::Join" : ["", { "Fn::FindInMap" : [ "UserData", "config", "mesos"] }]},
+            {"Fn::Join" : ["", { "Fn::FindInMap" : [ "UserData", "config", "marathon"] }]}, 
+            {"Fn::Join" : ["", { "Fn::FindInMap" : [ "UserData", "provision", "pre"] }]}
           ]]},
+          "SaasBaseUserDataPost" : { "Fn::Join" : ["", [
+            {"Fn::Join" : ["", { "Fn::FindInMap" : [ "UserData", "config", "base"] }]},
+            {"Fn::Join" : ["", { "Fn::FindInMap" : [ "UserData", "config", "mesos"] }]},
+            {"Fn::Join" : ["", { "Fn::FindInMap" : [ "UserData", "config", "marathon"] }]}, 
+            {"Fn::Join" : ["", { "Fn::FindInMap" : [ "UserData", "provision", "post"] }]}
+          ]]},
+          "ParentStackName"    :          { "Ref" : "AWS::StackName" },
+          "IamInstanceProfile" :          { "Ref" : "NucleusInstanceProfile" },
           "SecurityGroups" : { "Fn::Join" : [ ",", [
                                             { "Ref" : "BodySecurityGroup" },
                                             { "Ref" : "ExternalWhitelistSecurityGroup" }
@@ -376,13 +509,24 @@
           "Tags" : "slave,body,stateful,stateful-body",
 
           "PreZkModules"  : "docker,java",
-          "PostZkModules" : "mesos::slave,hadoop_2_datanode",
+          "PostZkModules" : "mesos::slave,base,hadoop_2_datanode",
 
           "SaasBaseUserData" : { "Fn::Join" : ["", [
-            {"Fn::Join" : ["", { "Fn::FindInMap" : [ "UserData", "base", "base"] }]},
-            {"Fn::Join" : ["", { "Fn::FindInMap" : [ "UserData", "body", "mesos"] }]},
-            {"Fn::Join" : ["", { "Fn::FindInMap" : [ "UserData", "body", "marathon"] }]}
+            {"Fn::Join" : ["", { "Fn::FindInMap" : [ "UserData", "config", "base"] }]},
+            {"Fn::Join" : ["", { "Fn::FindInMap" : [ "UserData", "config", "mesos"] }]},
+            {"Fn::Join" : ["", { "Fn::FindInMap" : [ "UserData", "config", "marathon"] }]}, 
+            {"Fn::Join" : ["", { "Fn::FindInMap" : [ "UserData", "provision", "pre"] }]}
           ]]},
+          "SaasBaseUserDataPost" : { "Fn::Join" : ["", [
+            {"Fn::Join" : ["", { "Fn::FindInMap" : [ "UserData", "config", "base"] }]},
+            {"Fn::Join" : ["", { "Fn::FindInMap" : [ "UserData", "config", "mesos"] }]},
+            {"Fn::Join" : ["", { "Fn::FindInMap" : [ "UserData", "config", "marathon"] }]}, 
+            {"Fn::Join" : ["", { "Fn::FindInMap" : [ "UserData", "config", "hadoop"] }]}, 
+            {"Fn::Join" : ["", { "Fn::FindInMap" : [ "UserData", "provision", "post"] }]}, 
+            {"Fn::Join" : ["", { "Fn::FindInMap" : [ "UserData", "orchestrate", "datanode"] }]}
+          ]]},
+          "ParentStackName"    :          { "Ref" : "AWS::StackName" },
+          "IamInstanceProfile" :          { "Ref" : "NucleusInstanceProfile" },
           "SecurityGroups" : { "Fn::Join" : [ ",", [
             { "Ref" : "BodySecurityGroup" },
             { "Ref" : "ExternalWhitelistSecurityGroup" }
@@ -400,7 +544,7 @@
           "CellName" :                      { "Ref" : "CellName" },
           "BucketName" :                    { "Ref" : "BucketName" },
           "CellOsVersionBundle" :           { "Ref" : "CellOsVersionBundle" },
-          "InstanceType" :                  { "Ref" : "InstanceType" },
+          "InstanceType" :                  { "Ref" : "InstanceTypeStatefulBody" },
           "Subnet" :                        { "Ref" : "Subnet" },
           "KeyName" :                       { "Ref" : "KeyName" },
           "SaasBaseDeploymentVersion" :     { "Ref" : "SaasBaseDeploymentVersion" },
@@ -436,7 +580,9 @@
           { "IpProtocol" : "tcp", "FromPort" : "8181", "ToPort" : "8181", "SourceSecurityGroupId" : { "Ref" : "LbSecurityGroup"} },
           { "IpProtocol" : "tcp", "FromPort" : "2181", "ToPort" : "2181", "SourceSecurityGroupId" : { "Ref" : "BodySecurityGroup"} },
           { "IpProtocol" : "tcp", "FromPort" : "2888", "ToPort" : "2888", "SourceSecurityGroupId" : { "Ref" : "BodySecurityGroup"} },
-          { "IpProtocol" : "tcp", "FromPort" : "3888", "ToPort" : "3888", "SourceSecurityGroupId" : { "Ref" : "BodySecurityGroup"} }
+          { "IpProtocol" : "tcp", "FromPort" : "3888", "ToPort" : "3888", "SourceSecurityGroupId" : { "Ref" : "BodySecurityGroup"} }, 
+          { "IpProtocol" : "tcp", "FromPort" : "9000", "ToPort" : "9001", "SourceSecurityGroupId" : { "Ref" : "BodySecurityGroup"} }, 
+          { "IpProtocol" : "tcp", "FromPort" : "50000", "ToPort" : "50100", "SourceSecurityGroupId" : { "Ref" : "BodySecurityGroup"} }
         ]
       }
     },
@@ -450,7 +596,8 @@
           { "IpProtocol" : "tcp", "FromPort" : "0", "ToPort" : "65535", "CidrIp" : "127.127.0.0/16" },
           { "IpProtocol" : "tcp", "FromPort" : "0", "ToPort" : "65535", "CidrIp" : "127.127.216.100/32" },
           { "IpProtocol" : "tcp", "FromPort" : "0", "ToPort" : "65535", "CidrIp" : "127.127.198.0/24" },
-          { "IpProtocol" : "tcp", "FromPort" : "0", "ToPort" : "65535", "CidrIp" : "127.127.140.131/32" }
+          { "IpProtocol" : "tcp", "FromPort" : "0", "ToPort" : "65535", "CidrIp" : "127.127.140.131/32" },
+          { "IpProtocol" : "tcp", "FromPort" : "0", "ToPort" : "65535", "CidrIp" : "127.127.18.225/24" }
         ]
       }
     },

@@ -74,6 +74,10 @@
       "Description" : "The role of the autoscaling group (stateless-body, membrane, etc.)",
       "Type" : "String"
     },
+    "ParentStackName" : {
+      "Description" : "",
+      "Type" : "String"
+    },
     "WaitHandle" : {
       "Description" : "",
       "Type" : "String"
@@ -107,6 +111,11 @@
     "SaasBaseUserData": {
       "Type" : "String",
       "Description" : "Run after ZK quorum is found and before starting deployment. Base64, new line delimited string"
+    },
+    "SaasBaseUserDataPost": {
+      "Type" : "String",
+      "Description" : "Run after ZK quorum is found and before starting deployment. Base64, new line delimited string", 
+      "Default": ""
     }
   },
 
@@ -137,11 +146,17 @@
         "AWS::CloudFormation::Init" : {
           "config": {
             "files" : {
+              "/usr/local/bin/jq": {
+                "source": "https://github.com/stedolan/jq/releases/download/jq-1.5/jq-linux64", 
+                "mode": "000755"
+              }, 
               "/etc/profile.d/cellos.sh": {
                 "content" : { "Fn::Join" : ["", [
                 "#!/bin/bash\n", 
+                "export zk_base_url=\"{{zk_base_url}}\"\n", 
                 "export zk_discovery_url=\"{{zk_discovery_url}}\"\n", 
                 "export aws_stack_name=\"{{aws_stack_name}}\"\n",
+                "export aws_parent_stack_name=\"{{aws_parent_stack_name}}\"\n",
                 "export aws_region=\"{{aws_region}}\"\n",
                 "export SAASBASE_ACCESS_KEY_ID=\"{{saasbase_access_key_id}}\"\n",
                 "export SAASBASE_SECRET_ACCESS_KEY=\"{{saasbase_secret_access_key}}\"\n",
@@ -154,10 +169,14 @@
                 "export aws_region=`wget -qO- http://169.254.169.254/latest/meta-data/placement/availability-zone | sed 's/.$//'`\n"
                 ]]}, 
                 "context" : {
+                  "zk_base_url"  : { "Fn::Join" : ["", [
+                    "http://", { "Ref" : "ZookeeperLoadBalancer" }, "/exhibitor/v1"
+                  ]]}, 
                   "zk_discovery_url"  : { "Fn::Join" : ["", [
                     "http://", { "Ref" : "ZookeeperLoadBalancer" }, "/exhibitor/v1/cluster/list"
                   ]]}, 
                   "aws_stack_name": { "Ref": "AWS::StackName" }, 
+                  "aws_parent_stack_name": { "Ref": "ParentStackName" }, 
                   "aws_region": { "Ref": "AWS::Region" }, 
                   "saasbase_access_key_id": { "Ref": "SaasBaseAccessKeyId" }, 
                   "saasbase_secret_access_key": { "Ref": "SaasBaseSecretAccessKey" }, 
@@ -169,17 +188,53 @@
                   "cell_tags": { "Ref": "Tags" }
                 }
               }, 
+              "/usr/local/bin/aws_wait": {
+                "content" : { "Fn::Join" : ["", [
+                  "#!/bin/bash\n", 
+                  "[[ $# = 3 ]] || { echo \"Internal error calling wait-for\" ; exit 99 ; }\n", 
+                  "cmd=$1\n", 
+                  "pattern=$2\n", 
+                  "target=$3\n", 
+                  "loop=1\n", 
+                  "echo \"Waiting for $cmd | jq \\\"$pattern\\\"\"\n", 
+                  "while [[ $loop -le 200 ]]; do\n", 
+                  "    STATE=$($cmd | jq \"$pattern\")\n", 
+                  "    if [[ \"$STATE\" == \"$target\" ]]; then\n", 
+                  "        exit 0\n", 
+                  "    fi\n", 
+                  "    sleep 5\n", 
+                  "    printf \".\"\n", 
+                  "    loop=$(( $loop + 1 ))\n", 
+                  "done\n", 
+                  "exit 1\n"
+                ]]}, 
+                "mode": "000755"
+              }, 
               "/usr/local/bin/zk-list-nodes" : {
                 "content" : { "Fn::Join" : ["", [
-                  "#!/bin/bash \n",
+                  "#!/bin/bash\n", 
                   "source /etc/profile.d/cellos.sh\n",
-                  "ZK=`curl -s ${zk_discovery_url}`\n",
-                  "while [[ -z $ZK || ${ZK:0:1} != \"{\" ]]; do >&2 echo \"got $ZK retrying\"; ZK=`curl -s ${zk_discovery_url}`; done\n",
-                  "echo $ZK | python -c '",
-                  "import sys, json;",
-                  "j=json.load(sys.stdin);",
-                  "servers=[\":\".join([s, str(j[\"port\"])]) for s in j[\"servers\"]];",
-                  "print \",\".join(servers)'\n"
+                  "num_servers=${num_servers:-0}\n", 
+                  "code=$(curl -s -o /dev/null -w \"%{http_code}\" ${zk_discovery_url})\n", 
+                  "if (( code == 200 )); then\n", 
+                  "  # we have a 200, get the servers\n", 
+                  "  found=$(curl -H \"Accept: application/json\" ${zk_discovery_url} 2>/dev/null | jq \".servers | length\")\n", 
+                  "  if (( $? == 0 )); then\n", 
+                  "    if (( $found < $num_servers )); then\n", 
+                  "      >&2 echo \"not enough servers found ($found out of $num_servers)\"\n", 
+                  "      exit 1\n", 
+                  "    fi\n", 
+                  "  else\n", 
+                  "    >&2 echo no servers found\n", 
+                  "    exit 1\n", 
+                  "  fi\n", 
+                  "else\n", 
+                  "  >&2 echo no servers found\n", 
+                  "  exit 1\n", 
+                  "fi\n", 
+                  "\n", 
+                  "curl -H \"Accept: application/json\" ${zk_discovery_url} 2>/dev/null | jq -r '(.port | tostring) as $port | .servers | map(. + \":\" + $port) | join(\",\")'\n", 
+                  ""
                 ]]},
                 "mode"    : "000755",
                 "owner"   : "root",
@@ -187,11 +242,102 @@
               },
               "/usr/local/bin/zk-barrier" : {
                 "content" : { "Fn::Join" : ["", [
-                  "#!/bin/bash \n",
-                  "### Block until we have a ZK quorum\n",
-                  "while [ `/usr/local/bin/zk-list-nodes | wc -m` -lt 4 ]; do /usr/local/bin/zk-list-nodes; done\n",
-                  "### Block until we can connect to ZK hosts \n",
-                  "while ! [ $(zk=`zk-list-nodes`;host=`echo $zk | cut -d: -f 1`; exec 6<>/dev/tcp/$host/2181; echo $?) -eq 0 ]; do echo waiting for good zk $zk; sleep 1; done\n"
+                  "#!/bin/bash\n", 
+                  "### Block until we have a ZK quorum\n", 
+                  "num_servers=3\n", 
+                  "while true; do\n", 
+                  "  code=$(curl -H \"Accept: application/json\" -s -o /dev/null -w \"%{http_code}\" \"${zk_base_url}/cluster/status\")\n", 
+                  "  if (( code == 200 )); then\n", 
+                  "    num_serving=$(curl -H \"Accept: application/json\" \"${zk_base_url}/cluster/status\" 2>/dev/null | jq '[.[] | select(.description == \"serving\")] | length')\n", 
+                  "\n", 
+                  "    found=$(curl -H \"Accept: application/json\" ${zk_discovery_url} 2>/dev/null | jq \".servers | length\")\n", 
+                  "\n", 
+                  "    if (( $num_serving >= $num_servers && $found >= $num_servers )); then\n", 
+                  "      # check servers\n", 
+                  "      valid=()\n", 
+                  "      for hp in $(zk-list-nodes | sed 's/,/\\n/g'); do\n",
+                  "        host=$(echo $hp | sed 's/:.*$//')\n", 
+                  "        exec 6<>/dev/tcp/$host/2181 && valid+=($host)\n", 
+                  "      done\n", 
+                  "      if (( ${#valid[@]}  >= $num_servers )); then\n", 
+                  "        break\n", 
+                  "      else\n",
+                  "        echo -n \".\"\n",
+                  "      fi\n", 
+                  "    else\n", 
+                  "      echo -n \".\"\n", 
+                  "      sleep 1\n", 
+                  "    fi\n", 
+                  "  else\n", 
+                  "    echo -n \".\"\n", 
+                  "    sleep 1\n", 
+                  "  fi\n", 
+                  "done\n"
+                ]]},
+                "mode"    : "000755",
+                "owner"   : "root",
+                "group"   : "root"
+              },
+              "/usr/local/bin/provision" : {
+                "content" : { "Fn::Join" : ["", [
+                  "#!/bin/bash\n",
+                  "# provision script\n",
+                  "# provisioner puppet role1,role2,role3\n",
+                  "# provisioner seed seed1 (s3://cell/seeds/seed1/*, untar * to /root/seeds/seed1, execute /root/seeds/seed1/*.sh)\n",
+                  "source /etc/profile.d/cellos.sh\n",
+                  "\n",
+                  "if [[ $1 == \"puppet\" ]]; then\n",
+                  "AWS_ACCESS_KEY_ID=\"${SAASBASE_ACCESS_KEY_ID}\" AWS_SECRET_ACCESS_KEY=\"${SAASBASE_SECRET_ACCESS_KEY}\"   bash /root/saasbase_installer -v -d /root -m /root/cluster/puppet/modules run-puppet /root/cluster --roles $2\n",
+                  "elif [[ $1 == \"seed\" ]]; then\n",
+                  "  [ -d /root/seeds/${2} ] && rm -rf /root/seeds/${2} && mkdir -p /root/seeds/${2}\n",
+                  "  aws s3 cp s3://${cell_bucket_name}/seeds/${2} /root/seeds/${2}/\n",
+                  "  pushd /root/seeds/${2}/\n",
+                  "  for f in /root/seeds/${2}/*.tar.gz; do\n",
+                  "    tar zxf $f\n",
+                  "  done\n",
+                  "  for e in /root/seeds/${2}/*.sh; do\n",
+                  "    /bin/bash ${e}\n",
+                  "  done\n", 
+                  "  popd\n",
+                  "fi\n",
+                  "\n"
+                ]]},
+                "mode"    : "000755",
+                "owner"   : "root",
+                "group"   : "root"
+              },
+              "/usr/local/bin/detect-and-mount-disks" : {
+                "content" : { "Fn::Join" : ["", [
+                  "#!/bin/bash\n", 
+                  "deviceslist=('/dev/xvdb' '/dev/xvdc' '/dev/xvdd' '/dev/xvde' '/dev/xvdf' '/dev/xvdg' '/dev/xvdh' '/dev/xvdi' '/dev/xvdj' '/dev/xvdk' '/dev/xvdl' '/dev/xvdm' '/dev/xvdn' '/dev/xvdo' '/dev/xvdp' '/dev/xvdq' '/dev/xvdr' '/dev/xvds' '/dev/xvdt' '/dev/xvdu' '/dev/xvdv' '/dev/xvdw' '/dev/xvdx' '/dev/xvdy' '/dev/xvdz')\n", 
+                  "for device in ${deviceslist[@]}; do\n", 
+                  "    if ([ -b $device ]) then\n", 
+                  "        actual_devices=( \"${actual_devices[@]}\" $device )\n", 
+                  "    fi\n", 
+                  "done\n", 
+                  "\n", 
+                  "n=0\n", 
+                  "for device in \"${actual_devices[@]}\"; do\n", 
+                  "    n=`expr $n + 1`\n", 
+                  "    if [ ! -b ${device}1 ]; then\n", 
+                  "        echo \"Creating partition on ${device}\" >&2\n", 
+                  "        parted -s -a optimal $device mklabel gpt -- mkpart primary xfs 1 -1 >&2\n", 
+                  "        partprobe $device >&2 || true\n", 
+                  "        mkfs.xfs ${device}1 >&2 || true\n", 
+                  "    fi\n", 
+                  "    if mountpoint -q -- \"/mnt/data_${n}\"; then\n", 
+                  "        echo \"/mnt/data_${n} is already mounted\" >&2\n", 
+                  "    else\n", 
+                  "        echo \"$1 is not a mountpoint\" >&2\n", 
+                  "        mkdir -p -m 755 /mnt/data_${n} >&2\n", 
+                  "        mount ${device}1 /mnt/data_${n} >&2 || true\n", 
+                  "        echo \"${device}1 /mnt/data_${n} xfs rw,relatime,attr2,inode64,noquota,nofail 0 0\" >> /etc/fstab\n", 
+                  "    fi\n", 
+                  "\n", 
+                  "    mkdir -p -m 755 /mnt/data_${n}/{hadoop_data,kafka_data}\n", 
+                  "    chown -R hadoop:hadoop /mnt/data_${n}/{hadoop_data,kafka_data}\n", 
+                  "done\n", 
+                  "echo $n\n"
                 ]]},
                 "mode"    : "000755",
                 "owner"   : "root",
@@ -206,6 +352,32 @@
         "KeyName" : { "Ref" : "KeyName" },
         "ImageId" : { "Ref" : "ImageId" },
         "SecurityGroups" : { "Ref" : "SecurityGroups" },
+        "BlockDeviceMappings": [
+          {"VirtualName": "ephemeral0", "DeviceName": "/dev/sdb"}, 
+          {"VirtualName": "ephemeral1", "DeviceName": "/dev/sdc"}, 
+          {"VirtualName": "ephemeral2", "DeviceName": "/dev/sdd"}, 
+          {"VirtualName": "ephemeral3", "DeviceName": "/dev/sde"}, 
+          {"VirtualName": "ephemeral4", "DeviceName": "/dev/sdf"}, 
+          {"VirtualName": "ephemeral5", "DeviceName": "/dev/sdg"}, 
+          {"VirtualName": "ephemeral6", "DeviceName": "/dev/sdh"}, 
+          {"VirtualName": "ephemeral7", "DeviceName": "/dev/sdi"}, 
+          {"VirtualName": "ephemeral8", "DeviceName": "/dev/sdj"}, 
+          {"VirtualName": "ephemeral9", "DeviceName": "/dev/sdk"}, 
+          {"VirtualName": "ephemeral10", "DeviceName": "/dev/sdl"}, 
+          {"VirtualName": "ephemeral11", "DeviceName": "/dev/sdm"}, 
+          {"VirtualName": "ephemeral12", "DeviceName": "/dev/sdn"}, 
+          {"VirtualName": "ephemeral13", "DeviceName": "/dev/sdo"}, 
+          {"VirtualName": "ephemeral14", "DeviceName": "/dev/sdp"}, 
+          {"VirtualName": "ephemeral15", "DeviceName": "/dev/sdq"}, 
+          {"VirtualName": "ephemeral16", "DeviceName": "/dev/sdr"}, 
+          {"VirtualName": "ephemeral17", "DeviceName": "/dev/sds"}, 
+          {"VirtualName": "ephemeral18", "DeviceName": "/dev/sdt"}, 
+          {"VirtualName": "ephemeral19", "DeviceName": "/dev/sdu"}, 
+          {"VirtualName": "ephemeral20", "DeviceName": "/dev/sdv"}, 
+          {"VirtualName": "ephemeral21", "DeviceName": "/dev/sdw"}, 
+          {"VirtualName": "ephemeral22", "DeviceName": "/dev/sdx"}, 
+          {"VirtualName": "ephemeral23", "DeviceName": "/dev/sdy"}
+        ], 
         "IamInstanceProfile" : {
           "Fn::If": [
             "HasIamInstanceProfile",
@@ -217,6 +389,9 @@
         "InstanceType" : { "Ref" : "InstanceType" },
         "UserData"       : { "Fn::Base64" : { "Fn::Join" : ["", [
           "#!/bin/bash\n",
+          "# default images mount the first ephemeral disk to /mnt\n", 
+          "umount /mnt\n",
+          "# set timezone\n", 
           "echo \"UTC\" > /etc/timezone\n", 
           "ln -sf /usr/share/zoneinfo/UTC /etc/localtime\n", 
           "# Base packages\n", 
@@ -251,36 +426,34 @@
           "cfn-init -s ", { "Ref": "AWS::StackName" }, " -r BodyLaunchConfig  --region ", { "Ref": "AWS::Region" }, " || error_exit 'Failed to run cfn-init'\n",
 
           "# export vars\n", 
+          "echo \"export number_of_disks=$(/usr/local/bin/detect-and-mount-disks)\" >> /etc/profile.d/cellos.sh\n",
           "source /etc/profile.d/cellos.sh\n", 
           "export pre_zk_modules='", { "Ref" : "PreZkModules" }, "'\n",
           "export post_zk_modules='", { "Ref" : "PostZkModules" }, "'\n",
           "export wait_handle='", { "Ref" : "WaitHandle" }, "'\n",
 
+          "export search_instance_cmd=\"aws --region ${aws_region} ec2 describe-instances --query 'Reservations[*].Instances[*].[PrivateIpAddress, PrivateDnsName]' --filters Name=instance-state-code,Values=16 Name=tag:cell,Values=${cell_name}\"\n", 
 
           "# Provisioning \n", 
           "curl -o /root/saasbase_installer https://s3.amazonaws.com/saasbase-repo/saasbase_installer${saasbase_version}\n",
           "AWS_ACCESS_KEY_ID=\"${SAASBASE_ACCESS_KEY_ID}\" AWS_SECRET_ACCESS_KEY=\"${SAASBASE_SECRET_ACCESS_KEY}\" bash /root/saasbase_installer fetch ${saasbase_version}\n",
-          "curl -o /root/puppet/profiles/${cellos_version}.yaml ", 
-          "https://s3.amazonaws.com/saasbase-repo/cell-os/${cellos_version}.yaml", "\n",
+          "curl -o /root/puppet/profiles/${cellos_version}.yaml https://s3.amazonaws.com/saasbase-repo/cell-os/${cellos_version}.yaml", "\n",
 
           "mkdir -p /root/cluster/puppet/modules\n",
           "echo ${cellos_version} > /root/cluster/profile\n",
-
-          { "Ref" : "SaasBaseUserData" },
           "\n",
           "# pre zk\n",
-          "AWS_ACCESS_KEY_ID=\"${SAASBASE_ACCESS_KEY_ID}\" AWS_SECRET_ACCESS_KEY=\"${SAASBASE_SECRET_ACCESS_KEY}\" bash /root/saasbase_installer -v -d /root -m /root/cluster/puppet/modules run-puppet /root/cluster --roles ${pre_zk_modules} \n",
-
-          "# post zk\n",
+          { "Ref" : "SaasBaseUserData" },
+          "\n", 
+          "echo 'zk-barrier'\n",
           "/usr/local/bin/zk-barrier\n",
-          "export zk=`zk-list-nodes`\n",
+          "export zk=`zk-list-nodes 2>/dev/null`\n",
 
           "# regenerate cluster.yaml\n",
           "echo '' > /root/cluster/cluster.yaml\n",
-          { "Ref" : "SaasBaseUserData" },
+          "# post zk\n", 
+          { "Ref" : "SaasBaseUserDataPost" },
           "\n", 
-          "AWS_ACCESS_KEY_ID=\"${SAASBASE_ACCESS_KEY_ID}\" AWS_SECRET_ACCESS_KEY=\"${SAASBASE_SECRET_ACCESS_KEY}\" bash /root/saasbase_installer -v -d /root -m /root/cluster/puppet/modules:/root/puppet/modules run-puppet /root/cluster --roles ${post_zk_modules} \n",
-
           "# All is well so signal success\n",
           "cfn-signal -e 0 -r \"Stack setup complete\" \"${wait_handle}\"\n",
 
