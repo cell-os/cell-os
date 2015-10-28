@@ -17,7 +17,7 @@ DIR=$(dirname $SELF_PATH)
 type aws >/dev/null 2>&1 || {
   cat >&2 <<EOD
 AWS CLI not found
-pip install awscli or brew install awscli
+pip install awscli
 see http://docs.aws.amazon.com/cli/latest/userguide/installing.html
 EOD
 
@@ -37,7 +37,14 @@ AWS_KEY_PAIR=${AWS_KEY_PAIR:-$(aws ${AWS_OPTIONS} ec2 describe-key-pairs --query
 usage() {
 cat >&2 <<EOD
 
-cell-os cli utility ${VERSION}
+ ██████╗███████╗██╗     ██╗             ██████╗  ███████╗     ██╗    ██╗
+██╔════╝██╔════╝██║     ██║            ██╔═══██╗ ██╔════╝    ███║   ███║
+██║     █████╗  ██║     ██║     █████╗ ██║   ██║ ███████╗    ╚██║   ╚██║
+██║     ██╔══╝  ██║     ██║     ╚════╝ ██║   ██║ ╚════██║     ██║    ██║
+╚██████╗███████╗███████╗███████╗       ╚██████╔╝ ███████║     ██║██╗ ██║
+ ╚═════╝╚══════╝╚══════╝╚══════╝        ╚═════╝  ╚══════╝     ╚═╝╚═╝ ╚═╝
+
+cell-os cli ${VERSION}
 
 usage: ./cell <action> <cell-name> [nucleus|stateless-body|stateful-body|membrane] [<index>] [<command>]
   actions:
