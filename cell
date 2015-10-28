@@ -214,10 +214,9 @@ delete() {
 
 list() {
   if [[ -z $cell_name ]]; then
-    aws cloudformation list-stacks --stack-status-filter CREATE_COMPLETE \
-      CREATE_IN_PROGRESS UPDATE_COMPLETE UPDATE_IN_PROGRESS \
-      DELETE_IN_PROGRESS --output table \
-      --query 'StackSummaries[*].[StackName,StackStatus,Tags]'
+    aws cloudformation describe-stacks  --query "Stacks[? (Tags[? Key=='name']\
+      && Tags[?Key=='version'] )][StackName, StackStatus, Tags[? Key=='version']\
+      .Value | [0], CreationTime]" --output table
   else
     echo "[load balancers]"
     aws elb describe-load-balancers \
