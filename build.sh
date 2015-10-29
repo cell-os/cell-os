@@ -3,7 +3,7 @@
 # build script - meant to be run on build server
 # cleans up build directory and copies everything in a structure
 # that can be used for promotion
-
+set -e
 VERSION=$(cat VERSION)
 
 rm -rf build
