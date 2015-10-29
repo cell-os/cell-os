@@ -418,7 +418,7 @@ ingress 127.127.140.131/32 tcp 0:65535
 ingress 127.127.18.225/24 tcp 0:65535
     """,
     VPC,
-    description="All nodes are part of it grants access to some Adobe CIDRs. Email to metal-cell@adobe.com"
+    description="All nodes are part of it. Grants access to some Adobe CIDRs. Email to metal-cell@adobe.com"
 ))
 
 LbSecurityGroup = t.add_resource(ec2.SecurityGroup(
@@ -523,9 +523,7 @@ MembraneLoadBalancer = create_load_balancer(t,
     "/health-check"
 )
 
-WaitHandle = t.add_resource(cfn.WaitConditionHandle(
-    "WaitHandle",
-))
+WaitHandle = t.add_resource(cfn.WaitConditionHandle("WaitHandle",))
 
 def create_cellos_substack(t, name=None, role=None, pre_zk_modules=None, post_zk_modules=None, tags=[], user_data=[], user_data_post=[], security_groups=[], load_balancers=[], instance_profile=None):
     params = {
