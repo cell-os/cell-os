@@ -53,6 +53,7 @@ usage: ./cell <action> <cell-name> [nucleus|stateless-body|stateful-body|membran
     list <cell-name> - lists existing stacks or the nodes in a cell
     scale <cell-name> <role> <capacity> - scales role to desired capacity
     ssh <cell-name> <role> [<index>] - ssh to first node in role or to index
+    i2cssh <cell-name> [<role>] - ssh to nodes in a role, or to all nodes if no role provided
     log <cell-name> [<role>] [<index>] - tail stack events or nodes deploy log
     cmd <cell-name> <role> <index> - run command on node n
     proxy <cell-name> <role> - open SOCKS proxy to first node in <role>
@@ -324,9 +325,10 @@ proxy() {
   cell_ssh "-N -g -C -D ${PROXY_PORT}" ""
 }
 
-i2cssh() {
+cell_i2cssh() {
   ssh_options="-o ConnectTimeout=${SSH_TIMEOUT}"
-  machines=$(for role in nucleus stateful-body membrane stateless-body; do 
+  roles=${role:-"${ROLES//, / }"}
+  machines=$(for role in "${roles[@]}"; do
     aws ${AWS_OPTIONS} ec2 describe-instances \
       --query 'Reservations[*].Instances[*].[PublicIpAddress]' \
       --filters Name=instance-state-code,Values=16 \
@@ -367,7 +369,7 @@ case "$1" in
     scale
     ;;
   i2cssh)
-    i2cssh
+    cell_i2cssh
     ;;
   ssh)
     cell_ssh
