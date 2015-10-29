@@ -90,7 +90,31 @@ special security requirements.
 The cell geteway and load balancing services will run in the membrane. 
 
 
-**To troubleshoot**
+# Troubleshooting
+
+## "Launch Stack" button ![](https://s3.amazonaws.com/cloudformation-examples/cloudformation-launch-stack.png)
+
+### Can't find SaasBase access key id / secret access key
+Look for the keys in http://saasbase.corp.adobe.com/ops/operations/deployment.html
+The keys are also available in the Secret Server - main dl-saasbase-eng@adobe.com if you
+have any issues.
+
+
+### Stack gets rolled back 
+Go to https://console.aws.amazon.com/cloudformation/home  
+Make sure the correct region is selected
+
+Click on the failed stack  
+On the bottom half of the screen click "Events"  
+Drill down and see the failure details  
+
+    Parameter validation failed: parameter value for parameter name 
+    KeyName does not exist. Rollback requested by user.
+
+In the Cloud Formation form, try selecting an existing KeyName from the dropdown or 
+otherwise create a keypair for that region, download it and retry.
+
+## CLI
 
 First check if the stack has succeeded and all VMs are up and finished initializing.
 It takes a while after.
