@@ -4,44 +4,58 @@ An initial working prototype for the Amazon EC2-based elastic cell.
 
 It consists of a CloudFormation template to stand a cell running cell-os-base.  
 
-                   cell-os-base deployment diagram
+# cell-os infrastructure diagram
+```
++------------------------------------------------------------------------------------+
+|   +----------------------------------------------------------------------------+   |
+|   |          80                80               80               80            |   |
+|   |   +-------------+    +-------------+   +-------------+   +-------------+   |   |
+|   |   |    ZK ELB   |    |  Mesos ELB  |   | Marathon ELB|   | Gateway ELB |   |   |
+|   |   +------+------+    +------+------+   +------+------+   +------+------+   |   |
+|   |          |                  |                 |                 |          |   |
+|   |          |         +-----------------------------------------------------+ |   |
+|   |          |         |        |                 |                 ^        | |   |
+|   |   +------+------+  | +------+------+   +------+------+   +------+------+ | |   |
+|   |   | <--|   |--> |  | | <--|   |--> |   | <--|   |--> |   | <--|   |--> | | |   |
+|   |   +-------------+  | +-------------+   +-------------+   +-------------+ | |   |
+|   |     Nucleus SG     |    Stateless         Stateful          Membrane SG  | |   |
+|   |     HDFS NN/QJM    |    Body SG           Body SG                        | |   |
+|   |                    |                      HDFS DN                        | |   |
+|   |                    +-----------------------------------------------------+ |   |
+|   |                               Mesos Agents                                 |   |
+|   +----------------------------------------------------------------------------+   |
+|     Subnet 1   10.0.0.0/24                                                         |
++------------------------------------------------------------------------------------+
+       us-west-2-cell-1 VPC   vpc-62c65107 (10.0.0.0/16)
+```
 
-    +-----------------------------------------------------------------+
-    |   +---------------------------------------------------------+   |
-    |   |          80               80               80           |   |
-    |   |   +-------------+   +-------------+   +-------------+   |   |
-    |   |   |    ZK LB    |   |  Mesos LB   |   | Marathon LB |   |   |
-    |   |   +------+------+   +-----+-------+   +------+------+   |   |
-    |   |          |                |                  |          |   |
-    |   |          |                |                  |          |   |
-    |   |   +------v------+   +-----v------------------v------+   |   |
-    |   |   | <--1 to 9-> |   |  <------ 1 to 1000 ---------> |   |   |
-    |   |   +-------------+   +-------------------------------+   |   |
-    |   |      Nucleus SG        Body SG                          |   |
-    |   +---------------------------------------------------------+   |
-    |     Subnet 1   10.0.0.0/24                                      |
-    +-----------------------------------------------------------------+
-         us-west+2-cell-1 VPC   vpc-62c65107 (10.0.0.0/16)
+The default cell size is a 1-node nucleus and 1-node stateless body, 0-node stateful body,
+1 - node membrane, each in separate scaling groups (i.e. can be scaled up independently).  
 
-
-The default cell size is a 1-node nucleus and 1-node body each in separate scaling groups.  
-Nucleus and body can be scaled up independently.  
-
-The cell-os-base consists of Zookeeper / Exhibitor, Mesos and Marathon.  
+The cell-os-base consists of Zookeeper / Exhibitor, Mesos and Marathon.
+cel-os 1.1 extended the base with HDFS consisting of QJM, NN running in Nucleus and 
+DN running in Stateful Body.  
 All other services typically run on top of the base using one of the cell schedulers.  
 
+## Internals: How it's made
+With cell-os 1.1 we started using [Troposphere](https://github.com/cloudtools/troposphere)
+to generate the AWS CF templates.
+
 ## Internals: How it works
-### General stack: VPC, Subnet, Load Balancers, Internet Gateway, Routes, Security Groups, Nested Stacks
-This sets up the infrastructure and creates separate scaling groups for each subdivision of the cell using nested stacks.
+
+There's a main CF stack that sets up the VPC along the rest of the infrastructure pieces
+and a 4 nested stacks for individual scaling groups which are created by the main stack.
+
+
+### Main stack: VPC, Subnets, ELBs, Internet Gateway, Routes, Security Groups, etc.
+
+This sets up the VPC along with the Subnets, Scaling Groups, routes and security around.
+
+This sets up the infrastructure and creates separate scaling groups for each subdivision
+of the cell using nested stacks.  
 
 Each cell subdivision is created by passing the role, tags, os-level modules and
 configurations to the nested stack.
-
-The critical part of the cell is the nucleus, which runs Zookeeper and HDFS namenodes.
-
-The zk ensemble can be disovered through an ELB over the Zookeeper Exhibitor REST API.
-Two helper scripts `zk-list-nodes` and `zk-barrier` can be used to get and block for 
-the zk enesemble. 
 
 Roles and tags are used to identify the EC2 instances and to set attributes.
 Modules `PreZkModules` are saasbase deployment modules that don't require zookeeper. 
@@ -50,10 +64,31 @@ by using the `zk-barrier` which will block polling for zk.
 
 ### Nested Stacks: nucleus, stateless-body, stateful-body, membrane scaling groups
 
-There are two Cloud Formation templates. One that established the global infrastructure
-including the VPC, Subnet, Load Balancers, Internet Gateway, Routing Tables, Security Groups,
-etc. and another which sets up individual scaling groups (nucleus, body, membrane) that is 
-nested.
+#### Nucleus
+The critical part of the cell is the nucleus, which runs Zookeeper and HDFS namenodes.
+
+The zk ensemble can be disovered through an ELB over the Zookeeper Exhibitor REST API.
+Two helper scripts `zk-list-nodes` and `zk-barrier` can be used to get and block for 
+the zk enesemble. 
+
+#### Stateless Body
+
+The stateless body is used for any workload that doesn't have persistent local storage
+requirements and, hence, can be scaled down easily, without having to worry about data 
+integrity.
+
+#### Stateful Body
+
+The stateful body instead can be scaled up, but in order to scale it down additional
+orchestration is required in order to maintain data integrity (e.g. decommission HDFS
+datanodes or Kafka brokers)
+
+#### Membrane
+
+The membrane is publicly exposed (all other groups should be private) and hence may have
+special security requirements. 
+The cell geteway and load balancing services will run in the membrane. 
+
 
 **To troubleshoot**
 
