@@ -24,12 +24,12 @@ EOD
 exit 1
 }
 
+VERSION=${VERSION:-$(cat VERSION)}
 SAASBASE_ACCESS_KEY_ID="${SAASBASE_ACCESS_KEY_ID:-XXXXXXXXXXXXXXXXXXXX}"
 SAASBASE_SECRET_ACCESS_KEY="${SAASBASE_SECRET_ACCESS_KEY:-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx}"
 AWS_OPTIONS='--output text'
 PROXY_PORT=${PROXY_PORT:-'1234'}
-SSH_TIMEOUT=${SSH_TIMEOUT:-'5'}
-VERSION=${VERSION:-$(cat VERSION)}
+SSH_TIMEOUT=${SSH_TIMEOUT:-'5'} # seconds
 SSH_USER=${SSH_USER:-'centos'} # used to login on instances, specific to VM image
 # Try to get some defaults from the current account if values not set
 AWS_KEY_PAIR=${AWS_KEY_PAIR:-$(aws ${AWS_OPTIONS} ec2 describe-key-pairs --query 'KeyPairs[0].KeyName')}
@@ -101,7 +101,8 @@ check_cell_name() {
 }
 
 check_key_pair() {
-  if ! [[ $(aws ${AWS_OPTIONS} ec2 describe-key-pairs | grep ${AWS_KEY_PAIR} | wc -l) -gt 0 ]]; then
+  if ! [[ $(aws ${AWS_OPTIONS} ec2 describe-key-pairs \
+    | grep ${AWS_KEY_PAIR} | wc -l) -gt 0 ]]; then
     echo "error: AWS_KEY_PAIR ${AWS_KEY_PAIR} doesn\'t exist."
     VALIDATION_ERROR=true
     return 1
@@ -110,7 +111,8 @@ check_key_pair() {
 }
 
 check_role() {
-  if ! [[ $role == "nucleus" || $role == "stateless-body" || $role == "stateful-body" || $role == "membrane"  ]]; then
+  if ! [[ $role == "nucleus" || $role == "stateless-body" \
+    || $role == "stateful-body" || $role == "membrane"  ]]; then
     echo "please provide role (${ROLES})" >&2
     exit 1
   fi
@@ -164,21 +166,25 @@ copy_to_bucket() {
   fi
 }
 
+read -r -d '' FOOTER << EOM
+To watch your cell infrastructure provisioning log you can
+      ./cell log ${cell_name}
+For detailed node provisioning logs
+      ./cell log ${cell_name} nucleus 1
+\n
+EOM
+
 update() {
   [[ check_cell_name ]] || return 1
   [[ check_key_pair ]] || return 1
 
   build_stack_files
-
   copy_to_bucket
 
-  echo "creating stack ${stack_name}..."
+  echo "updating stack ${stack_name}..."
   cfn update
-
-  echo "cloudformation ret = $?"
-  printf "${CONFIG}\n"
-  echo "To watch your cell infrastructure provisioning log you can ./cell log ${cell_name}" 
-  echo "For detailed node provisioning ./cell log ${cell_name} nucleus 1"
+  printf "${CONFIG}"
+  printf "${FOOTER}"
   exit 0
 }
 
@@ -186,20 +192,14 @@ create() {
   [[ check_cell_name ]] || return 1
   [[ check_key_pair ]] || return 1
 
-  build_stack_files
-
   create_bucket
-
+  build_stack_files
   copy_to_bucket
 
   echo "creating stack ${stack_name}..."
   cfn create
-
-  echo "cloudformation ret = $?"
   printf "${CONFIG}"
-
-  echo "To watch your cell infrastructure provisioning log you can ./cell log ${cell_name}" 
-  echo "For detailed node provisioning ./cell log ${cell_name} nucleus 1"
+  printf "${FOOTER}"
   exit 0
 }
 
@@ -349,6 +349,7 @@ read -r -d '' CONFIG << EOM
   AWS_KEY_PAIR  = "${AWS_KEY_PAIR}" - defaults to first key pair on the account
   BUCKET_NAME   = "${bucket_name}" (readonly - cell-os--<cell-name>)
   STACK_NAME    = "${stack_name}" (readonly - <cell-name>)
+  \n
 EOM
 
 # action
