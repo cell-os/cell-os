@@ -10,7 +10,7 @@ rm -rf build
 mkdir build
 
 cp cell-os-base.yaml build/cell-os-base-${VERSION}.yaml
-./cell build
+./cell build $1
 cp deploy/aws/build/elastic-cell.json \
   build/elastic-cell-${VERSION}.json
 cp deploy/aws/build/elastic-cell-scaling-group.json \

@@ -554,9 +554,16 @@ def create_cellos_substack(t, name=None, role=None, pre_zk_modules=None, post_zk
     if instance_profile != None:
         params["IamInstanceProfile"] = Ref(instance_profile)
 
+
+
+    substack_template_url = Join("", ["https://s3.amazonaws.com/", Ref("BucketName"), "/", Ref("BodyStackTemplate")])
+    # check if the template url is overridden (e.g. with a release one)
+    if len(sys.argv) > 1 and len(sys.argv[1]) > 7 :
+        substack_template_url = sys.argv[1]
+
     t.add_resource(cfn.Stack(
         name + "Stack",
-        TemplateURL=Join("", ["https://s3.amazonaws.com/", Ref("BucketName"), "/", Ref("BodyStackTemplate")]),
+        TemplateURL=substack_template_url,
         TimeoutInMinutes="10",
         Parameters=params
     ))
