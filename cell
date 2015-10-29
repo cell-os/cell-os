@@ -85,6 +85,7 @@ ROLES="nucleus, stateless-body, stateful-body, membrane"
 parse_args() {
   [[ ! -z $1 ]] && action=$1
   [[ ! -z $2 ]] && cell_name=$2
+  [[ ! -z $2 ]] && template_url=$2
   [[ ! -z $3 ]] && role=$3
   [[ ! -z $4 ]] && index=$4
   [[ ! -z $4 ]] && capacity=$4
@@ -140,7 +141,7 @@ build_stack_files() {
   echo "creating stacks"
   rm -rf "$DIR/deploy/aws/build"
   mkdir "$DIR/deploy/aws/build"
-  python $DIR/deploy/aws/elastic-cell.py > $DIR/deploy/aws/build/elastic-cell.json
+  python $DIR/deploy/aws/elastic-cell.py "${template_url}" > $DIR/deploy/aws/build/elastic-cell.json
   python $DIR/deploy/aws/elastic-cell-scaling-group.py > $DIR/deploy/aws/build/elastic-cell-scaling-group.json
   base_stack=$DIR/deploy/aws/build/elastic-cell.json
   sub_stack=$DIR/deploy/aws/build/elastic-cell-scaling-group.json
