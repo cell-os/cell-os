@@ -48,6 +48,7 @@ cell-os cli ${VERSION}
 
 usage: ./cell <action> <cell-name> [nucleus|stateless-body|stateful-body|membrane] [<index>] [<command>]
   actions:
+    build <cell-name> - builds CF templates
     create <cell-name> - creates a new cell
     delete <cell-name> - deletes an existing cell
     list <cell-name> - lists existing stacks or the nodes in a cell
@@ -354,6 +355,9 @@ EOM
 
 # action
 case "$1" in
+  build)
+    build_stack_files
+    ;;
   create)
     create
     ;;
