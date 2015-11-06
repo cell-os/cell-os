@@ -382,6 +382,55 @@ NucleusInstanceProfile = t.add_resource(iam.InstanceProfile(
     Roles=[Ref(NucleusRole)],
 ))
 
+MembraneRole = t.add_resource(iam.Role(
+    "MembraneRole",
+    AssumeRolePolicyDocument=awacs.aws.Policy(
+        Statement=[
+            awacs.aws.Statement(
+                Effect=awacs.aws.Allow,
+                Principal=awacs.aws.Principal(principal='Service', resources=['ec2.amazonaws.com']),
+                Action=[awacs.sts.AssumeRole]
+            )
+        ]
+    ),
+    Policies=[
+        iam.Policy(
+            PolicyName="s3_membrane_ro",
+            PolicyDocument=awacs.aws.Policy(
+                Statement=[
+                    awacs.aws.Statement(
+                        Effect=awacs.aws.Allow,
+                        Resource=[
+                            Join("", ["arn:aws:s3:::", Ref(BucketName), "/", Ref(CellName), "/membrane/*"]),
+                            Join("", ["arn:aws:s3:::", Ref(BucketName)])
+                        ],
+                        Action=[
+                            awacs.aws.Action("s3", "GetBucketAcl"),
+                            awacs.aws.Action("s3", "GetBucketPolicy"),
+                            awacs.aws.Action("s3", "GetObject"),
+                            awacs.aws.Action("s3", "GetObjectAcl"),
+                            awacs.aws.Action("s3", "GetObjectVersion"),
+                            awacs.aws.Action("s3", "GetObjectVersionAcl"),
+                            awacs.aws.Action("s3", "ListBucket"),
+                            awacs.aws.Action("s3", "ListBucketMultipartUploads"),
+                            awacs.aws.Action("s3", "ListBucketVersions"),
+                            awacs.aws.Action("s3", "ListMultipartUploadParts")
+                        ]
+                    )
+                ]
+            )
+        ),
+
+    ],
+    Path='/'
+))
+
+MembraneInstanceProfile = t.add_resource(iam.InstanceProfile(
+    "MembraneInstanceProfile",
+    Path="/",
+    Roles=[Ref(MembraneRole)],
+))
+
 BodySecurityGroup = t.add_resource(security_group(
     'BodySecurityGroup',
     """
@@ -612,6 +661,7 @@ create_cellos_substack(
         Join("", FindInMap("UserData", "config", "mesos")),
         Join("", FindInMap("UserData", "provision", "pre")),
     ],
+    instance_profile="MembraneInstanceProfile",
     security_groups=[
         Ref(PublicSecurityGroup),
         Ref(BodySecurityGroup),
