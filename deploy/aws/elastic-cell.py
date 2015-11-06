@@ -159,8 +159,8 @@ t.add_mapping("RegionMap", {
     'sa-east-1': {'AMI': 'ami-476ae25a'},
     'us-east-1': {'AMI': 'ami-11b7017a'},
     'us-west-1': {'AMI': 'ami-37a45d73'},
-    'us-west-2': {'AMI': 'ami-bd5b4f8d'}}
-)
+    'us-west-2': {'AMI': 'ami-bd5b4f8d'}
+})
 
 t.add_mapping("UserData", {
     'config': {
@@ -241,6 +241,10 @@ aws s3api put-object --bucket ${cell_bucket_name} --key orch/${aws_parent_stack_
     }
 })
 
+t.add_condition(
+    "RegionIsUsEast1", Equals(Ref("AWS::Region"), "us-east-1")
+)
+
 VPC = t.add_resource(ec2.VPC(
     "VPC",
     EnableDnsSupport=True,
@@ -249,6 +253,25 @@ VPC = t.add_resource(ec2.VPC(
     Tags=Tags(
         Application=Ref("AWS::StackId"),
     ),
+))
+
+# region domain is ec2.internal in us-east-1, REGION.compute.internal for
+# others, according to
+# http://docs.aws.amazon.com/AmazonVPC/latest/UserGuide/VPC_DHCP_Options.html
+DHCP = t.add_resource(ec2.DHCPOptions(
+    'DHCP',
+    DomainName=If(
+        "RegionIsUsEast1",
+        "ec2.internal",
+        Join("", [Ref("AWS::Region"), ".compute.internal"])
+    ),
+    DomainNameServers=['AmazonProvidedDNS']
+))
+
+VPCDHCPOptionsAssociation = t.add_resource(ec2.VPCDHCPOptionsAssociation(
+    'DHCPAssoc',
+    DhcpOptionsId=Ref("DHCP"),
+    VpcId=Ref("VPC")
 ))
 
 Subnet = t.add_resource(ec2.Subnet(
