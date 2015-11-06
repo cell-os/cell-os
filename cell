@@ -48,7 +48,9 @@ cell-os cli ${VERSION}
 
 usage: ./cell <action> <cell-name> [nucleus|stateless-body|stateful-body|membrane] [<index>] [<command>]
   actions:
-    build <cell-name> - builds CF templates
+    build <cell-name> <substack-template-url> - builds CF templates
+          the substack-template-url is the full URL where the nested stack template will be found
+          e.g. "https://s3.amazonaws.com/saasbase-repo/cell-os/deploy/aws/elastic-cell-scaling-group-1.1.json"
     create <cell-name> - creates a new cell
     delete <cell-name> - deletes an existing cell
     list <cell-name> - lists existing stacks or the nodes in a cell
@@ -141,7 +143,7 @@ build_stack_files() {
   echo "creating stacks"
   rm -rf "$DIR/deploy/aws/build"
   mkdir "$DIR/deploy/aws/build"
-  python $DIR/deploy/aws/elastic-cell.py "${template_url}" > $DIR/deploy/aws/build/elastic-cell.json
+  python $DIR/deploy/aws/elastic-cell.py "${1}" > $DIR/deploy/aws/build/elastic-cell.json
   python $DIR/deploy/aws/elastic-cell-scaling-group.py > $DIR/deploy/aws/build/elastic-cell-scaling-group.json
   base_stack=$DIR/deploy/aws/build/elastic-cell.json
   sub_stack=$DIR/deploy/aws/build/elastic-cell-scaling-group.json
@@ -357,7 +359,7 @@ EOM
 # action
 case "$1" in
   build)
-    build_stack_files
+    build_stack_files "${template_url:? please provide the full template URL}"
     ;;
   create)
     create
