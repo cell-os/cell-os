@@ -322,8 +322,9 @@ while true; do
   code=$(curl -H "Accept: application/json" -s -o /dev/null -w "%{http_code}" "${zk_base_url}/cluster/status")
   if (( code == 200 )); then
     num_serving=$(curl -H "Accept: application/json" "${zk_base_url}/cluster/status" 2>/dev/null | jq '[.[] | select(.description == "serving")] | length')
-
+    num_serving=${num_serving:-0}
     found=$(curl -H "Accept: application/json" ${zk_discovery_url} 2>/dev/null | jq ".servers | length")
+    found=${found:-0}
 
     if (( $num_serving >= $num_servers && $found >= $num_servers )); then
       # check servers
