@@ -331,12 +331,13 @@ proxy() {
 
 cell_i2cssh() {
   ssh_options="-o ConnectTimeout=${SSH_TIMEOUT}"
-  roles=${role:-"${ROLES//, / }"}
+  rolestmp=${role:-${ROLES//, / }}
+  roles=($(echo ${rolestmp}))
   machines=$(for role in "${roles[@]}"; do
     aws ${AWS_OPTIONS} ec2 describe-instances \
       --query 'Reservations[*].Instances[*].[PublicIpAddress]' \
       --filters Name=instance-state-code,Values=16 \
-      Name=tag:cell,Values=${cell_name} Name=tag:role,Values=${role} 
+      Name=tag:cell,Values=${cell_name} Name=tag:role,Values=${role}
   done | sed 's/$/,/g' | tr -d "\n" | sed 's/,$//g')
 
   key_file=${KEYPATH:-"${HOME}/.ssh"}/${AWS_KEY_PAIR}.pem
