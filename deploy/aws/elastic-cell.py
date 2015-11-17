@@ -213,30 +213,30 @@ provision puppet ${post_zk_modules}
 export host=$(hostname -f)
 service hadoop-hdfs-journalnode start
 sleep 10
-aws s3api put-object --bucket ${cell_bucket_name} --key orch/${aws_parent_stack_name}/zk/$host
+aws s3api put-object --bucket ${cell_bucket_name} --key shared/orch/${aws_parent_stack_name}/zk/$host
 if [[ $host == $nn1_host ]]; then
-  aws_wait "aws s3api list-objects --bucket ${cell_bucket_name} --prefix orch/${aws_parent_stack_name}/zk/" ".Contents | length" "3"
+  aws_wait "aws s3api list-objects --bucket ${cell_bucket_name} --prefix shared/orch/${aws_parent_stack_name}/zk/" ".Contents | length" "3"
   su --login hadoop -c "/home/hadoop/hadoop/bin/hdfs namenode -format -nonInteractive"
   su --login hadoop -c "/home/hadoop/hadoop/bin/hdfs zkfc -formatZK -nonInteractive"
   systemctl start hadoop-hdfs-zkfc
   systemctl start hadoop-hdfs-namenode
-  aws s3api put-object --bucket ${cell_bucket_name} --key orch/${aws_parent_stack_name}/nn1
+  aws s3api put-object --bucket ${cell_bucket_name} --key shared/orch/${aws_parent_stack_name}/nn1
 fi
 
 if [[ $host == $nn2_host ]]; then
-  aws_wait "aws s3api list-objects --bucket ${cell_bucket_name} --prefix orch/${aws_parent_stack_name}/zk/" ".Contents | length" "3"
-  aws_wait "aws s3api list-objects --bucket ${cell_bucket_name} --prefix orch/${aws_parent_stack_name}/nn1" ".Contents | length" "1"
+  aws_wait "aws s3api list-objects --bucket ${cell_bucket_name} --prefix shared/orch/${aws_parent_stack_name}/zk/" ".Contents | length" "3"
+  aws_wait "aws s3api list-objects --bucket ${cell_bucket_name} --prefix shared/orch/${aws_parent_stack_name}/nn1" ".Contents | length" "1"
   su --login hadoop -c "/home/hadoop/hadoop/bin/hdfs namenode -bootstrapStandby -nonInteractive"
   systemctl start hadoop-hdfs-zkfc
   systemctl start hadoop-hdfs-namenode
   sleep 10
-  aws s3api put-object --bucket ${cell_bucket_name} --key orch/${aws_parent_stack_name}/nn2
+  aws s3api put-object --bucket ${cell_bucket_name} --key shared/orch/${aws_parent_stack_name}/nn2
 fi
 """),
         'datanode': split_content("""\
-aws_wait "aws s3api list-objects --bucket ${cell_bucket_name} --prefix orch/${aws_parent_stack_name}/nn2" ".Contents | length" "1"
+aws_wait "aws s3api list-objects --bucket ${cell_bucket_name} --prefix shared/orch/${aws_parent_stack_name}/nn2" ".Contents | length" "1"
 systemctl start hadoop-hdfs-datanode
-aws s3api put-object --bucket ${cell_bucket_name} --key orch/${aws_parent_stack_name}/dn/${host}
+aws s3api put-object --bucket ${cell_bucket_name} --key shared/orch/${aws_parent_stack_name}/dn/${host}
 """),
     }
 })
@@ -318,6 +318,143 @@ SubnetRouteTableAssociation = t.add_resource(ec2.SubnetRouteTableAssociation(
     RouteTableId=Ref("RouteTable"),
 ))
 
+NucleusS3Policy = t.add_resource(iam.PolicyType(
+    'NucleusS3Policy',
+    PolicyName='NucleusS3Policy',
+    PolicyDocument=awacs.aws.Policy(
+        Statement=[
+            awacs.aws.Statement(
+                Effect=awacs.aws.Allow,
+                Resource=[
+                    Join("", ["arn:aws:s3:::", Ref(BucketName), "/*"]),
+                    Join("", ["arn:aws:s3:::", Ref(BucketName)])
+                ],
+                Action=[
+                    awacs.aws.Action("s3", "AbortMultipartUpload"),
+                    awacs.aws.Action("s3", "DeleteObject"),
+                    awacs.aws.Action("s3", "GetBucketAcl"),
+                    awacs.aws.Action("s3", "GetBucketPolicy"),
+                    awacs.aws.Action("s3", "GetObject"),
+                    awacs.aws.Action("s3", "GetObjectAcl"),
+                    awacs.aws.Action("s3", "GetObjectVersion"),
+                    awacs.aws.Action("s3", "GetObjectVersionAcl"),
+                    awacs.aws.Action("s3", "ListBucket"),
+                    awacs.aws.Action("s3", "ListBucketMultipartUploads"),
+                    awacs.aws.Action("s3", "ListBucketVersions"),
+                    awacs.aws.Action("s3", "ListMultipartUploadParts"),
+                    awacs.aws.Action("s3", "PutObject"),
+                    awacs.aws.Action("s3", "PutObjectAcl"),
+                    awacs.aws.Action("s3", "PutObjectVersionAcl")
+                ]
+            )
+        ]
+    ),
+    Roles=[
+        Ref("NucleusRole"),
+    ]
+))
+
+def s3_ro_policy(name, roles, paths):
+    resources = [Join("", ["arn:aws:s3:::", Ref(BucketName)])]
+    resources.extend(
+        [Join("", ["arn:aws:s3:::", Ref(BucketName), "/{}".format(path)]) for path in paths]
+    )
+    return iam.PolicyType(
+        name,
+        PolicyName=name,
+        PolicyDocument=awacs.aws.Policy(
+            Statement=[
+                awacs.aws.Statement(
+                    Effect=awacs.aws.Allow,
+                    Resource=resources,
+                    Action=[
+                        awacs.aws.Action("s3", "GetBucketAcl"),
+                        awacs.aws.Action("s3", "GetBucketPolicy"),
+                        awacs.aws.Action("s3", "GetObject"),
+                        awacs.aws.Action("s3", "GetObjectAcl"),
+                        awacs.aws.Action("s3", "GetObjectVersion"),
+                        awacs.aws.Action("s3", "GetObjectVersionAcl"),
+                        awacs.aws.Action("s3", "ListBucket"),
+                        awacs.aws.Action("s3", "ListBucketMultipartUploads"),
+                        awacs.aws.Action("s3", "ListBucketVersions"),
+                        awacs.aws.Action("s3", "ListMultipartUploadParts"),
+                    ]
+                )
+            ]
+        ),
+        Roles=[Ref(role) for role in roles]
+    )
+
+MembraneReadOnlyPolicy = s3_ro_policy(
+    "MembraneReadOnlyS3Policy",
+    ["MembraneRole"],
+    ["membrane/*"]
+)
+t.add_resource(MembraneReadOnlyPolicy)
+StatelessBodyReadOnlyPolicy = s3_ro_policy(
+    "StatelessBodyReadOnlyS3Policy",
+    ["StatelessBodyRole"],
+    ["stateless-body/*"]
+)
+t.add_resource(StatelessBodyReadOnlyPolicy)
+StatefulBodyReadOnlyPolicy = s3_ro_policy(
+    "StatefulBodyReadOnlyS3Policy",
+    ["StatefulBodyRole"],
+    ["stateful-body/*"]
+)
+t.add_resource(StatefulBodyReadOnlyPolicy)
+SharedReadOnlyPolicy = s3_ro_policy(
+    "SharedReadOnlyS3Policy",
+    ["StatelessBodyRole", "StatefulBodyRole", "MembraneRole"],
+    ["shared/*"]
+)
+t.add_resource(SharedReadOnlyPolicy)
+
+NucleusEc2Policy = t.add_resource(iam.PolicyType(
+    'NucleusEc2Policy',
+    PolicyName='NucleusEc2Policy',
+    PolicyDocument=awacs.aws.Policy(
+        Statement=[
+            awacs.aws.Statement(
+                Effect=awacs.aws.Allow,
+                Resource=["*"],
+                Action=[
+                    awacs.aws.Action("ec2", "Describe*"),
+                ]
+            )
+        ]
+    ),
+    Roles=[
+        Ref("NucleusRole"),
+        Ref("StatefulBodyRole")
+    ]
+))
+
+NucleusCfnPolicy = t.add_resource(iam.PolicyType(
+    'NucleusCfnPolicy',
+    PolicyName='NucleusCfnPolicy',
+    PolicyDocument=awacs.aws.Policy(
+        Statement=[
+            awacs.aws.Statement(
+                Effect=awacs.aws.Allow,
+                Resource=["*"],
+                Action=[
+                    awacs.aws.Action("autoscaling", "Describe*"),
+                    awacs.aws.Action("cloudformation", "Describe*"),
+                    awacs.aws.Action("cloudformation", "GetStackPolicy"),
+                    awacs.aws.Action("cloudformation", "GetTemplate*"),
+                    awacs.aws.Action("cloudformation", "ListStacks"),
+                    awacs.aws.Action("cloudformation", "ListStackResources"),
+                ]
+            )
+        ]
+    ),
+    Roles=[
+        Ref("NucleusRole"),
+        Ref("StatefulBodyRole")
+    ]
+))
+
 NucleusRole = t.add_resource(iam.Role(
     "NucleusRole",
     AssumeRolePolicyDocument=awacs.aws.Policy(
@@ -329,73 +466,6 @@ NucleusRole = t.add_resource(iam.Role(
             )
         ]
     ),
-    Policies=[
-        iam.Policy(
-            PolicyName="s3_nucleus",
-            PolicyDocument=awacs.aws.Policy(
-                Statement=[
-                    awacs.aws.Statement(
-                        Effect=awacs.aws.Allow,
-                        Resource=[
-                            Join("", ["arn:aws:s3:::", Ref(BucketName), "/*"]),
-                            Join("", ["arn:aws:s3:::", Ref(BucketName)])
-                        ],
-                        Action=[
-                            awacs.aws.Action("s3", "AbortMultipartUpload"),
-                            awacs.aws.Action("s3", "DeleteObject"),
-                            awacs.aws.Action("s3", "GetBucketAcl"),
-                            awacs.aws.Action("s3", "GetBucketPolicy"),
-                            awacs.aws.Action("s3", "GetObject"),
-                            awacs.aws.Action("s3", "GetObjectAcl"),
-                            awacs.aws.Action("s3", "GetObjectVersion"),
-                            awacs.aws.Action("s3", "GetObjectVersionAcl"),
-                            awacs.aws.Action("s3", "ListBucket"),
-                            awacs.aws.Action("s3", "ListBucketMultipartUploads"),
-                            awacs.aws.Action("s3", "ListBucketVersions"),
-                            awacs.aws.Action("s3", "ListMultipartUploadParts"),
-                            awacs.aws.Action("s3", "PutObject"),
-                            awacs.aws.Action("s3", "PutObjectAcl"),
-                            awacs.aws.Action("s3", "PutObjectVersionAcl")
-                        ]
-                    )
-                ]
-            )
-        ),
-        iam.Policy(
-            PolicyName="ec2_nucleus",
-            PolicyDocument=awacs.aws.Policy(
-                Statement=[
-                    awacs.aws.Statement(
-                        Effect=awacs.aws.Allow,
-                        Resource=["*"],
-                        Action=[
-                            awacs.aws.Action("ec2", "Describe*"),
-                        ]
-                    )
-                ]
-            )
-        ),
-        iam.Policy(
-            PolicyName="cfn_nucleus",
-            PolicyDocument=awacs.aws.Policy(
-                Statement=[
-                    awacs.aws.Statement(
-                        Effect=awacs.aws.Allow,
-                        Resource=["*"],
-                        Action=[
-                            awacs.aws.Action("autoscaling", "Describe*"),
-                            awacs.aws.Action("cloudformation", "Describe*"),
-                            awacs.aws.Action("cloudformation", "GetStackPolicy"),
-                            awacs.aws.Action("cloudformation", "GetTemplate*"),
-                            awacs.aws.Action("cloudformation", "ListStacks"),
-                            awacs.aws.Action("cloudformation", "ListStackResources"),
-                        ]
-                    )
-                ]
-            )
-        ),
-
-    ],
     Path='/'
 ))
 
@@ -416,35 +486,6 @@ MembraneRole = t.add_resource(iam.Role(
             )
         ]
     ),
-    Policies=[
-        iam.Policy(
-            PolicyName="s3_membrane_ro",
-            PolicyDocument=awacs.aws.Policy(
-                Statement=[
-                    awacs.aws.Statement(
-                        Effect=awacs.aws.Allow,
-                        Resource=[
-                            Join("", ["arn:aws:s3:::", Ref(BucketName), "/", Ref(CellName), "/membrane/*"]),
-                            Join("", ["arn:aws:s3:::", Ref(BucketName)])
-                        ],
-                        Action=[
-                            awacs.aws.Action("s3", "GetBucketAcl"),
-                            awacs.aws.Action("s3", "GetBucketPolicy"),
-                            awacs.aws.Action("s3", "GetObject"),
-                            awacs.aws.Action("s3", "GetObjectAcl"),
-                            awacs.aws.Action("s3", "GetObjectVersion"),
-                            awacs.aws.Action("s3", "GetObjectVersionAcl"),
-                            awacs.aws.Action("s3", "ListBucket"),
-                            awacs.aws.Action("s3", "ListBucketMultipartUploads"),
-                            awacs.aws.Action("s3", "ListBucketVersions"),
-                            awacs.aws.Action("s3", "ListMultipartUploadParts")
-                        ]
-                    )
-                ]
-            )
-        ),
-
-    ],
     Path='/'
 ))
 
@@ -452,6 +493,46 @@ MembraneInstanceProfile = t.add_resource(iam.InstanceProfile(
     "MembraneInstanceProfile",
     Path="/",
     Roles=[Ref(MembraneRole)],
+))
+
+StatelessBodyRole = t.add_resource(iam.Role(
+    "StatelessBodyRole",
+    AssumeRolePolicyDocument=awacs.aws.Policy(
+        Statement=[
+            awacs.aws.Statement(
+                Effect=awacs.aws.Allow,
+                Principal=awacs.aws.Principal(principal='Service', resources=['ec2.amazonaws.com']),
+                Action=[awacs.sts.AssumeRole]
+            )
+        ]
+    ),
+    Path='/'
+))
+
+StatelessBodyInstanceProfile = t.add_resource(iam.InstanceProfile(
+    "StatelessBodyInstanceProfile",
+    Path="/",
+    Roles=[Ref(StatelessBodyRole)],
+))
+
+StatefulBodyRole = t.add_resource(iam.Role(
+    "StatefulBodyRole",
+    AssumeRolePolicyDocument=awacs.aws.Policy(
+        Statement=[
+            awacs.aws.Statement(
+                Effect=awacs.aws.Allow,
+                Principal=awacs.aws.Principal(principal='Service', resources=['ec2.amazonaws.com']),
+                Action=[awacs.sts.AssumeRole]
+            )
+        ]
+    ),
+    Path='/'
+))
+
+StatefulBodyInstanceProfile = t.add_resource(iam.InstanceProfile(
+    "StatefulBodyInstanceProfile",
+    Path="/",
+    Roles=[Ref(StatefulBodyRole)],
 ))
 
 BodySecurityGroup = t.add_resource(security_group(
@@ -715,6 +796,7 @@ create_cellos_substack(
         Join("", FindInMap("UserData", "config", "marathon")),
         Join("", FindInMap("UserData", "provision", "post")),
     ],
+    instance_profile="StatelessBodyInstanceProfile",
     security_groups=[
         Ref(BodySecurityGroup),
         Ref(ExternalWhitelistSecurityGroup)
@@ -746,7 +828,7 @@ create_cellos_substack(
         Join("", FindInMap("UserData", "provision", "post")),
         Join("", FindInMap("UserData", "orchestrate", "datanode")),
     ],
-    instance_profile="NucleusInstanceProfile",
+    instance_profile="StatefulBodyInstanceProfile",
     security_groups=[
         Ref(BodySecurityGroup),
         Ref(ExternalWhitelistSecurityGroup)

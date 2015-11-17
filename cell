@@ -131,7 +131,7 @@ cfn() {
   fi
 
   aws cloudformation ${1}-stack \
-      --template-body "file://${base_stack}" \
+      --template-url "https://s3.amazonaws.com/${bucket_name}/$(basename ${base_stack})" \
       --stack-name "${stack_name}" \
       ${TAGS} \
       --capabilities CAPABILITY_IAM \
@@ -171,6 +171,7 @@ create_bucket() {
 
 copy_to_bucket() {
   echo "copy stack to S3://${bucket_name}"
+  ret=$(aws s3 cp ${base_stack} s3://"${bucket_name}"/)
   ret=$(aws s3 cp ${sub_stack} s3://"${bucket_name}"/)
   if [[ ! $? -eq 0 ]]; then
     exit 1
