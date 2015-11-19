@@ -52,6 +52,7 @@ usage: ./cell <action> <cell-name> [nucleus|stateless-body|stateful-body|membran
           the substack-template-url is the full URL where the nested stack template will be found
           e.g. "https://s3.amazonaws.com/saasbase-repo/cell-os/deploy/aws/elastic-cell-scaling-group-1.1.json"
     create <cell-name> - creates a new cell
+    update <cell-name> - updates an existing cell
     delete <cell-name> - deletes an existing cell
     list <cell-name> - lists existing stacks or the nodes in a cell
     scale <cell-name> <role> <capacity> - scales role to desired capacity
@@ -123,10 +124,16 @@ check_role() {
 }
 
 cfn() {
+  TAGS="--tags Key=name,Value=\"${cell_name}\" Key=version,Value=\"${VERSION}\""
+  if [[ "${1}" = "update" ]]
+  then
+    TAGS=""
+  fi
+
   aws cloudformation ${1}-stack \
       --template-body "file://${base_stack}" \
       --stack-name "${stack_name}" \
-      --tags Key=name,Value="${cell_name}" Key=version,Value="${VERSION}" \
+      ${TAGS} \
       --capabilities CAPABILITY_IAM \
       --parameters \
           ${extra_parameters} \
