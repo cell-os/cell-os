@@ -645,7 +645,7 @@ create_cellos_substack(
     name="Nucleus",
     role="nucleus",
     pre_zk_modules="docker,zookeeper,java",
-    post_zk_modules="mesos::slave,base,hadoop_2_namenode,hadoop_2,hadoop_2_journalnode",
+    post_zk_modules="base,hadoop_2_namenode,hadoop_2,hadoop_2_journalnode",
     tags="nucleus",
     user_data=[
         Join("", FindInMap("UserData", "config", "base")),
