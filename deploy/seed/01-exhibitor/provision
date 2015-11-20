@@ -1,0 +1,11 @@
+#!/bin/bash
+
+if [[ -f /opt/cell/etc/roles/nucleus ]]; then
+  cat >> /opt/cell/cluster/cluster.yaml <<-EOT
+zookeeper::aws_s3_region: ${aws_region}
+zookeeper::aws_s3_bucket: ${cell_bucket_name}
+zookeeper::aws_s3_prefix: ${cell_name}/nucleus/exhibitor
+EOT
+
+  /usr/local/bin/provision puppet zookeeper
+fi

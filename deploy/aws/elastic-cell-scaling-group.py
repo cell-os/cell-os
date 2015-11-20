@@ -150,16 +150,10 @@ associate_public_ip_address = t.add_parameter(Parameter(
     AllowedValues=["true", "false"],
 ))
 
-pre_zk_modules = t.add_parameter(Parameter(
-    "PreZkModules",
+cell_modules = t.add_parameter(Parameter(
+    "CellModules",
     Type="String",
-    Description="Comma separated list of modules that don't require a running zk (e.g. docker,java) ",
-))
-
-post_zk_modules = t.add_parameter(Parameter(
-    "PostZkModules",
-    Type="String",
-    Description="Comma separated list of modules that require a running zk (e.g. hdfs, mesos::slave)",
+    Description="Comma separated list of modules",
 ))
 
 saasbase_deployment_version = t.add_parameter(Parameter(
@@ -178,18 +172,6 @@ saasbase_secret_access_key = t.add_parameter(Parameter(
     "SaasBaseSecretAccessKey",
     Type="String",
     Description="SaasBase S3 repo read-only AWS account Secret Access Key (http://saasbase.corp.adobe.com/ops/operations/deployment.html)",
-))
-
-saasbase_user_data = t.add_parameter(Parameter(
-    "SaasBaseUserData",
-    Type="String",
-    Description="Run before and after ZK quorum is found and before starting deployment. Base64, new line delimited string",
-))
-
-saasbase_user_data_post = t.add_parameter(Parameter(
-    "SaasBaseUserDataPost",
-    Type="String",
-    Description="Run after ZK quorum is found and before starting deployment. Base64, new line delimited string",
 ))
 
 t.add_condition(
@@ -229,6 +211,12 @@ BodyLaunchConfig = t.add_resource(asn.LaunchConfiguration(
             files=cfn.InitFiles({
                 "/usr/local/bin/jq": cfn.InitFile(
                     source="https://github.com/stedolan/jq/releases/download/jq-1.5/jq-linux64",
+                    owner="root",
+                    group="root",
+                    mode="000755"
+                ),
+                "/usr/local/bin/saasbase_installer": cfn.InitFile(
+                    source=Join("", ["https://s3.amazonaws.com/saasbase-repo/saasbase_installer", Ref("SaasBaseDeploymentVersion")]),
                     owner="root",
                     group="root",
                     mode="000755"
@@ -369,23 +357,11 @@ done
 #!/bin/bash
 # provision script
 # provisioner puppet role1,role2,role3
-# provisioner seed seed1 (s3://cell/seeds/seed1/*, untar * to /root/seeds/seed1, execute /root/seeds/seed1/*.sh)
 source /etc/profile.d/cellos.sh
 
 if [[ $1 == "puppet" ]]; then
     AWS_ACCESS_KEY_ID="${SAASBASE_ACCESS_KEY_ID}" AWS_SECRET_ACCESS_KEY="${SAASBASE_SECRET_ACCESS_KEY}" \
-  bash /root/saasbase_installer -v -d /root -m /root/cluster/puppet/modules run-puppet /root/cluster --roles $2
-elif [[ $1 == "seed" ]]; then
-  [ -d /root/seeds/${2} ] && rm -rf /root/seeds/${2} && mkdir -p /root/seeds/${2}
-  aws s3 cp s3://${cell_bucket_name}/seeds/${2} /root/seeds/${2}/
-  pushd /root/seeds/${2}/
-  for f in /root/seeds/${2}/*.tar.gz; do
-    tar zxf $f
-  done
-  for e in /root/seeds/${2}/*.sh; do
-    /bin/bash ${e}
-  done
-  popd
+  bash /usr/local/bin/saasbase_installer -v -d /opt/cell -m /opt/cell/cluster/puppet/modules run-puppet /opt/cell/cluster --roles $2
 fi
 """),
                     owner="root",
@@ -485,33 +461,58 @@ cfn-init -s Ref(AWS::StackName) -r BodyLaunchConfig  --region Ref(AWS::Region) |
 # export vars
 echo "export number_of_disks=$(/usr/local/bin/detect-and-mount-disks)" >> /etc/profile.d/cellos.sh
 source /etc/profile.d/cellos.sh
-export pre_zk_modules='Ref(PreZkModules)'
-export post_zk_modules='Ref(PostZkModules)'
 export wait_handle='Ref(WaitHandle)'
+export cell_modules='Ref(CellModules)'
 
 export search_instance_cmd="aws --region ${aws_region} ec2 describe-instances --query 'Reservations[*].Instances[*].[PrivateIpAddress, PrivateDnsName]' --filters Name=instance-state-code,Values=16 Name=tag:cell,Values=${cell_name}"
 
-# Provisioning
-curl -o /root/saasbase_installer https://s3.amazonaws.com/saasbase-repo/saasbase_installer${saasbase_version}
+# prepare roles
+mkdir -p /opt/cell/etc/roles/
+touch /opt/cell/etc/roles/${cell_role}
 
-AWS_ACCESS_KEY_ID="${SAASBASE_ACCESS_KEY_ID}" AWS_SECRET_ACCESS_KEY="${SAASBASE_SECRET_ACCESS_KEY}" bash /root/saasbase_installer fetch ${saasbase_version}
-curl -o /root/puppet/profiles/${cellos_version}.yaml https://s3.amazonaws.com/saasbase-repo/cell-os/${cellos_version}.yaml
+# prepare provisioning
+AWS_ACCESS_KEY_ID="${SAASBASE_ACCESS_KEY_ID}" AWS_SECRET_ACCESS_KEY="${SAASBASE_SECRET_ACCESS_KEY}" bash /usr/local/bin/saasbase_installer -d /opt/cell fetch ${saasbase_version}
+mkdir -p /opt/cell/cluster/puppet/modules
+mkdir -p /opt/cell/puppet/profiles
+AWS_ACCESS_KEY_ID="${SAASBASE_ACCESS_KEY_ID}" AWS_SECRET_ACCESS_KEY="${SAASBASE_SECRET_ACCESS_KEY}" aws s3 cp s3://saasbase-repo/cell-os/${cellos_version}.yaml /opt/cell/puppet/profiles
 
-mkdir -p /root/cluster/puppet/modules
-echo ${cellos_version} > /root/cluster/profile
+# attempt to download profile from local bucket as well
+aws s3 cp s3://${cell_bucket_name}/shared/cell-os/${cellos_version}.yaml /opt/cell/puppet/profiles/
+echo ${cellos_version} > /opt/cell/cluster/profile
+touch /opt/cell/cluster/cluster.yaml
 
-# pre zk
-Ref(SaasBaseUserData)
+# provision seed
+AWS_ACCESS_KEY_ID="${SAASBASE_ACCESS_KEY_ID}" AWS_SECRET_ACCESS_KEY="${SAASBASE_SECRET_ACCESS_KEY}" aws s3 cp s3://saasbase-repo/cell-os/seed-${cellos_version}.tar.gz /opt/cell
+
+# attempt to download seed from local bucket as well
+aws s3 cp s3://$cell_bucket_name/shared/cell-os/seed.tar.gz /opt/cell
+
+####################### provision
+mkdir -p /opt/cell/seed
+pushd /opt/cell
+rm -rf seed
+[[ -f seed-${cellos_version}.tar.gz ]] && tar zxf seed-${cellos_version}.tar.gz
+[[ -f seed.tar.gz ]] && tar zxf seed.tar.gz
+rm -rf seed*.tar.gz
+popd
+
+# execute pre
+for s in /opt/cell/seed/*; do
+    if [[ $cell_modules == *"$(basename $s)"* ]]; then
+        [[ -x $s/provision ]] && $s/provision
+    fi
+done
 
 # wait for zk
 /usr/local/bin/zk-barrier
 export zk=`zk-list-nodes 2>/dev/null`
 
-# regenerate cluster.yaml
-echo '' > /root/cluster/cluster.yaml
-
-# post zk
-Ref(SaasBaseUserDataPost)
+# execute post
+for s in /opt/cell/seed/*; do
+    if [[ $cell_modules == *"$(basename $s)"* ]]; then
+        [[ -x $s/provision_post ]] && $s/provision_post
+    fi
+done
 
 # All is well so signal success
 cfn-signal -e 0 -r "Stack setup complete" "${wait_handle}"

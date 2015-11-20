@@ -1,0 +1,16 @@
+#!/bin/bash
+
+export zk=$(zk-list-nodes)
+if [[ -f /opt/cell/etc/roles/stateless-body ]]; then
+
+
+  cat >>/opt/cell/cluster/cluster.yaml <<-EOT
+marathon::zk: zk://$zk/marathon
+marathon::master: zk://$zk/mesos
+marathon::bin_path: /opt/marathon/bin
+marathon::install_java: false
+EOT
+  provision puppet marathon
+
+fi
+

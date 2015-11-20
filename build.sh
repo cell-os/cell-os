@@ -15,6 +15,7 @@ cp deploy/aws/build/elastic-cell.json \
   build/elastic-cell-${VERSION}.json
 cp deploy/aws/build/elastic-cell-scaling-group.json \
   build/elastic-cell-scaling-group-${VERSION}.json
+cp deploy/seed.tar.gz build/seed-${VERSION}.tar.gz
 cp cell build/cell
 cp build.sh build/
 cp VERSION build/

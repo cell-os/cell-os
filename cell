@@ -207,6 +207,7 @@ create() {
   create_bucket
   build_stack_files
   copy_to_bucket
+  seed
 
   echo "creating stack ${stack_name}..."
   cfn create
@@ -346,6 +347,19 @@ proxy() {
   cell_ssh "-N -g -C -D ${PROXY_PORT}" ""
 }
 
+build_seed() {
+  [[ check_cell_name ]] || return 1
+  pushd $DIR/deploy/
+  tar zcf seed.tar.gz seed
+}
+
+seed() {
+  build_seed
+  aws s3 cp seed.tar.gz s3://${bucket_name}/shared/cell-os/
+  popd &>/dev/null
+  aws s3 cp $DIR/cell-os-base.yaml s3://${bucket_name}/shared/cell-os/cell-os-base-${VERSION}.yaml
+}
+
 cell_i2cssh() {
   ssh_options="-o ConnectTimeout=${SSH_TIMEOUT}"
   rolestmp=${role:-${ROLES//, / }}
@@ -378,6 +392,7 @@ EOM
 case "$1" in
   build)
     build_stack_files "${template_url:? please provide the full template URL}"
+    build_seed
     ;;
   create)
     create
@@ -405,6 +420,9 @@ case "$1" in
     ;;
   cmd)
     cmd "$@"
+    ;;
+  seed)
+    seed
     ;;
   proxy)
     proxy
