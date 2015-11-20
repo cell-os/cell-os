@@ -195,7 +195,7 @@ I've seen bugs that caused a faulty ZK URI to get into the configurations.
 
 The main place where the config is driven from is `cluster.yaml`
 
-    cat /root/cluster/cluster.yaml
+    cat /opt/cell/cluster/cluster.yaml
 
 The mesos configurations are in
 

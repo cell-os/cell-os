@@ -162,85 +162,6 @@ t.add_mapping("RegionMap", {
     'us-west-2': {'AMI': 'ami-bd5b4f8d'}
 })
 
-t.add_mapping("UserData", {
-    'config': {
-        'base': split_content("""
-### Minimal inline cluster.yaml
-echo docker::version: 1.7.1                  >> /root/cluster/cluster.yaml
-"""),
-        'mesos': split_content("""
-echo mesos::zookeeper:   zk://$zk/mesos      >> /root/cluster/cluster.yaml
-"""),
-        'marathon': split_content("""
-echo marathon::zk:       zk://$zk/marathon   >> /root/cluster/cluster.yaml
-echo marathon::master:   zk://$zk/mesos      >> /root/cluster/cluster.yaml
-echo marathon::bin_path: /opt/marathon/bin   >> /root/cluster/cluster.yaml
-echo marathon::install_java: false           >> /root/cluster/cluster.yaml
-"""),
-        'zookeeper': split_content("""
-echo "zookeeper::aws_s3_region: ${aws_region}" >> /root/cluster/cluster.yaml
-echo "zookeeper::aws_s3_bucket: ${cell_bucket_name}" >> /root/cluster/cluster.yaml
-echo "zookeeper::aws_s3_prefix: ${cell_name}/nucleus/exhibitor" >> /root/cluster/cluster.yaml
-"""),
-    'hadoop': split_content("""
-echo "" >> /root/cluster/cluster.yaml
-### HDFS setup
-echo hadoop_version: 2.6.0-cdh5.4.2-adobe    >> /root/cluster/cluster.yaml
-echo "hadoop_lzo_version: 0.4.20" >> /root/cluster/cluster.yaml
-export nn1_host=$(eval $search_instance_cmd Name=tag:role,Values=nucleus | jq -r '.[][][1]' | head -n 1)
-export nn2_host=$(eval $search_instance_cmd Name=tag:role,Values=nucleus | jq -r '.[][][1]' | head -2 | tail -1)
-echo "nn1_host: ${nn1_host}" >> /root/cluster/cluster.yaml
-echo "nn2_host: ${nn2_host}" >> /root/cluster/cluster.yaml
-echo "zk_quorum:" >> /root/cluster/cluster.yaml
-zk-list-nodes | sed 's/,/\\n/g' | sed 's/:.*$//g' | sed 's/^/-  /' >> /root/cluster/cluster.yaml
-echo "hadoop_data_nodes: []" >> /root/cluster/cluster.yaml
-echo "hadoop_number_of_disks: $(/usr/local/bin/detect-and-mount-disks)" >> /root/cluster/cluster.yaml
-echo "hadoop::historyserver_host: $nn1_host" >> /root/cluster/cluster.yaml
-echo "hadoop::proxyusers: {}" >> /root/cluster/cluster.yaml
-echo "hadoop_data_nodes: []" >> /root/cluster/cluster.yaml
-""")
-    },
-    'provision': {
-        "pre": split_content("""\
-provision puppet ${pre_zk_modules}
-"""),
-        'post': split_content("""\
-provision puppet ${post_zk_modules}
-"""),
-    },
-    'orchestrate': {
-        'namenode': split_content("""\
-export host=$(hostname -f)
-service hadoop-hdfs-journalnode start
-sleep 10
-aws s3api put-object --bucket ${cell_bucket_name} --key shared/orch/${aws_parent_stack_name}/zk/$host
-if [[ $host == $nn1_host ]]; then
-  aws_wait "aws s3api list-objects --bucket ${cell_bucket_name} --prefix shared/orch/${aws_parent_stack_name}/zk/" ".Contents | length" "3"
-  su --login hadoop -c "/home/hadoop/hadoop/bin/hdfs namenode -format -nonInteractive"
-  su --login hadoop -c "/home/hadoop/hadoop/bin/hdfs zkfc -formatZK -nonInteractive"
-  systemctl start hadoop-hdfs-zkfc
-  systemctl start hadoop-hdfs-namenode
-  aws s3api put-object --bucket ${cell_bucket_name} --key shared/orch/${aws_parent_stack_name}/nn1
-fi
-
-if [[ $host == $nn2_host ]]; then
-  aws_wait "aws s3api list-objects --bucket ${cell_bucket_name} --prefix shared/orch/${aws_parent_stack_name}/zk/" ".Contents | length" "3"
-  aws_wait "aws s3api list-objects --bucket ${cell_bucket_name} --prefix shared/orch/${aws_parent_stack_name}/nn1" ".Contents | length" "1"
-  su --login hadoop -c "/home/hadoop/hadoop/bin/hdfs namenode -bootstrapStandby -nonInteractive"
-  systemctl start hadoop-hdfs-zkfc
-  systemctl start hadoop-hdfs-namenode
-  sleep 10
-  aws s3api put-object --bucket ${cell_bucket_name} --key shared/orch/${aws_parent_stack_name}/nn2
-fi
-"""),
-        'datanode': split_content("""\
-aws_wait "aws s3api list-objects --bucket ${cell_bucket_name} --prefix shared/orch/${aws_parent_stack_name}/nn2" ".Contents | length" "1"
-systemctl start hadoop-hdfs-datanode
-aws s3api put-object --bucket ${cell_bucket_name} --key shared/orch/${aws_parent_stack_name}/dn/${host}
-"""),
-    }
-})
-
 t.add_condition(
     "RegionIsUsEast1", Equals(Ref("AWS::Region"), "us-east-1")
 )
@@ -679,14 +600,11 @@ MembraneLoadBalancer = create_load_balancer(t,
 
 WaitHandle = t.add_resource(cfn.WaitConditionHandle("WaitHandle",))
 
-def create_cellos_substack(t, name=None, role=None, pre_zk_modules=None, post_zk_modules=None, tags=[], user_data=[], user_data_post=[], security_groups=[], load_balancers=[], instance_profile=None):
+def create_cellos_substack(t, name=None, role=None, cell_modules=None, tags=[], security_groups=[], load_balancers=[], instance_profile=None):
     params = {
         "Role": role,
         "Tags": tags,
-        "PreZkModules": pre_zk_modules,
-        "PostZkModules": post_zk_modules,
-        "SaasBaseUserData": Join("", user_data),
-        "SaasBaseUserDataPost": Join("", user_data_post),
+        "CellModules": cell_modules,
         "SecurityGroups": Join(",", security_groups),
         "LoadBalancerNames": Join(",", load_balancers),
         "ZookeeperLoadBalancer": GetAtt("ZookeeperLoadBalancer", "DNSName"),
@@ -708,8 +626,6 @@ def create_cellos_substack(t, name=None, role=None, pre_zk_modules=None, post_zk
     if instance_profile != None:
         params["IamInstanceProfile"] = Ref(instance_profile)
 
-
-
     substack_template_url = Join("", ["https://s3.amazonaws.com/", Ref("BucketName"), "/", Ref("BodyStackTemplate")])
     # check if the template url is overridden (e.g. with a release one)
     if len(sys.argv) > 1 and len(sys.argv[1]) > 7 :
@@ -726,21 +642,8 @@ create_cellos_substack(
     t,
     name="Nucleus",
     role="nucleus",
-    pre_zk_modules="docker,zookeeper,java",
-    post_zk_modules="base,hadoop_2_namenode,hadoop_2,hadoop_2_journalnode",
+    cell_modules="00-docker,00-java,01-exhibitor,10-hdfs-raw,99-cell",
     tags="nucleus",
-    user_data=[
-        Join("", FindInMap("UserData", "config", "base")),
-        Join("", FindInMap("UserData", "config", "zookeeper")),
-        Join("", FindInMap("UserData", "provision", "pre")),
-    ],
-    user_data_post=[
-        Join("", FindInMap("UserData", "config", "base")),
-        Join("", FindInMap("UserData", "config", "zookeeper")),
-        Join("", FindInMap("UserData", "config", "hadoop")),
-        Join("", FindInMap("UserData", "provision", "post")),
-        Join("", FindInMap("UserData", "orchestrate", "namenode")),
-    ],
     instance_profile="NucleusInstanceProfile",
     security_groups=[
         Ref(NucleusSecurityGroup),
@@ -753,19 +656,8 @@ create_cellos_substack(
     t,
     name="Membrane",
     role="membrane",
-    pre_zk_modules="docker",
-    post_zk_modules="mesos::slave",
+    cell_modules="00-docker,02-mesos,99-cell",
     tags="membrane,slave,body",
-    user_data=[
-        Join("", FindInMap("UserData", "config", "base")),
-        Join("", FindInMap("UserData", "config", "mesos")),
-        Join("", FindInMap("UserData", "provision", "pre")),
-    ],
-    user_data_post=[
-        Join("", FindInMap("UserData", "config", "base")),
-        Join("", FindInMap("UserData", "config", "mesos")),
-        Join("", FindInMap("UserData", "provision", "pre")),
-    ],
     instance_profile="MembraneInstanceProfile",
     security_groups=[
         Ref(PublicSecurityGroup),
@@ -781,21 +673,8 @@ create_cellos_substack(
     t,
     name="StatelessBody",
     role="stateless-body",
-    pre_zk_modules="docker,java",
-    post_zk_modules="mesos::master,mesos::slave,marathon",
+    cell_modules="00-docker,00-java,01-exhibitor,02-mesos,10-marathon,99-cell",
     tags="slave,body,stateless,stateless-body",
-    user_data=[
-        Join("", FindInMap("UserData", "config", "base")),
-        Join("", FindInMap("UserData", "config", "mesos")),
-        Join("", FindInMap("UserData", "config", "marathon")),
-        Join("", FindInMap("UserData", "provision", "pre")),
-    ],
-    user_data_post=[
-        Join("", FindInMap("UserData", "config", "base")),
-        Join("", FindInMap("UserData", "config", "mesos")),
-        Join("", FindInMap("UserData", "config", "marathon")),
-        Join("", FindInMap("UserData", "provision", "post")),
-    ],
     instance_profile="StatelessBodyInstanceProfile",
     security_groups=[
         Ref(BodySecurityGroup),
@@ -811,23 +690,8 @@ create_cellos_substack(
     t,
     name="StatefulBody",
     role="stateful-body",
-    pre_zk_modules="docker,java",
-    post_zk_modules="mesos::slave,base,hadoop_2_datanode",
+    cell_modules="00-docker,00-java,02-mesos,10-hdfs-raw,99-cell",
     tags="slave,body,stateful,stateful-body",
-    user_data=[
-        Join("", FindInMap("UserData", "config", "base")),
-        Join("", FindInMap("UserData", "config", "mesos")),
-        Join("", FindInMap("UserData", "config", "marathon")),
-        Join("", FindInMap("UserData", "provision", "pre")),
-    ],
-    user_data_post=[
-        Join("", FindInMap("UserData", "config", "base")),
-        Join("", FindInMap("UserData", "config", "mesos")),
-        Join("", FindInMap("UserData", "config", "marathon")),
-        Join("", FindInMap("UserData", "config", "hadoop")),
-        Join("", FindInMap("UserData", "provision", "post")),
-        Join("", FindInMap("UserData", "orchestrate", "datanode")),
-    ],
     instance_profile="StatefulBodyInstanceProfile",
     security_groups=[
         Ref(BodySecurityGroup),

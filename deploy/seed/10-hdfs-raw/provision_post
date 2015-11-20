@@ -1,0 +1,59 @@
+#!/bin/bash
+
+export search_instance_cmd="aws --region ${aws_region} ec2 describe-instances --query 'Reservations[*].Instances[*].[PrivateIpAddress, PrivateDnsName]' --filters Name=instance-state-code,Values=16 Name=tag:cell,Values=${cell_name}"
+
+export nn1_host=$(eval $search_instance_cmd Name=tag:role,Values=nucleus | jq -r '.[][][1]' | head -n 1)
+export nn2_host=$(eval $search_instance_cmd Name=tag:role,Values=nucleus | jq -r '.[][][1]' | head -2 | tail -1)
+
+cat >> /opt/cell/cluster/cluster.yaml <<-EOT
+### HDFS setup
+hadoop_version: 2.6.0-cdh5.4.2-adobe
+hadoop_lzo_version: 0.4.20
+nn1_host: ${nn1_host}
+nn2_host: ${nn2_host}
+zk_quorum:
+EOT
+
+zk-list-nodes | sed 's/,/\\n/g' | sed 's/:.*$//g' | sed 's/^/-  /' >> /opt/cell/cluster/cluster.yaml
+
+cat >> /opt/cell/cluster/cluster.yaml <<-EOT
+hadoop_data_nodes: []
+hadoop_number_of_disks: $(/usr/local/bin/detect-and-mount-disks)
+hadoop::historyserver_host: $nn1_host
+hadoop::proxyusers: {}
+hadoop_data_nodes: []
+EOT
+
+if [[ -f /opt/cell/etc/roles/nucleus ]]; then
+  /usr/local/bin/provision puppet base,hadoop_2_namenode,hadoop_2,hadoop_2_journalnode
+
+  export host=$(hostname -f)
+  service hadoop-hdfs-journalnode start
+  sleep 10
+  aws s3api put-object --bucket ${cell_bucket_name} --key shared/setup/${aws_parent_stack_name}/zk/$host
+  if [[ $host == $nn1_host ]]; then
+    aws_wait "aws s3api list-objects --bucket ${cell_bucket_name} --prefix shared/setup/${aws_parent_stack_name}/zk/" ".Contents | length" "3"
+    su --login hadoop -c "/home/hadoop/hadoop/bin/hdfs namenode -format -nonInteractive"
+    su --login hadoop -c "/home/hadoop/hadoop/bin/hdfs zkfc -formatZK -nonInteractive"
+    systemctl start hadoop-hdfs-zkfc
+    systemctl start hadoop-hdfs-namenode
+    aws s3api put-object --bucket ${cell_bucket_name} --key shared/setup/${aws_parent_stack_name}/nn1
+  fi
+
+  if [[ $host == $nn2_host ]]; then
+    aws_wait "aws s3api list-objects --bucket ${cell_bucket_name} --prefix shared/setup/${aws_parent_stack_name}/zk/" ".Contents | length" "3"
+    aws_wait "aws s3api list-objects --bucket ${cell_bucket_name} --prefix shared/setup/${aws_parent_stack_name}/nn1" ".Contents | length" "1"
+    su --login hadoop -c "/home/hadoop/hadoop/bin/hdfs namenode -bootstrapStandby -nonInteractive"
+    systemctl start hadoop-hdfs-zkfc
+    systemctl start hadoop-hdfs-namenode
+    sleep 10
+    aws s3api put-object --bucket ${cell_bucket_name} --key shared/setup/${aws_parent_stack_name}/nn2
+  fi
+fi
+
+if [[ -f /opt/cell/etc/roles/stateful-body ]]; then
+  /usr/local/bin/provision puppet base,hadoop_2_datanode
+
+  aws_wait "aws s3api list-objects --bucket ${cell_bucket_name} --prefix shared/setup/${aws_parent_stack_name}/nn2" ".Contents | length" "1"
+  systemctl start hadoop-hdfs-datanode
+fi
