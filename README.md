@@ -47,6 +47,11 @@ Currently only AWS is supported by the CLI.
     pip install troposphere
     pip install awacs
 
+#### Install `watch`
+ With [Homebrew](http://brew.sh/) installed: `brew install watch`
+ 
+ With [ports](http://www.macports.org/) installed: `sudo port install watch`
+
 ## Usage
 
     export AWS_KEY_PAIR=<the EC2 keypair that should be used. Defaults to first key on the AWS account>
