@@ -210,6 +210,18 @@ body = t.add_resource(asn.AutoScalingGroup(
     LoadBalancerNames=Ref(load_balancer_names),
 ))
 
+ROOT_DEVICE_SIZE = 200
+root_block_device_mapping = [
+    ec2.BlockDeviceMapping(
+        DeviceName='/dev/sda1',
+        Ebs=ec2.EBSBlockDevice(
+            DeleteOnTermination=True,
+            VolumeType='gp2',
+            VolumeSize=ROOT_DEVICE_SIZE
+        )
+    )
+]
+
 BodyLaunchConfig = t.add_resource(asn.LaunchConfiguration(
     "BodyLaunchConfig",
     Metadata=cfn.Init({
@@ -423,7 +435,7 @@ echo $n
     ImageId=Ref(image_id),
     KeyName=Ref(key_name),
     SecurityGroups=Ref(security_groups),
-    BlockDeviceMappings=[
+    BlockDeviceMappings=root_block_device_mapping + [
         ec2.BlockDeviceMapping(
             VirtualName='ephemeral%d' % i,
             DeviceName='/dev/sd%s' % chr(98 + i)
