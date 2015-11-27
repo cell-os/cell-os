@@ -20,7 +20,7 @@ import troposphere.ec2 as ec2
 import troposphere.elasticloadbalancing as elb
 import troposphere.cloudformation as cfn
 import troposphere.autoscaling as asn
-from troposphere_helpers import *
+from tropopause import *
 
 from troposphere import Not, Ref, Equals, If, Tags
 

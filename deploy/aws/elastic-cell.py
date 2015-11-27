@@ -20,7 +20,7 @@ import troposphere.iam as iam
 import troposphere.ec2 as ec2
 import troposphere.elasticloadbalancing as elb
 import troposphere.cloudformation as cfn
-from troposphere_helpers import *
+from tropopause import *
 
 from troposphere import Not, Ref, Equals, If, Tags
 from troposphere import Base64, Select, FindInMap, GetAtt, GetAZs, Join, Output
