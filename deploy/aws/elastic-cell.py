@@ -512,41 +512,16 @@ ingress 0.0.0.0/0 tcp 443:443
     description="Public access for all nodes in this group. Tread carefully."
 ))
 
-BodyToLbSecurityGroupIngressToAvoidCircularDeps = t.add_resource(ec2.SecurityGroupIngress(
-    "BodyToLbSecurityGroupIngressToAvoidCircularDeps",
-    GroupId=Ref("LbSecurityGroup"),
-    SourceSecurityGroupId=Ref("BodySecurityGroup"),
-    IpProtocol="tcp",
-    FromPort="0",
-    ToPort="65535",
-))
+# format: name  type  source  dest tcp  port-range
+vpc_security_group_rules = vpc_security_rules("""\
+BodyToLbIngress ingress BodySecurityGroup LbSecurityGroup tcp 0:65535
+BodyToBodyIngress ingress BodySecurityGroup BodySecurityGroup -1 0:65535
+NucleusToLbIngress ingress NucleusSecurityGroup LbSecurityGroup tcp 80:80
+NucleusToNucleusIngress ingress NucleusSecurityGroup NucleusSecurityGroup -1 0:65535
+""")
 
-NucleusToLbSecurityGroupIngressToAvoidCircularDeps = t.add_resource(ec2.SecurityGroupIngress(
-    "NucleusToLbSecurityGroupIngressToAvoidCircularDeps",
-    GroupId=Ref("LbSecurityGroup"),
-    SourceSecurityGroupId=Ref("NucleusSecurityGroup"),
-    IpProtocol="tcp",
-    FromPort="80",
-    ToPort="80",
-))
-
-NucleusToNucleusSecurityGroupIngressToAvoidCircularDeps = t.add_resource(ec2.SecurityGroupIngress(
-    "NucleusToNucleusSecurityGroupIngressToAvoidCircularDeps",
-    GroupId=Ref("NucleusSecurityGroup"),
-    SourceSecurityGroupId=Ref("NucleusSecurityGroup"),
-    IpProtocol="tcp",
-    FromPort="0",
-    ToPort="65535",
-))
-
-BodyToBodySecurityGroupIngressToAvoidCircularDeps = t.add_resource(ec2.SecurityGroupIngress(
-    "BodyToBodySecurityGroupIngressToAvoidCircularDeps",
-    GroupId=Ref("BodySecurityGroup"),
-    SourceSecurityGroupId=Ref("BodySecurityGroup"),
-    IpProtocol="tcp",
-    FromPort="0",
-    ToPort="65535",
-))
+for rule in vpc_security_group_rules:
+    t.add_resource(rule)
 
 def create_load_balancer(t, name, instance_port, target):
     return t.add_resource(elb.LoadBalancer(
