@@ -166,6 +166,30 @@ t.add_condition(
     "RegionIsUsEast1", Equals(Ref("AWS::Region"), "us-east-1")
 )
 
+t.add_output(Output(
+    "MesosLoadBalancerOutput",
+    Description="Address of the Mesos LB",
+    Value=Join('', ['http://', GetAtt("MesosLoadBalancer", 'DNSName')]),
+))
+
+t.add_output(Output(
+    "ZookeeperLoadBalancer",
+    Description="Address of the Exhibitor LB",
+    Value=Join('', ['http://', GetAtt("ZookeeperLoadBalancer", 'DNSName')]),
+))
+
+t.add_output(Output(
+    "MembraneLoadBalancerOutput",
+    Description="Address of the Membrane LB",
+    Value=Join('', ['http://', GetAtt("MembraneLoadBalancer", 'DNSName')]),
+))
+
+t.add_output(Output(
+    "MarathonLoadBalancerOutput",
+    Description="Address of the Mesos LB",
+    Value=Join('', ['http://', GetAtt("MarathonLoadBalancer", 'DNSName')]),
+))
+
 VPC = t.add_resource(ec2.VPC(
     "VPC",
     EnableDnsSupport=True,
