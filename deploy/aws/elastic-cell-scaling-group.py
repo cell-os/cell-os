@@ -412,6 +412,27 @@ echo $n
                     group="root",
                     mode="000755"
                 ),
+                "/usr/local/bin/get_ip": cfn.InitFile(
+                    content=make_content("""\
+#!/bin/sh
+set -o nounset -o errexit
+if [ -e /etc/environment ]
+then
+  set -o allexport
+  source /etc/environment
+  set +o allexport
+fi
+
+get_private_ip() {
+    curl -fsSL http://169.254.169.254/latest/meta-data/local-ipv4
+}
+
+echo $(get_private_ip)
+"""),
+                    owner="root",
+                    group="root",
+                    mode="000755"
+                ),
             })
         )
     }),
