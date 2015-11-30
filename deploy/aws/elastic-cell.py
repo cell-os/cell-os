@@ -33,43 +33,6 @@ t.add_version("2010-09-09")
 t.add_description("""\
 cell-os-base - https://git.corp.adobe.com/metal-cell/cell-os""")
 
-InstanceType = t.add_parameter(Parameter(
-    "InstanceType",
-    Default="c3.2xlarge",
-    ConstraintDescription="must be a valid, HVM-compatible EC2 instance type.",
-    Type="String",
-    Description="EC2 instance type",
-    AllowedValues=[
-        "t2.micro", "t2.small", "t2.medium", "t2.large",
-        "m3.medium", "m3.large", "m3.xlarge", "m3.2xlarge",
-        "c4.large", "c4.xlarge", "c4.2xlarge", "c4.4xlarge", "c4.8xlarge",
-        "c3.large", "c3.xlarge", "c3.2xlarge", "c3.4xlarge", "c3.8xlarge",
-        "r3.large", "r3.xlarge", "r3.2xlarge", "r3.4xlarge", "r3.8xlarge",
-        "i2.xlarge", "i2.2xlarge", "i2.4xlarge", "i2.8xlarge",
-        "hs1.8xlarge", "g2.2xlarge"
-    ],
-))
-
-InstanceTypeStatefulBody = t.add_parameter(Parameter(
-    "InstanceTypeStatefulBody",
-    Default="c3.2xlarge",
-    ConstraintDescription="must be a valid, HVM-compatible EC2 instance type.",
-    Type="String",
-    Description="EC2 instance type",
-    AllowedValues=[
-        "c3.large", "c3.xlarge", "c3.2xlarge", "c3.4xlarge", "c3.8xlarge",
-        "cc2.8xlarge",
-        "cr1.8xlarge",
-        "d2.xlarge", "d2.2xlarge", "d2.4xlarge", "d2.8xlarge",
-        "g2.2xlarge", "g2.8xlarge",
-        "hi1.4xlarge",
-        "hs1.8xlarge",
-        "i2.xlarge", "i2.2xlarge", "i2.4xlarge", "i2.8xlarge",
-        "m3.medium", "m3.large", "m3.xlarge", "m3.2xlarge",
-        "r3.large", "r3.xlarge", "r3.2xlarge", "r3.4xlarge", "r3.8xlarge"
-    ],
-))
-
 CellName = t.add_parameter(Parameter(
     "CellName",
     Default="cell-1",
@@ -104,11 +67,46 @@ NucleusSize = t.add_parameter(Parameter(
     Description="Number of nodes in the cell nucleus",
 ))
 
+accepted_instance_types = [
+    "t2.micro", "t2.small", "t2.medium", "t2.large",
+    "m1.small", "m1.medium", "m1.large", "m1.xlarge",
+    "m2.xlarge", "m2.2xlarge", "m2.4xlarge",
+    "m3.medium", "m3.large", "m3.xlarge", "m3.2xlarge",
+    "m4.large", "m4.xlarge", "m4.2xlarge", "m4.4xlarge", "m4.10xlarge",
+    "c4.large", "c4.xlarge", "c4.2xlarge", "c4.4xlarge", "c4.8xlarge",
+    "c3.large", "c3.xlarge", "c3.2xlarge", "c3.4xlarge", "c3.8xlarge",
+    "r3.large", "r3.xlarge", "r3.2xlarge", "r3.4xlarge", "r3.8xlarge",
+    "g2.2xlarge", "g2.8xlarge",
+    "i2.xlarge", "i2.2xlarge", "i2.4xlarge", "i2.8xlarge",
+    "d2.xlarge", "d2.2xlarge", "d2.4xlarge", "d2.8xlarge",
+    "hs1.8xlarge",
+    "hi1.4xlarge",
+    "cc2.8xlarge"
+]
+
+NucleusInstanceType = t.add_parameter(Parameter(
+    "NucleusInstanceType",
+    Default="c3.2xlarge",
+    ConstraintDescription="must be a valid, HVM-compatible EC2 instance type.",
+    Type="String",
+    Description="Nucleus EC2 instance type",
+    AllowedValues=accepted_instance_types,
+))
+
 StatelessBodySize = t.add_parameter(Parameter(
     "StatelessBodySize",
     Default="1",
     Type="Number",
     Description="Number of nodes in the cell stateless body",
+))
+
+StatelessBodyInstanceType = t.add_parameter(Parameter(
+    "StatelessBodyInstanceType",
+    Default="c3.2xlarge",
+    ConstraintDescription="must be a valid, HVM-compatible EC2 instance type.",
+    Type="String",
+    Description="StatelessBody EC2 instance type",
+    AllowedValues=accepted_instance_types,
 ))
 
 StatefulBodySize = t.add_parameter(Parameter(
@@ -118,11 +116,29 @@ StatefulBodySize = t.add_parameter(Parameter(
     Description="Number of nodes in the cell stateful body (local disk access)",
 ))
 
+StatefulBodyInstanceType = t.add_parameter(Parameter(
+    "StatefulBodyInstanceType",
+    Default="c3.2xlarge",
+    ConstraintDescription="must be a valid, HVM-compatible EC2 instance type.",
+    Type="String",
+    Description="StatefulBody EC2 instance type",
+    AllowedValues=accepted_instance_types,
+))
+
 MembraneSize = t.add_parameter(Parameter(
     "MembraneSize",
     Default="1",
     Type="Number",
     Description="Number of nodes in the cell membrane, which is publicly exposed",
+))
+
+MembraneInstanceType = t.add_parameter(Parameter(
+    "MembraneInstanceType",
+    Default="c3.2xlarge",
+    ConstraintDescription="must be a valid, HVM-compatible EC2 instance type.",
+    Type="String",
+    Description="Membrane EC2 instance type",
+    AllowedValues=accepted_instance_types,
 ))
 
 BucketName = t.add_parameter(Parameter(
@@ -599,7 +615,7 @@ MembraneLoadBalancer = create_load_balancer(t,
 
 WaitHandle = t.add_resource(cfn.WaitConditionHandle("WaitHandle",))
 
-def create_cellos_substack(t, name=None, role=None, cell_modules=None, tags=[], security_groups=[], load_balancers=[], instance_profile=None):
+def create_cellos_substack(t, name=None, role=None, cell_modules=None, tags=[], security_groups=[], load_balancers=[], instance_profile=None, instance_type=None):
     params = {
         "Role": role,
         "Tags": tags,
@@ -613,7 +629,7 @@ def create_cellos_substack(t, name=None, role=None, cell_modules=None, tags=[], 
         "CellName": Ref("CellName"),
         "BucketName": Ref("BucketName"),
         "CellOsVersionBundle": Ref("CellOsVersionBundle"),
-        "InstanceType": Ref("InstanceType"),
+        "InstanceType": instance_type,
         "Subnet": Ref("Subnet"),
         "KeyName": Ref("KeyName"),
         "SaasBaseDeploymentVersion": Ref("SaasBaseDeploymentVersion"),
@@ -649,6 +665,7 @@ create_cellos_substack(
         Ref(ExternalWhitelistSecurityGroup)
     ],
     load_balancers=[Ref("ZookeeperLoadBalancer")],
+    instance_type=Ref("NucleusInstanceType")
 )
 
 create_cellos_substack(
@@ -665,7 +682,8 @@ create_cellos_substack(
     ],
     load_balancers=[
         Ref("MembraneLoadBalancer")
-    ]
+    ],
+    instance_type=Ref("MembraneInstanceType")
 )
 
 create_cellos_substack(
@@ -682,7 +700,8 @@ create_cellos_substack(
     load_balancers=[
         Ref("MesosLoadBalancer"),
         Ref("MarathonLoadBalancer")
-    ]
+    ],
+    instance_type=Ref("StatelessBodyInstanceType")
 )
 
 create_cellos_substack(
@@ -699,7 +718,8 @@ create_cellos_substack(
     load_balancers=[
         Ref("MesosLoadBalancer"),
         Ref("MarathonLoadBalancer")
-    ]
+    ],
+    instance_type=Ref("StatefulBodyInstanceType")
 )
 
 print(t.to_json(indent=2))
