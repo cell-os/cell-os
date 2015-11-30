@@ -232,6 +232,25 @@ delete() {
   exit 0
 }
 
+cfn_elb() {
+  format=${1:-"LoadBalancerName, DNSName"}
+  aws ${AWS_OPTIONS} elb describe-load-balancers \
+    --query "LoadBalancerDescriptions[*].[$format]" \
+    --output ${2:-text} \
+    | grep "${cell_name}"
+}
+
+cfn_instances() {
+  format=${2:-"PublicIpAddress, PrivateIpAddress, ImageId, State.Name, KeyName"}
+  aws ${AWS_OPTIONS} ec2 describe-instances \
+    --query "Reservations[*].Instances[*].[$format]" \
+    --filters \
+    Name=tag:cell,Values=$cell_name \
+    Name=instance-state-name,Values=*ing \
+    Name=tag:role,Values=$1 \
+    --output ${3:-text}
+}
+
 list() {
   if [[ -z $cell_name ]]; then
     aws cloudformation describe-stacks  --query "Stacks[? (Tags[? Key=='name']\
@@ -239,25 +258,15 @@ list() {
       .Value | [0], CreationTime]" --output table
   else
     echo "[load balancers]"
-    aws elb describe-load-balancers \
-      --query 'LoadBalancerDescriptions[*].[LoadBalancerName, DNSName]' \
-      --output table \
-      | grep "${cell_name}"
-
-    describe_command="aws ${AWS_OPTIONS} ec2 describe-instances --query \
-              'Reservations[*].Instances[*].[PublicIpAddress, \
-              PrivateIpAddress, ImageId, State.Name, KeyName]' \
-              --filters Name=tag:cell,Values=$cell_name \
-              Name=instance-state-name,Values=*ing \
-              --output text"
+    cfn_elb "" text
     echo "[nucleus]"
-    sh -c "${describe_command} Name=tag:role,Values=nucleus"
+    cfn_instances nucleus
     echo "[stateless-body]"
-    sh -c "${describe_command} Name=tag:role,Values=stateless-body"
+    cfn_instances stateless-body
     echo "[stateful-body]"
-    sh -c "${describe_command} Name=tag:role,Values=stateful-body"
+    cfn_instances stateful-body
     echo "[membrane]"
-    sh -c "${describe_command} Name=tag:role,Values=membrane"
+    cfn_instances membrane
   fi
   exit 0
 }
