@@ -27,7 +27,7 @@ exit 1
 VERSION=${VERSION:-$(cat VERSION)}
 SAASBASE_ACCESS_KEY_ID="${SAASBASE_ACCESS_KEY_ID:-XXXXXXXXXXXXXXXXXXXX}"
 SAASBASE_SECRET_ACCESS_KEY="${SAASBASE_SECRET_ACCESS_KEY:-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx}"
-AWS_OPTIONS='--output text'
+AWS_OPTIONS='--no-paginate --output text'
 PROXY_PORT=${PROXY_PORT:-'1234'}
 SSH_TIMEOUT=${SSH_TIMEOUT:-'5'} # seconds
 SSH_USER=${SSH_USER:-'centos'} # used to login on instances, specific to VM image
