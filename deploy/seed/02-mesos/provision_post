@@ -3,6 +3,11 @@
 export zk=$(zk-list-nodes)
 cat >>/opt/cell/cluster/cluster.yaml <<-EOT
 mesos::zookeeper:   zk://$zk/mesos
+mesos::listen_address: ""
+mesos::master::env_var:
+  MESOS_ip_discovery_command: /usr/local/bin/get_ip
+mesos::slave::env_var:
+  MESOS_ip_discovery_command: /usr/local/bin/get_ip
 EOT
 
 if [[ -f /opt/cell/etc/roles/stateless-body ]]; then

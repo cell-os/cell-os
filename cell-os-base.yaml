@@ -17,7 +17,7 @@ etcd::version: v2.2.2
 modules:
   puppet-zookeeper: 0.1.1-adobe
   puppet-docker: 4.1.1-adobe-2
-  puppet-mesos: 0.5.4-adobe
+  puppet-mesos: 0.6.5-adobe-2
   puppet-marathon: 0.1.4-adobe
   puppet-etcd: 0.1.0-rc3-adobe
 
