@@ -6,7 +6,7 @@
 # The order is defined by the level of dependency. 
 # For example Docker is low level running directly on the OS and other modules depend on it
 
-docker::version: 1.8.3
+docker::version: 1.9.1-1.el7.centos
 java::version: 8u65
 # zookeeper exhibitor
 zookeeper::version: 3.4.6_1.5.5
@@ -16,7 +16,7 @@ etcd::version: v2.2.2
 
 modules:
   puppet-zookeeper: 0.1.1-adobe
-  puppet-docker: 4.1.0-adobe
+  puppet-docker: 4.1.1-adobe-2
   puppet-mesos: 0.5.4-adobe
   puppet-marathon: 0.1.4-adobe
   puppet-etcd: 0.1.0-rc3-adobe

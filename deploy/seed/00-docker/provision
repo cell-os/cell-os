@@ -1,3 +1,31 @@
 #!/bin/bash
 
-/usr/local/bin/provision puppet docker
+cat >> /opt/cell/cluster/cluster.yaml <<-EOT
+docker::install_from_source: false
+docker::use_upstream_package_source: true
+docker::repo_opt:
+  - --disablerepo=*
+  - --enablerepo=docker
+docker::storage_driver: devicemapper
+docker::dm_fs: xfs
+EOT
+
+# THIS A HACK
+# We are getting errors when executing the docker provisioning step, due to yum throwing unknown host exception
+# for yum.dockerproject.org
+# For now, we are simply retrying the execution 5 times
+# Please see https://jira.corp.adobe.com/browse/CELL-166
+attempt=0
+max_attempts=5
+until [ $status == 0 ] ; do
+  /usr/local/bin/provision puppet docker
+  status=$?
+  attempt=$(($attempt + 1))
+  if [[ $attempt -gt $max_attempts ]]; then
+    exit 1
+  fi
+  if [[ $status != 0 ]]; then
+    echo "Retry Docker provisioning step: exit code $status, attempt $attempt / $max_attempts"
+    sleep 5
+  fi
+done
