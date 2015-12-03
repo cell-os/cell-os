@@ -86,7 +86,7 @@ CellOsVersionBundle = t.add_parameter(Parameter(
 
 SaasBaseDeploymentVersion = t.add_parameter(Parameter(
     "SaasBaseDeploymentVersion",
-    Default="1.26",
+    Default="1.27",
     Type="String",
     Description="saasbase-deployment version",
 ))
