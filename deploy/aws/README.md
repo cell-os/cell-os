@@ -156,13 +156,13 @@ On body
 
 First make sure it's not still blocking for ZK:
 
-    ./cell log cell-1 body
+    ./cell log cell-1 stateless-body
 
 When blocking it will continuously echo something
 
 IF you want to check the ZK cluster:
 
-    ./cell cmd cell-1 body 0 /usr/local/bin/zk-list-nodes
+    ./cell cmd cell-1 stateless-body 0 /usr/local/bin/zk-list-nodes
 
 
 This should output at least one entry like:
@@ -176,13 +176,13 @@ a few minutes.
 
 If it's already done check for open ports:
 
-    ./cell cmd cell-1 body 0 "netstat -tlnp"
+    ./cell cmd cell-1 stateless-body 0 "netstat -tlnp"
 
 Look for 8080 (marathon) and 5050 (mesos master)
 
-    ./cell cmd cell-1 body 0 "systemctl status mesos-master"
-    ./cell cmd cell-1 body 0 "systemctl status mesos-slave"
-    ./cell cmd cell-1 body 0 "systemctl status marathon"
+    ./cell cmd cell-1 stateless-body 0 "systemctl status mesos-master"
+    ./cell cmd cell-1 stateless-body 0 "systemctl status mesos-slave"
+    ./cell cmd cell-1 stateless-body 0 "systemctl status marathon"
 
 If they're dead check why
 
