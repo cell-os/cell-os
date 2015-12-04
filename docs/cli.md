@@ -16,7 +16,7 @@ $ ./cell help
 ```
   cell-os cli utility 1.1-SNAPSHOT
 
-  usage: ./cell <action> <cell-name> [nucleus|body] [<index>] [<command>]
+  usage: ./cell <action> <cell-name> [nucleus|statless-body|stateful-body|membrane] [<index>] [<command>]
    actions:
      create <cell-name> - creates a new cell
      delete <cell-name> - deletes an existing cell
@@ -125,7 +125,7 @@ Aug 13 20:36:10 ip-172-31-15-216 cloud-init: Cloud-init v. 0.7.5 finished at Thu
 
 Both the nucleus and the body can be scaled
 
-    ./cell scale cell-1 body 5
+    ./cell scale cell-1 stateless-body 5
     Scaling group cell-1-StatelessBody-1OSD7WF08DJYE
 
     ./cell list cell-1
@@ -135,14 +135,14 @@ Both the nucleus and the body can be scaled
     |  cell-1-lb-zk      |  internal-cell-1-lb-zk-18429062.us-west-2.elb.amazonaws.com           |
     nucleus
     127.127.185.97  10.0.0.173  ami-c7d092f7  running us-west-2-cell-1
-    body
+    stateless-body
     127.127.201.215 10.0.0.175  ami-c7d092f7  running us-west-2-cell-1
     127.127.197.106 10.0.0.172  ami-c7d092f7  running us-west-2-cell-1
     127.127.206.98  10.0.0.174  ami-c7d092f7  running us-west-2-cell-1
     127.127.196.197 10.0.0.176  ami-c7d092f7  running us-west-2-cell-1
     127.127.68.19   10.0.0.40   ami-c7d092f7  running us-west-2-cell-1
 
-    ./cell scale cell-1 body 1
+    ./cell scale cell-1 stateless-body 1
 
 
 ## Accessing the cell's internal services over HTTP
