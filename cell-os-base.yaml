@@ -8,15 +8,16 @@
 
 docker::version: 1.8.3
 java::version: 8u65
-zookeeper::version: latest
+# zookeeper exhibitor
+zookeeper::version: 3.4.6_1.5.5
 mesos::version: 0.25.0-0.2.70.centos701406
 marathon::version: v0.13.0
 etcd::version: v2.2.2
 
 modules:
-  puppet-zookeeper: 0.1.1-adobe-SNAPSHOT
-  puppet-docker: 4.1.0-adobe-SNAPSHOT
-  puppet-mesos: 0.5.4-adobe-SNAPSHOT
-  puppet-marathon: 0.1.4-adobe-SNAPSHOT
+  puppet-zookeeper: 0.1.1-adobe
+  puppet-docker: 4.1.0-adobe
+  puppet-mesos: 0.5.4-adobe
+  puppet-marathon: 0.1.4-adobe
   puppet-etcd: 0.1.0-rc3-adobe
 
