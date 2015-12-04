@@ -168,4 +168,22 @@ Opens a SOCKS proxy on port 1234 locally. You can then use curl with `--proxy so
         ...
     }
 
+## Troubleshooting
+
+### Getting errors when using cell commands
+
+```
+boudalie-osx:cell-os boudalie$ ./cell list
+
+Bad value for --query Stacks[? (Tags[? Key=='name']      && Tags[?Key=='version'] )][StackName, StackStatus, Tags[? Key=='version']      .Value | [0], CreationTime]: Invalid token.: Parse error at column 9, token "(" (LPAREN), for expression:
+"Stacks[? (Tags[? Key=='name']      && Tags[?Key=='version'] )][StackName, StackStatus, Tags[? Key=='version']      .Value | [0], CreationTime]"
+```
+
+This is likely caused by an outdated version of [jmespath](http://jmespath.org/), a dependency of awscli.  
+Please check that you run the latest awscli with a good version of jmespath  
+
+    $ python -c "import jmespath; print jmespath.__version__"
+    0.9.0
+
+More here https://gitter.im/jmespath/chat?at=56301b5fe16589782d930700
 
