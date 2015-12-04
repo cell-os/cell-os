@@ -114,7 +114,9 @@ Drill down and see the failure details
 In the Cloud Formation form, try selecting an existing KeyName from the dropdown or 
 otherwise create a keypair for that region, download it and retry.
 
-## CLI
+## Using the CLI to troubleshoot
+
+For cli related issues please check out the [cli doc troubleshooting section](../../docs/cli.md#troubleshooting).  
 
 First check if the stack has succeeded and all VMs are up and finished initializing.
 It takes a while after.
@@ -212,11 +214,13 @@ This opens a SOCKS proxy on localhost:1234 (configurable throuh `PROXY_PORT` env
 
 Then use a browser plugin like foxy proxy
 
-###CAMP accounts can't create IAM users and roles
+### CAMP accounts can't implicitly create IAM users and roles
 
 The default IT Cloud CAMP AWS accounts are restricted from creating IAM Users and Roles which means
 that we need to fallback on passing user's key/secret into the VM. This may work for dev setups but
 needs to be discussed with Security and IT.
+
+Note that you may get this capabilities by enabling KLAM  
 
 ### The bucket needs to be in the same region
 
