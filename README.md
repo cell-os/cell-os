@@ -11,8 +11,8 @@
 
 `cell-os` is the software distribution for [Metal Cell](https://git.corp.adobe.com/metal-cell/metal-cell)
 
-The cell-os base contains the minimal installation required to run the rest of the sofware.  
-It currently consista of Zookeeper, Docker, Mesos and Marathon.
+The cell-os base contains the minimal installation required to run the rest of the software.
+It currently consists of Zookeeper, Docker, Mesos and Marathon.
 
 | Version              | Provider      | Region        |       | Notes |
 | -------------------- | ------------- |:-------------:| ----- | ----- |
@@ -76,6 +76,6 @@ tested and certified to work together.
 # Documentation
 
 * [Command Line Interface](docs/cli.md)
-* [cell-os deployment implemenatation](docs/deployment-implementation.md)
+* [cell-os deployment implementation](docs/deployment-implementation.md)
 * [AWS deployment](deploy/aws/README.md)
 * [Builds and Packaging](docs/packaging.md)
