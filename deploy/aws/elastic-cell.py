@@ -488,6 +488,7 @@ ingress 127.127.216.100/32 tcp 0:65535
 ingress 127.127.198.0/24 tcp 0:65535
 ingress 127.127.140.131/32 tcp 0:65535
 ingress 127.127.18.225/24 tcp 0:65535
+ingress 127.127.98.227/32 tcp 0:65535
     """,
     VPC,
     description="All nodes are part of it. Grants access to some Adobe CIDRs. Email to metal-cell@adobe.com"
