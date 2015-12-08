@@ -14,7 +14,7 @@ Run `./cell help` to see how to customize your EC2 keypair, and all other option
 $ ./cell help
 
 ```
-  cell-os cli utility 1.1-SNAPSHOT
+  cell-os cli utility 1.1-rc1
 
   usage: ./cell <action> <cell-name> [nucleus|statless-body|stateful-body|membrane] [<index>] [<command>]
    actions:
