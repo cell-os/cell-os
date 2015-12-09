@@ -5,10 +5,16 @@ cat >>/opt/cell/cluster/cluster.yaml <<-EOT
 mesos::zookeeper:   zk://$zk/mesos
 mesos::listen_address: ""
 mesos::master::env_var:
+  MESOS_work_dir: /var/lib/mesos/master
   MESOS_ip_discovery_command: /usr/local/bin/get_ip
 mesos::slave::env_var:
+  MESOS_work_dir: /var/lib/mesos/slave
+  MESOS_gc_delay: 1days
+  MESOS_slave_subsystems: cpu,memory
   MESOS_ip_discovery_command: /usr/local/bin/get_ip
 EOT
+
+mkdir -p /var/lib/mesos
 
 if [[ -f /opt/cell/etc/roles/stateless-body ]]; then
   provision puppet mesos,mesos::slave,mesos::master
