@@ -79,7 +79,7 @@ CellName = t.add_parameter(Parameter(
 
 CellOsVersionBundle = t.add_parameter(Parameter(
     "CellOsVersionBundle",
-    Default="cell-os-base-1.1-rc1",
+    Default="cell-os-base-1.2-SNAPSHOT",
     Type="String",
     Description="cell-os bundle version",
 ))
