@@ -46,7 +46,6 @@ to generate the AWS CF templates.
 There's a main CF stack that sets up the VPC along the rest of the infrastructure pieces
 and a 4 nested stacks for individual scaling groups which are created by the main stack.
 
-
 ### Main stack: VPC, Subnets, ELBs, Internet Gateway, Routes, Security Groups, etc.
 
 This sets up the VPC along with the Subnets, Scaling Groups, routes and security around.
@@ -101,24 +100,23 @@ The membrane is publicly exposed (all other groups should be private) and hence 
 special security requirements. 
 The cell geteway and load balancing services will run in the membrane. 
 
-
 # Troubleshooting
 
 ## "Launch Stack" button ![](https://s3.amazonaws.com/cloudformation-examples/cloudformation-launch-stack.png)
 
 ### Can't find SaasBase access key id / secret access key
-Look for the keys in http://saasbase.corp.adobe.com/ops/operations/deployment.html
+Look for the keys in [http://saasbase.corp.adobe.com/ops/operations/deployment.html](http://saasbase.corp.adobe.com/ops/operations/deployment.html)
 The keys are also available in the Secret Server - main dl-saasbase-eng@adobe.com if you
 have any issues.
 
 
 ### Stack gets rolled back 
-Go to https://console.aws.amazon.com/cloudformation/home  
-Make sure the correct region is selected
 
-Click on the failed stack  
-On the bottom half of the screen click "Events"  
-Drill down and see the failure details  
+1. Go to [https://console.aws.amazon.com/cloudformation/home](https://console.aws.amazon.com/cloudformation/home).
+2. Make sure the correct region is selected.
+3. Click on the failed stack.
+4. On the bottom half of the screen click "Events".
+5. Drill down and see the failure details:
 
     Parameter validation failed: parameter value for parameter name 
     KeyName does not exist. Rollback requested by user.
@@ -131,17 +129,17 @@ otherwise create a keypair for that region, download it and retry.
 For cli related issues please check out the [cli doc troubleshooting section](../../docs/cli.md#troubleshooting).  
 
 First check if the stack has succeeded and all VMs are up and finished initializing.
-It takes a while after.
+It takes a while.
 
-If your LBs are empty (or some of them are empty) and you're out of patience.
+If your LBs are empty (or some of them are empty) and you're out of patience:
 
 * Tail the logs on a  nucleus node
 
-    ./cell log <cell-name> nucleus
+        ./cell log <cell-name> nucleus
 
 * Alternatively you could ssh into the node
 
-    ./cell ssh <cell-name> nucleus
+        ./cell ssh <cell-name> nucleus
 
 On nucleus:
 
@@ -176,7 +174,6 @@ IF you want to check the ZK cluster:
 
     ./cell cmd cell-1 stateless-body 0 /usr/local/bin/zk-list-nodes
 
-
 This should output at least one entry like:
 
     ip-10-0-0-173:2181
@@ -188,13 +185,13 @@ a few minutes.
 
 If it's already done check for open ports:
 
-    ./cell cmd cell-1 stateless-body 0 "netstat -tlnp"
+    ./cell cmd cell-1 stateless-body 1 "netstat -tlnp"
 
 Look for 8080 (marathon) and 5050 (mesos master)
 
-    ./cell cmd cell-1 stateless-body 0 "systemctl status mesos-master"
-    ./cell cmd cell-1 stateless-body 0 "systemctl status mesos-slave"
-    ./cell cmd cell-1 stateless-body 0 "systemctl status marathon"
+    ./cell cmd cell-1 stateless-body 1 "systemctl status mesos-master"
+    ./cell cmd cell-1 stateless-body 1 "systemctl status mesos-slave"
+    ./cell cmd cell-1 stateless-body 1 "systemctl status marathon"
 
 If they're dead check why
 
