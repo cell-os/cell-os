@@ -39,14 +39,14 @@ Currently only AWS is supported by the CLI.
 
 ### Requirements
 
-#### Install and configure [AWS CLI](http://aws.amazon.com/cli/)
+The cell cli tools use a bunch of Python packages, that talk to AWS. 
+
+    pip install -r requirements.txt
+
+#### Configure [AWS CLI](http://aws.amazon.com/cli/)
 
     pip install awscli
     aws configure
-
-#### Install [Troposphere](https://github.com/cloudtools/troposphere) and [awacs](https://github.com/cloudtools/awacs)
-    pip install troposphere
-    pip install awacs
 
 #### Install `watch`
  With [Homebrew](http://brew.sh/) installed: `brew install watch`
@@ -65,7 +65,6 @@ Create a new cell
 Delete an existing cell
 
     ./cell delete cell-1
-
 
 # CellOS version bundle
 
