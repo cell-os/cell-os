@@ -46,7 +46,7 @@ cat >&2 <<EOD
 
 cell-os cli ${VERSION}
 
-usage: ./cell <action> <cell-name> [nucleus|stateless-body|stateful-body|membrane] [<index>] [<command>]
+usage: ./cell <action> <cell-name> [arguments ...]
   actions:
     build <cell-name> <substack-template-url> - builds CF templates
           the substack-template-url is the full URL where the nested stack template will be found
@@ -61,6 +61,11 @@ usage: ./cell <action> <cell-name> [nucleus|stateless-body|stateful-body|membran
     log <cell-name> [<role>] [<index>] - tail stack events or nodes deploy log
     cmd <cell-name> <role> <index> - run command on node n
     proxy <cell-name> <role> - open SOCKS proxy to first node in <role>
+
+Arguments:
+    <cell-name> - the cell name
+    <role> - the role the command refers to. One of nucleus, stateless-body, stateful-body, membrane
+    <index> - the index of a node in a certain role, 1-indexed.
 
 Environment variables:
 
