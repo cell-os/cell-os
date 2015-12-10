@@ -54,22 +54,34 @@ This sets up the VPC along with the Subnets, Scaling Groups, routes and security
 This sets up the infrastructure and creates separate scaling groups for each subdivision
 of the cell using nested stacks.  
 
-Each cell subdivision is created by passing the role, tags, os-level modules and
+Each cell subdivision is created by passing the role, tags, cell modules and
 configurations to the nested stack.
 
 Roles and tags are used to identify the EC2 instances and to set attributes.
-Modules `PreZkModules` are saasbase deployment modules that don't require zookeeper. 
-`PostZkModules` are modules that need to be run after the ZK ensemble is functional
-by using the `zk-barrier` which will block polling for zk.
+
+### Cell modules provisioning
+
+Each CF nested stack receives a list of cell modules to deploy on the node when it boots up. 
+
+When starting, all the machines download a "seed" .tar.gz file that contains the list of cell modules in the following format: 
+
+    /opt/cell/seed
+      00-docker/xx
+      00-docker/provision
+      10-another-module/provision_post
+
+The list of cell modules is matched against this list of directories, and in each of the directories for a machine, we: 
+
+* check for a `provision` file. This is executed before Zookeeper is available
+* check for a `provision_post` file, executed after the Exhibitor / Zookeeper ensemble converges to a final, active state (using the `zk-barrier` script which will block polling for zk).
 
 ### Nested Stacks: nucleus, stateless-body, stateful-body, membrane scaling groups
 
 #### Nucleus
 The critical part of the cell is the nucleus, which runs Zookeeper and HDFS namenodes.
 
-The zk ensemble can be disovered through an ELB over the Zookeeper Exhibitor REST API.
-Two helper scripts `zk-list-nodes` and `zk-barrier` can be used to get and block for 
-the zk enesemble. 
+The Zookeeper ensemble can be discovered through an ELB over the Zookeeper Exhibitor REST API.
+Two helper scripts `zk-list-nodes` and `zk-barrier` can be used to respectively: get the list of Zookeeper nodes and block for the zk enesemble. 
 
 #### Stateless Body
 
