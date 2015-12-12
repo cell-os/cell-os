@@ -32,7 +32,6 @@ t.add_description("""\
 cell-os-base - https://git.corp.adobe.com/metal-cell/cell-os""")
 instance_type = t.add_parameter(Parameter(
     "InstanceType",
-    Default="c3.2xlarge",
     ConstraintDescription="must be a valid, HVM-compatible EC2 instance type.",
     Type="String",
     Description="EC2 instance type",
@@ -56,7 +55,6 @@ instance_type = t.add_parameter(Parameter(
 
 cell_name = t.add_parameter(Parameter(
     "CellName",
-    Default="cell-1",
     Type="String",
     Description="The name of this cell (e.g. cell-1). This will get prefixed with account id and region to get the full cell id.",
 ))
@@ -69,7 +67,6 @@ bucket_name = t.add_parameter(Parameter(
 
 cell_os_version_bundle = t.add_parameter(Parameter(
     "CellOsVersionBundle",
-    Default="cell-os-base-1.2-SNAPSHOT",
     Type="String",
     Description="cell-os bundle version",
 ))
@@ -82,7 +79,6 @@ key_name = t.add_parameter(Parameter(
 
 group_size = t.add_parameter(Parameter(
     "GroupSize",
-    Default="1",
     Type="Number",
     Description="Number of nodes in the scaling group",
 ))
