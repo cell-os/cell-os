@@ -31,8 +31,6 @@ AWS_OPTIONS='--no-paginate --output text'
 PROXY_PORT=${PROXY_PORT:-'1234'}
 SSH_TIMEOUT=${SSH_TIMEOUT:-'5'} # seconds
 SSH_USER=${SSH_USER:-'centos'} # used to login on instances, specific to VM image
-# Try to get some defaults from the current account if values not set
-AWS_KEY_PAIR=${AWS_KEY_PAIR:-$(aws ${AWS_OPTIONS} ec2 describe-key-pairs --query 'KeyPairs[0].KeyName')}
 
 usage() {
 cat >&2 <<EOD
@@ -69,7 +67,7 @@ Arguments:
 
 Environment variables:
 
-  AWS_KEY_PAIR - EC2 ssh keypair to use (defaults to first on the account)
+  AWS_KEY_PAIR - EC2 ssh keypair to use (new keypair is created otherwise)
   KEYPATH - the local path where <keypair>.pem is found (defaults to
     ${HOME}/.ssh). The .pem extension is required.
   PROXY_PORT - the SOCKS5 proxy port (defaults to ${PROXY_PORT})
@@ -97,7 +95,11 @@ parse_args() {
   [[ ! -z $3 ]] && role=$3
   [[ ! -z $4 ]] && index=$4
   [[ ! -z $4 ]] && capacity=$4
-  bucket_name="cell-os--${cell_name}"
+  full_cell_name="cell-os--${cell_name}"
+  bucket_name="${full_cell_name}"
+  aws_key_pair="${AWS_KEY_PAIR:-${full_cell_name}}"
+  key_file=${KEYPATH:-"${HOME}/.ssh"}/${aws_key_pair}.pem
+
   stack_name="${cell_name}" # TODO stack name should read selected region
 }
 
@@ -110,14 +112,30 @@ check_cell_name() {
   return 0
 }
 
-check_key_pair() {
-  if ! [[ $(aws ${AWS_OPTIONS} ec2 describe-key-pairs \
-    | grep ${AWS_KEY_PAIR} | wc -l) -gt 0 ]]; then
-    echo "error: AWS_KEY_PAIR ${AWS_KEY_PAIR} doesn\'t exist."
-    VALIDATION_ERROR=true
-    return 1
+create_key() {
+  if [[ -z "$AWS_KEY_PAIR" ]]; then
+    echo "creating keypair ${aws_key_pair}"
+    ret=$(aws ec2 describe-key-pairs \
+      --filters=Name=key-name,Values="${aws_key_pair}")
+    if  [[ ! -z "$ret" || -e "${key_file}" ]]; then
+      printf "Keypair conflict. Trying to create ${aws_key_pair} in \
+        ${key_file} but it already exists. Please delete it, try another \
+        cell name or set it through AWS_KEY_PAIR.\n"
+      return 1
+    fi
+    ret=$(aws ec2 create-key-pair --key-name "${aws_key_pair}" --output json) || return 1
+    key=$(echo "${ret}" | sed -n 2p | cut -d'"' -f 4)
+    echo -e "${key}" > ${key_file}
+    chmod 600 ${key_file}
   fi
-  return 0
+}
+
+delete_key() {
+  if [[ -z "$AWS_KEY_PAIR" ]]; then
+    echo "deleting keypair ${aws_key_pair}"
+    ret=$(aws ec2 delete-key-pair --key-name "${aws_key_pair}")
+    rm -f "${key_file}"
+  fi
 }
 
 check_role() {
@@ -144,7 +162,7 @@ cfn() {
           ${extra_parameters} \
           ParameterKey=CellName,ParameterValue="${cell_name}" \
           ParameterKey=CellOsVersionBundle,ParameterValue="cell-os-base-${VERSION}" \
-          ParameterKey=KeyName,ParameterValue="${AWS_KEY_PAIR}" \
+          ParameterKey=KeyName,ParameterValue="${aws_key_pair}" \
           ParameterKey=BucketName,ParameterValue="${bucket_name}" \
           ParameterKey=SaasBaseAccessKeyId,ParameterValue="${SAASBASE_ACCESS_KEY_ID}" \
           ParameterKey=SaasBaseSecretAccessKey,ParameterValue="${SAASBASE_SECRET_ACCESS_KEY}" \
@@ -193,7 +211,6 @@ EOM
 
 update() {
   [[ check_cell_name ]] || return 1
-  [[ check_key_pair ]] || return 1
 
   build_stack_files
   copy_to_bucket
@@ -207,9 +224,9 @@ update() {
 
 create() {
   [[ check_cell_name ]] || return 1
-  [[ check_key_pair ]] || return 1
 
   create_bucket
+  create_key || return 1
   build_stack_files
   copy_to_bucket
   seed
@@ -235,6 +252,7 @@ delete() {
   aws cloudformation delete-stack --stack-name ${stack_name}
   aws s3 rm --recursive --include "*" s3://${bucket_name}
   aws s3 rb s3://${bucket_name}
+  delete_key
   exit 0
 }
 
@@ -302,21 +320,20 @@ cell_ssh() {
   if [[ -z "${index}" || -n "${index//[0-9]/}" ]]; then
     index=1
   fi
-  ip_and_keypair=$(aws ${AWS_OPTIONS} ec2 describe-instances \
-    --query 'Reservations[*].Instances[*].[PublicIpAddress, KeyName]' \
+  ip=$(aws ${AWS_OPTIONS} ec2 describe-instances \
+    --query 'Reservations[*].Instances[*].[PublicIpAddress]' \
     --filters Name=instance-state-code,Values=16 \
     Name=tag:cell,Values=${cell_name} Name=tag:role,Values=${role} \
     | sed -n "${index} p")
-  if [[ "${ip_and_keypair}" == "None" || -z "${ip_and_keypair}" ]]; then
+  if [[ "${ip}" == "None" || -z "${ip}" ]]; then
     echo "can't find node ${index} in ${role} yet. Is the cell fully up?"
     exit 1
   fi
-  ip=$( echo "${ip_and_keypair}" | cut -d$'\t' -f1 )
-  keypair=$( echo "${ip_and_keypair}" | cut -d$'\t' -f2 )
-  printf "ip=${ip} \nkeypair=${keypair} \ncommand=${2:-}\n"
-  key_file=${KEYPATH:-"${HOME}/.ssh"}/${keypair}.pem
+  ip=$( echo "${ip}" | cut -d$'\t' -f1 )
+  printf "ip=${ip} \ncommand=${2:-}\n"
   if ! [[ -e "${key_file}" ]]; then
-    echo "can't find ${key_file}. Set your KEYPATH env var to the .pem location"
+    echo "can't find ${key_file}. Set your KEYPATH env var to the \
+      ${aws_key_pair}.pem location"
     exit 1
   fi
   ssh ${ssh_options} "${SSH_USER}@${ip}" -i "${key_file}" "${2:-}"
@@ -376,7 +393,6 @@ cell_i2cssh() {
       Name=tag:cell,Values=${cell_name} Name=tag:role,Values=${role}
   done | sed 's/$/,/g' | tr -d "\n" | sed 's/,$//g')
 
-  key_file=${KEYPATH:-"${HOME}/.ssh"}/${AWS_KEY_PAIR}.pem
   if ! [[ -e "${key_file}" ]]; then
     echo "can't find ${key_file}. Set your KEYPATH env var to the .pem location"
     exit 1
@@ -387,7 +403,7 @@ cell_i2cssh() {
 parse_args "$@"
 
 read -r -d '' CONFIG << EOM
-  AWS_KEY_PAIR  = "${AWS_KEY_PAIR}" - defaults to first key pair on the account
+  aws_key_pair  = "${aws_key_pair}" - created with cell if not specified
   BUCKET_NAME   = "${bucket_name}" (readonly - cell-os--<cell-name>)
   STACK_NAME    = "${stack_name}" (readonly - <cell-name>)
   \n
