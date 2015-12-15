@@ -563,13 +563,14 @@ NucleusToNucleusIngress ingress NucleusSecurityGroup NucleusSecurityGroup -1 0:6
 for rule in vpc_security_group_rules:
     t.add_resource(rule)
 
-def create_load_balancer(t, name, instance_port, target):
+def create_load_balancer(t, name, instance_port, target,
+        security_groups=[Ref("LbSecurityGroup")], internal=True):
     return t.add_resource(elb.LoadBalancer(
         name + "Elb",
         LoadBalancerName=Join("", [Ref(CellName), "-lb-" + name.lower()]),
         CrossZone="true",
-        Scheme="internal",
-        SecurityGroups=[Ref("LbSecurityGroup")],
+        Scheme="internal" if internal else "internet-facing",
+        SecurityGroups=security_groups,
         Subnets=[Ref(Subnet)],
         Listeners=[{
             "InstancePort": str(instance_port),
@@ -610,7 +611,9 @@ MesosElb = create_load_balancer(t,
 MembraneElb = create_load_balancer(t,
     "Membrane",
     80,
-    "/health-check"
+    "/health-check",
+    [Ref("PublicSecurityGroup")],
+    False
 )
 
 WaitHandle = t.add_resource(cfn.WaitConditionHandle("WaitHandle",))
