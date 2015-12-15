@@ -368,7 +368,7 @@ log() {
     exit 0
   else
     check_role
-    command="tail -f /var/log/cloud-init.log"
+    command="tail -f /var/log/cloud-init-output.log"
 
     cell_ssh "" "${command}"
   fi
