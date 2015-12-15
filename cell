@@ -192,6 +192,11 @@ create_bucket() {
   fi
 }
 
+delete_bucket() {
+  aws s3 rm --recursive --include "*" s3://${bucket_name}
+  aws s3 rb s3://${bucket_name}
+}
+
 copy_to_bucket() {
   echo "copy stack to S3://${bucket_name}"
   ret=$(aws s3 cp ${base_stack} s3://"${bucket_name}"/)
@@ -225,14 +230,25 @@ update() {
 create() {
   [[ check_cell_name ]] || return 1
 
-  create_bucket
-  create_key || return 1
-  build_stack_files
+  create_bucket || return 1
+  create_key || {
+    delete_bucket
+    return 1
+  }
+  build_stack_files || {
+    delete_bucket
+    delete_key
+    return 1
+  }
   copy_to_bucket
   seed
 
   echo "creating stack ${stack_name}..."
-  cfn create
+  cfn create || {
+    delete_bucket
+    delete_key
+    return 1
+  }
   printf "${CONFIG}"
   printf "${FOOTER}"
   exit 0
@@ -254,8 +270,7 @@ delete() {
     exit 1
   fi
   aws cloudformation delete-stack --stack-name ${stack_name}
-  aws s3 rm --recursive --include "*" s3://${bucket_name}
-  aws s3 rb s3://${bucket_name}
+  delete_bucket
   delete_key
   exit 0
 }
