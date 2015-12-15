@@ -95,7 +95,7 @@ load_balancer_names = t.add_parameter(Parameter(
 ))
 
 zookeeper_load_balancer = t.add_parameter(Parameter(
-    "ZookeeperLoadBalancer",
+    "ZookeeperElb",
     Type="String",
     Description="ZK ELB Endpoint",
 ))
@@ -232,7 +232,7 @@ BodyLaunchConfig = t.add_resource(asn.LaunchConfiguration(
                     content=make_content("""\
 #!/bin/bash
 export zk_base_url="{{zk_base_url}}"
-export zk_discovery_url="{{zk_discovery_url}}"
+export zk_cluster_list="{{zk_base_url}}/cluster/list"
 export aws_stack_name="{{aws_stack_name}}"
 export aws_parent_stack_name="{{aws_parent_stack_name}}"
 export aws_region="{{aws_region}}"
@@ -252,8 +252,7 @@ export aws_region=`wget -qO- http://169.254.169.254/latest/meta-data/placement/a
                     group="root",
                     mode="000755",
                     context=cfn.InitFileContext({
-                        "zk_base_url": Join("", ["http://", Ref("ZookeeperLoadBalancer"), "/exhibitor/v1"]),
-                        "zk_discovery_url": Join("", ["http://", Ref("ZookeeperLoadBalancer"), "/exhibitor/v1/cluster/list"]),
+                        "zk_base_url": Join("", ["http://", Ref("ZookeeperElb"), "/exhibitor/v1"]),
                         "aws_stack_name": Ref("AWS::StackName"),
                         "aws_parent_stack_name": Ref("ParentStackName"),
                         "aws_region": Ref("AWS::Region"),
@@ -296,10 +295,10 @@ exit 1
 #!/bin/bash
 source /etc/profile.d/cellos.sh
 num_servers=${num_servers:-0}
-code=$(curl -s -o /dev/null -w "%{http_code}" ${zk_discovery_url})
+code=$(curl -s -o /dev/null -w "%{http_code}" ${zk_cluster_list})
 if (( code == 200 )); then
   # we have a 200, get the servers
-  found=$(curl -H "Accept: application/json" ${zk_discovery_url} 2>/dev/null | jq ".servers | length")
+  found=$(curl -H "Accept: application/json" ${zk_cluster_list} 2>/dev/null | jq ".servers | length")
   if (( $? == 0 )); then
     if (( $found < $num_servers )); then
       >&2 echo "not enough servers found ($found out of $num_servers)"
@@ -314,7 +313,7 @@ else
   exit 1
 fi
 
-curl -H "Accept: application/json" ${zk_discovery_url} 2>/dev/null | jq -r '(.port | tostring) as $port | .servers | map(. + ":" + $port) | join(",")'
+curl -H "Accept: application/json" ${zk_cluster_list} 2>/dev/null | jq -r '(.port | tostring) as $port | .servers | map(. + ":" + $port) | join(",")'
 """),
                     owner="root",
                     group="root",
@@ -330,7 +329,7 @@ while true; do
   if (( code == 200 )); then
     num_serving=$(curl -H "Accept: application/json" "${zk_base_url}/cluster/status" 2>/dev/null | jq '[.[] | select(.description == "serving")] | length')
     num_serving=${num_serving:-0}
-    found=$(curl -H "Accept: application/json" ${zk_discovery_url} 2>/dev/null | jq ".servers | length")
+    found=$(curl -H "Accept: application/json" ${zk_cluster_list} 2>/dev/null | jq ".servers | length")
     found=${found:-0}
 
     if (( $num_serving >= $num_servers && $found >= $num_servers )); then

@@ -183,27 +183,27 @@ t.add_condition(
 )
 
 t.add_output(Output(
-    "MesosLoadBalancerOutput",
+    "MesosElbOutput",
     Description="Address of the Mesos LB",
-    Value=Join('', ['http://', GetAtt("MesosLoadBalancer", 'DNSName')]),
+    Value=Join('', ['http://', GetAtt("MesosElb", 'DNSName')]),
 ))
 
 t.add_output(Output(
-    "ZookeeperLoadBalancer",
+    "ZookeeperElb",
     Description="Address of the Exhibitor LB",
-    Value=Join('', ['http://', GetAtt("ZookeeperLoadBalancer", 'DNSName')]),
+    Value=Join('', ['http://', GetAtt("ZookeeperElb", 'DNSName')]),
 ))
 
 t.add_output(Output(
-    "MembraneLoadBalancerOutput",
+    "MembraneElbOutput",
     Description="Address of the Membrane LB",
-    Value=Join('', ['http://', GetAtt("MembraneLoadBalancer", 'DNSName')]),
+    Value=Join('', ['http://', GetAtt("MembraneElb", 'DNSName')]),
 ))
 
 t.add_output(Output(
-    "MarathonLoadBalancerOutput",
+    "MarathonElbOutput",
     Description="Address of the Mesos LB",
-    Value=Join('', ['http://', GetAtt("MarathonLoadBalancer", 'DNSName')]),
+    Value=Join('', ['http://', GetAtt("MarathonElb", 'DNSName')]),
 ))
 
 VPC = t.add_resource(ec2.VPC(
@@ -565,7 +565,7 @@ for rule in vpc_security_group_rules:
 
 def create_load_balancer(t, name, instance_port, target):
     return t.add_resource(elb.LoadBalancer(
-        name + "LoadBalancer",
+        name + "Elb",
         LoadBalancerName=Join("", [Ref(CellName), "-lb-" + name.lower()]),
         CrossZone="true",
         Scheme="internal",
@@ -589,25 +589,25 @@ def create_load_balancer(t, name, instance_port, target):
     ))
 
 
-MarathonLoadBalancer = create_load_balancer(t,
+MarathonElb = create_load_balancer(t,
     "Marathon",
     8080,
     "/status"
 )
 
-ZookeeperLoadBalancer = create_load_balancer(t,
+ZookeeperElb = create_load_balancer(t,
     "Zookeeper",
     8181,
     "/exhibitor/v1/cluster/state"
 )
 
-MesosLoadBalancer = create_load_balancer(t,
+MesosElb = create_load_balancer(t,
     "Mesos",
     5050,
     "/health"
 )
 
-MembraneLoadBalancer = create_load_balancer(t,
+MembraneElb = create_load_balancer(t,
     "Membrane",
     80,
     "/health-check"
@@ -622,7 +622,7 @@ def create_cellos_substack(t, name=None, role=None, cell_modules=None, tags=[], 
         "CellModules": cell_modules,
         "SecurityGroups": Join(",", security_groups),
         "LoadBalancerNames": Join(",", load_balancers),
-        "ZookeeperLoadBalancer": GetAtt("ZookeeperLoadBalancer", "DNSName"),
+        "ZookeeperElb": GetAtt("ZookeeperElb", "DNSName"),
         "AssociatePublicIpAddress": "true",
         "GroupSize": Ref(name + "Size"),
         "ImageId": FindInMap("RegionMap", Ref("AWS::Region"), "AMI"),
@@ -664,7 +664,7 @@ create_cellos_substack(
         Ref(NucleusSecurityGroup),
         Ref(ExternalWhitelistSecurityGroup)
     ],
-    load_balancers=[Ref("ZookeeperLoadBalancer")],
+    load_balancers=[Ref("ZookeeperElb")],
     instance_type=Ref("NucleusInstanceType")
 )
 
@@ -681,7 +681,7 @@ create_cellos_substack(
         Ref(ExternalWhitelistSecurityGroup)
     ],
     load_balancers=[
-        Ref("MembraneLoadBalancer")
+        Ref("MembraneElb")
     ],
     instance_type=Ref("MembraneInstanceType")
 )
@@ -698,8 +698,8 @@ create_cellos_substack(
         Ref(ExternalWhitelistSecurityGroup)
     ],
     load_balancers=[
-        Ref("MesosLoadBalancer"),
-        Ref("MarathonLoadBalancer")
+        Ref("MesosElb"),
+        Ref("MarathonElb")
     ],
     instance_type=Ref("StatelessBodyInstanceType")
 )
@@ -716,8 +716,8 @@ create_cellos_substack(
         Ref(ExternalWhitelistSecurityGroup)
     ],
     load_balancers=[
-        Ref("MesosLoadBalancer"),
-        Ref("MarathonLoadBalancer")
+        Ref("MesosElb"),
+        Ref("MarathonElb")
     ],
     instance_type=Ref("StatefulBodyInstanceType")
 )
