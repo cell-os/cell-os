@@ -538,7 +538,7 @@ ingress 127.127.98.227/32 tcp 0:65535
 
 LbSecurityGroup = t.add_resource(ec2.SecurityGroup(
     "LbSecurityGroup",
-    GroupDescription="Enable Exhibitor access",
+    GroupDescription="Added to ELBs that require access to instances.",
     VpcId=Ref(VPC)
 ))
 
