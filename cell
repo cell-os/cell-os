@@ -104,7 +104,7 @@ parse_args() {
 }
 
 check_cell_name() {
-  if [[ -z "$cell_name" ]]; then
+  if [[ -z "${cell_name}" ]]; then
     echo "error: cell_name can't be empty"
     VALIDATION_ERROR=true
     return 1
@@ -113,14 +113,14 @@ check_cell_name() {
 }
 
 create_key() {
-  if [[ -z "$AWS_KEY_PAIR" ]]; then
+  if [[ -z "${AWS_KEY_PAIR}" ]]; then
     echo "creating keypair ${aws_key_pair}"
     ret=$(aws ec2 describe-key-pairs \
       --filters=Name=key-name,Values="${aws_key_pair}")
-    if  [[ ! -z "$ret" || -e "${key_file}" ]]; then
-      printf "Keypair conflict. Trying to create ${aws_key_pair} in \
-        ${key_file} but it already exists. Please delete it, try another \
-        cell name or set it through AWS_KEY_PAIR.\n"
+    if  [[ ! -z "${ret}" || -e "${key_file}" ]]; then
+      printf "Keypair conflict. Trying to create ${aws_key_pair} in \n\
+        ${key_file}, but it already exists. Please delete it, try another \n\
+        cell name or use this key instead by setting it through AWS_KEY_PAIR.\n"
       return 1
     fi
     ret=$(aws ec2 create-key-pair --key-name "${aws_key_pair}" --output json) || return 1
@@ -131,7 +131,7 @@ create_key() {
 }
 
 delete_key() {
-  if [[ -z "$AWS_KEY_PAIR" ]]; then
+  if [[ -z "${AWS_KEY_PAIR}" ]]; then
     echo "deleting keypair ${aws_key_pair}"
     ret=$(aws ec2 delete-key-pair --key-name "${aws_key_pair}")
     rm -f "${key_file}"
@@ -139,8 +139,8 @@ delete_key() {
 }
 
 check_role() {
-  if ! [[ $role == "nucleus" || $role == "stateless-body" \
-    || $role == "stateful-body" || $role == "membrane"  ]]; then
+  if ! [[ "${role}" == "nucleus" || "${role}" == "stateless-body" \
+    || "${role}" == "stateful-body" || "${role}" == "membrane"  ]]; then
     echo "please provide role (${ROLES})" >&2
     exit 1
   fi
@@ -171,12 +171,12 @@ cfn() {
 
 build_stack_files() {
   echo "creating stacks"
-  rm -rf "$DIR/deploy/aws/build"
-  mkdir "$DIR/deploy/aws/build"
-  python $DIR/deploy/aws/elastic-cell.py "${1}" > $DIR/deploy/aws/build/elastic-cell.json
-  python $DIR/deploy/aws/elastic-cell-scaling-group.py > $DIR/deploy/aws/build/elastic-cell-scaling-group.json
-  base_stack=$DIR/deploy/aws/build/elastic-cell.json
-  sub_stack=$DIR/deploy/aws/build/elastic-cell-scaling-group.json
+  rm -rf "${DIR}/deploy/aws/build"
+  mkdir "${DIR}/deploy/aws/build"
+  python "${DIR}/deploy/aws/elastic-cell.py" "${1}" > "${DIR}/deploy/aws/build/elastic-cell.json"
+  python "${DIR}/deploy/aws/elastic-cell-scaling-group.py" > "${DIR}/deploy/aws/build/elastic-cell-scaling-group.json"
+  base_stack="${DIR}/deploy/aws/build/elastic-cell.json"
+  sub_stack="${DIR}/deploy/aws/build/elastic-cell-scaling-group.json"
 }
 
 create_bucket() {
@@ -241,8 +241,12 @@ create() {
 delete() {
   [[ check_cell_name ]] || return 1
   echo "WARNING: THIS WILL DELETE ALL RESOURCES ASSOCIATED TO ${cell_name}"
-  echo "s3://${bucket_name}"
+  echo "DELETE s3://${bucket_name}"
   aws s3 ls --summarize s3://${bucket_name}
+  echo "DELETE ${key_file}"
+  echo "DELETE ${aws_key_pair} from current region"
+  echo "DELETE CF stack ${stack_name}"
+  echo "--------------------------------------------------------------------"
   echo "for verification please type the name of the cell you want to delete"
   read cell_to_delete
   if [[ "${cell_to_delete}" != "${cell_name}" ]]; then
@@ -276,7 +280,7 @@ cfn_instances() {
 }
 
 list() {
-  if [[ -z $cell_name ]]; then
+  if [[ -z "${cell_name}" ]]; then
     aws cloudformation describe-stacks  --query "Stacks[? (Tags[? Key=='name']\
       && Tags[?Key=='version'] )][StackName, StackStatus, Tags[? Key=='version']\
       .Value | [0], CreationTime]" --output table
@@ -341,7 +345,7 @@ cell_ssh() {
 
 log() {
   [[ check_cell_name ]] || return 1
-  if [[ -z $role ]]; then
+  if [[ -z "${role}" ]]; then
     watch -n 1 "aws cloudformation describe-stack-events \
       --stack-name ${stack_name} --output table \
       --query 'StackEvents[*].[Timestamp, LogicalResourceId, ResourceStatus]' \
@@ -351,17 +355,17 @@ log() {
     check_role
     command="tail -f /var/log/cloud-init.log"
 
-    cell_ssh "" "$command"
+    cell_ssh "" "${command}"
   fi
 }
 
 cmd() {
-  if [[ -z $5 ]]; then
+  if [[ -z "${5}" ]]; then
     echo "command can't be empty"
     printf "${USAGE}"
     exit 1
   fi
-  cell_ssh "-t" "$5"
+  cell_ssh "-t" "${5}"
 }
 
 proxy() {
@@ -371,7 +375,7 @@ proxy() {
 
 build_seed() {
   [[ check_cell_name ]] || return 1
-  pushd $DIR/deploy/
+  pushd "${DIR}/deploy/"
   tar zcf seed.tar.gz seed
 }
 
@@ -379,7 +383,7 @@ seed() {
   build_seed
   aws s3 cp seed.tar.gz s3://${bucket_name}/shared/cell-os/
   popd &>/dev/null
-  aws s3 cp $DIR/cell-os-base.yaml s3://${bucket_name}/shared/cell-os/cell-os-base-${VERSION}.yaml
+  aws s3 cp "${DIR}/cell-os-base.yaml" "s3://${bucket_name}/shared/cell-os/cell-os-base-${VERSION}.yaml"
 }
 
 cell_i2cssh() {
@@ -400,7 +404,7 @@ cell_i2cssh() {
   i2cssh -l ${SSH_USER} -m $machines -Xi="${key_file}"
 }
 
-parse_args "$@"
+parse_args "${@}"
 
 read -r -d '' CONFIG << EOM
   aws_key_pair  = "${aws_key_pair}" - created with cell if not specified
@@ -410,7 +414,7 @@ read -r -d '' CONFIG << EOM
 EOM
 
 # action
-case "$1" in
+case "${1}" in
   build)
     build_stack_files "${template_url:? please provide the full template URL}"
     build_seed
@@ -440,7 +444,7 @@ case "$1" in
     log
     ;;
   cmd)
-    cmd "$@"
+    cmd "${@}"
     ;;
   seed)
     seed
@@ -453,7 +457,7 @@ case "$1" in
     exit 0
     ;;
   *)
-  echo "error: invalid action $1"
+  echo "error: invalid action ${1}"
   VALIDATION_ERROR=true
 esac
 
