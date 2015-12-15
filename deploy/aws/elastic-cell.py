@@ -189,7 +189,7 @@ t.add_output(Output(
 ))
 
 t.add_output(Output(
-    "ZookeeperElb",
+    "ZookeeperElbOutput",
     Description="Address of the Exhibitor LB",
     Value=Join('', ['http://', GetAtt("ZookeeperElb", 'DNSName')]),
 ))
