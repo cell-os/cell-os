@@ -100,6 +100,24 @@ zookeeper_load_balancer = t.add_parameter(Parameter(
     Description="ZK ELB Endpoint",
 ))
 
+marathon_load_balancer = t.add_parameter(Parameter(
+    "MarathonElb",
+    Type="String",
+    Description="Marathon ELB Endpoint",
+))
+
+mesos_load_balancer = t.add_parameter(Parameter(
+    "MesosElb",
+    Type="String",
+    Description="Mesos ELB Endpoint",
+))
+
+membrane_load_balancer = t.add_parameter(Parameter(
+    "MembraneElb",
+    Type="String",
+    Description="Membrane ELB Endpoint",
+))
+
 subnet = t.add_parameter(Parameter(
     "Subnet",
     Type="AWS::EC2::Subnet::Id",
@@ -245,6 +263,10 @@ export cellos_version="{{cellos_version}}"
 export cell_bucket_name="{{cell_bucket_name}}"
 export cell_name="{{cell_name}}"
 export cell_role="{{cell_role}}"
+export zk_elb="{{zk_elb}}"
+export marathon_elb="{{marathon_elb}}"
+export mesos_elb="{{mesos_elb}}"
+export membrane_elb="{{membrane_elb}}"
 export instance_id=`wget -qO- http://169.254.169.254/latest/meta-data/instance-id`
 export aws_region=`wget -qO- http://169.254.169.254/latest/meta-data/placement/availability-zone | sed 's/.$//'`
 """),
@@ -253,6 +275,10 @@ export aws_region=`wget -qO- http://169.254.169.254/latest/meta-data/placement/a
                     mode="000755",
                     context=cfn.InitFileContext({
                         "zk_base_url": Join("", ["http://", Ref("ZookeeperElb"), "/exhibitor/v1"]),
+                        "zk_elb": Ref("ZookeeperElb"),
+                        "marathon_elb": Ref("MarathonElb"),
+                        "mesos_elb": Ref("MesosElb"),
+                        "membrane_elb": Ref("MembraneElb"),
                         "aws_stack_name": Ref("AWS::StackName"),
                         "aws_parent_stack_name": Ref("ParentStackName"),
                         "aws_region": Ref("AWS::Region"),
