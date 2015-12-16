@@ -1,5 +1,22 @@
 #!/bin/bash
 
+provision_with_retry() {
+  attempt=0
+  max_attempts=5
+  until [ $status == 0 ] ; do
+    /usr/local/bin/provision puppet "${1}"
+    status=$?
+    attempt=$(($attempt + 1))
+    if [[ $attempt -gt $max_attempts ]]; then
+      exit 1
+    fi
+    if [[ $status != 0 ]]; then
+      echo "Retry ${1} provisioning step: exit code $status, attempt $attempt / $max_attempts"
+      sleep 5
+    fi
+  done
+}
+
 export zk=$(zk-list-nodes)
 cat >>/opt/cell/cluster/cluster.yaml <<-EOT
 mesos::zookeeper:   zk://$zk/mesos
@@ -18,10 +35,11 @@ EOT
 mkdir -p /var/lib/mesos
 
 if [[ -f /opt/cell/etc/roles/stateless-body ]]; then
-  provision puppet mesos,mesos::slave,mesos::master
+  provision_with_retry "mesos,mesos::slave,mesos::master"
 fi
 
 if [[ -f /opt/cell/etc/roles/stateful-body || -f /opt/cell/etc/roles/membrane ]]; then
-  provision puppet mesos,mesos::slave
+  provision_with_retry "mesos,mesos::slave"
 fi
+
 
