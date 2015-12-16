@@ -349,19 +349,19 @@ def s3_ro_policy(name, roles, paths):
 MembraneReadOnlyPolicy = s3_ro_policy(
     "MembraneReadOnlyS3Policy",
     ["MembraneRole"],
-    ["membrane/*"]
+    ["*/membrane/*"]
 )
 t.add_resource(MembraneReadOnlyPolicy)
 StatelessBodyReadOnlyPolicy = s3_ro_policy(
     "StatelessBodyReadOnlyS3Policy",
     ["StatelessBodyRole"],
-    ["stateless-body/*"]
+    ["*/stateless-body/*"]
 )
 t.add_resource(StatelessBodyReadOnlyPolicy)
 StatefulBodyReadOnlyPolicy = s3_ro_policy(
     "StatefulBodyReadOnlyS3Policy",
     ["StatefulBodyRole"],
-    ["stateful-body/*"]
+    ["*/stateful-body/*"]
 )
 t.add_resource(StatefulBodyReadOnlyPolicy)
 SharedReadOnlyPolicy = s3_ro_policy(
