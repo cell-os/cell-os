@@ -300,7 +300,8 @@ list() {
   if [[ -z "${cell_name}" ]]; then
     aws cloudformation describe-stacks  --query "Stacks[? (Tags[? Key=='name']\
       && Tags[?Key=='version'] )][StackName, StackStatus, Tags[? Key=='version']\
-      .Value | [0], CreationTime]" --output table
+      .Value | [0], CreationTime]" --output table \
+      | grep -Ev '(NucleusStack|MembraneStack|BodyStack)'
   else
     echo "[load balancers]"
     cfn_elb "" text
