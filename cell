@@ -181,22 +181,17 @@ build_stack_files() {
 }
 
 create_bucket() {
-  if [[ -z "${AWS_KEY_PAIR}" ]]; then
+  if [[ -z "${CELL_BUCKET}" ]]; then
     echo "creating s3 bucket s3://${bucket_name}"
     ret=$(aws s3 mb "s3://${bucket_name}") || return 1
   fi
 }
 
 delete_bucket() {
-  if [[ -z "${AWS_KEY_PAIR}" ]]; then
+  if [[ -z "${CELL_BUCKET}" ]]; then
     aws s3 rm --recursive --include "*" s3://${bucket_name}
     aws s3 rb s3://${bucket_name}
   fi
-}
-
-delete_bucket() {
-  aws s3 rm --recursive --include "*" s3://${bucket_name}
-  aws s3 rb s3://${bucket_name}
 }
 
 copy_to_bucket() {
