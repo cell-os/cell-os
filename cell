@@ -68,6 +68,7 @@ Arguments:
 Environment variables:
 
   AWS_KEY_PAIR - EC2 ssh keypair to use (new keypair is created otherwise)
+  CELL_BUCKET - S3 bucket used  (new bucket is created otherwise)
   KEYPATH - the local path where <keypair>.pem is found (defaults to
     ${HOME}/.ssh). The .pem extension is required.
   PROXY_PORT - the SOCKS5 proxy port (defaults to ${PROXY_PORT})
@@ -96,7 +97,7 @@ parse_args() {
   [[ ! -z $4 ]] && index=$4
   [[ ! -z $4 ]] && capacity=$4
   full_cell_name="cell-os--${cell_name}"
-  bucket_name="${full_cell_name}"
+  bucket_name="${CELL_BUCKET:-${full_cell_name}}"
   aws_key_pair="${AWS_KEY_PAIR:-${full_cell_name}}"
   key_file=${KEYPATH:-"${HOME}/.ssh"}/${aws_key_pair}.pem
 
@@ -180,15 +181,16 @@ build_stack_files() {
 }
 
 create_bucket() {
-  echo "creating s3 bucket s3://${bucket_name}"
-  ret=$({ aws s3 mb "s3://${bucket_name}" ;} 2>&1)
-  create_error=$?
-  echo ${ret} | grep AlreadyOwnedByYou > /dev/null
-  already_owned=$?
+  if [[ -z "${AWS_KEY_PAIR}" ]]; then
+    echo "creating s3 bucket s3://${bucket_name}"
+    ret=$(aws s3 mb "s3://${bucket_name}") || return 1
+  fi
+}
 
-  if [[ ! ${create_error} -eq 0 && ! ${already_owned} -eq 0 ]]; then
-    echo ${ret}
-    exit 1
+delete_bucket() {
+  if [[ -z "${AWS_KEY_PAIR}" ]]; then
+    aws s3 rm --recursive --include "*" s3://${bucket_name}
+    aws s3 rb s3://${bucket_name}
   fi
 }
 
