@@ -116,8 +116,9 @@ check_cell_name() {
 create_key() {
   if [[ -z "${AWS_KEY_PAIR}" ]]; then
     echo "creating keypair ${aws_key_pair}"
-    ret=$(aws ec2 describe-key-pairs \
-      --filters=Name=key-name,Values="${aws_key_pair}")
+    ret=$(aws $AWS_OPTIONS ec2 describe-key-pairs \
+      --filters Name=key-name,Values="${aws_key_pair}" \
+      --query "KeyPairs[*][KeyName]")
     if  [[ ! -z "${ret}" || -e "${key_file}" ]]; then
       printf "Keypair conflict. Trying to create ${aws_key_pair} in \n\
         ${key_file}, but it already exists. Please delete it, try another \n\
