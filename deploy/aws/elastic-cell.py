@@ -287,8 +287,12 @@ NucleusS3Policy = t.add_resource(iam.PolicyType(
             awacs.aws.Statement(
                 Effect=awacs.aws.Allow,
                 Resource=[
+                    Join("", ["arn:aws:s3:::", Ref(BucketName)]),
+                    Join("", ["arn:aws:s3:::", Ref(BucketName), "/cell-os--", Ref("CellName"), "/*"]),
+                    #FIXME: this is an Exhibitor configuration issue, it creates the backups in /cell-os--cellname_nucleus_exhibitor
+                    Join("", ["arn:aws:s3:::", Ref(BucketName), "/cell-os--", Ref("CellName"), "_nucleus_exhibitor"]),
+                    Join("", ["arn:aws:s3:::", Ref(BucketName), "/cell-os--", Ref("CellName"), "_nucleus_exhibitor/*"]),
                     Join("", ["arn:aws:s3:::", Ref(BucketName), "/*"]),
-                    Join("", ["arn:aws:s3:::", Ref(BucketName)])
                 ],
                 Action=[
                     awacs.aws.Action("s3", "AbortMultipartUpload"),
@@ -316,10 +320,13 @@ NucleusS3Policy = t.add_resource(iam.PolicyType(
 ))
 
 def s3_ro_policy(name, roles, paths):
-    resources = [Join("", ["arn:aws:s3:::", Ref(BucketName)])]
-    resources.extend(
-        [Join("", ["arn:aws:s3:::", Ref(BucketName), "/{}".format(path)]) for path in paths]
-    )
+    resources = [Join("", ["arn:aws:s3:::", Ref("BucketName")])]
+    for path in paths:
+        join_args = ["arn:aws:s3:::", Ref("BucketName"), "/"]
+        join_args.extend(path)
+        resources.append(
+            Join("", join_args)
+        )
     return iam.PolicyType(
         name,
         PolicyName=name,
@@ -349,25 +356,25 @@ def s3_ro_policy(name, roles, paths):
 MembraneReadOnlyPolicy = s3_ro_policy(
     "MembraneReadOnlyS3Policy",
     ["MembraneRole"],
-    ["*/membrane/*"]
+    [["cell-os--", Ref("CellName"), "/membrane/*"]]
 )
 t.add_resource(MembraneReadOnlyPolicy)
 StatelessBodyReadOnlyPolicy = s3_ro_policy(
     "StatelessBodyReadOnlyS3Policy",
     ["StatelessBodyRole"],
-    ["*/stateless-body/*"]
+    [["cell-os--", Ref("CellName"), "/stateless-body/*"]]
 )
 t.add_resource(StatelessBodyReadOnlyPolicy)
 StatefulBodyReadOnlyPolicy = s3_ro_policy(
     "StatefulBodyReadOnlyS3Policy",
     ["StatefulBodyRole"],
-    ["*/stateful-body/*"]
+    [["cell-os--", Ref("CellName"), "/stateful-body/*"]]
 )
 t.add_resource(StatefulBodyReadOnlyPolicy)
 SharedReadOnlyPolicy = s3_ro_policy(
     "SharedReadOnlyS3Policy",
     ["StatelessBodyRole", "StatefulBodyRole", "MembraneRole"],
-    ["shared/*"]
+    [["cell-os--", Ref("CellName"), "/shared/*"]]
 )
 t.add_resource(SharedReadOnlyPolicy)
 
@@ -567,7 +574,7 @@ def create_load_balancer(t, name, instance_port, target,
         security_groups=[Ref("LbSecurityGroup")], internal=True):
     return t.add_resource(elb.LoadBalancer(
         name + "Elb",
-        LoadBalancerName=Join("", [Ref(CellName), "-lb-" + name.lower()]),
+        LoadBalancerName=Join("", [Ref("CellName"), "-lb-" + name.lower()]),
         CrossZone="true",
         Scheme="internal" if internal else "internet-facing",
         SecurityGroups=security_groups,
@@ -647,7 +654,7 @@ def create_cellos_substack(t, name=None, role=None, cell_modules=None, tags=[], 
     if instance_profile != None:
         params["IamInstanceProfile"] = Ref(instance_profile)
 
-    substack_template_url = Join("", ["https://s3.amazonaws.com/", Ref("BucketName"), "/", Ref("BodyStackTemplate")])
+    substack_template_url = Join("", ["https://s3.amazonaws.com/", Ref("BucketName"), "/", "cell-os--", Ref("CellName"), "/", Ref("BodyStackTemplate")])
     # check if the template url is overridden (e.g. with a release one)
     if len(sys.argv) > 1 and len(sys.argv[1]) > 7 :
         substack_template_url = sys.argv[1]
