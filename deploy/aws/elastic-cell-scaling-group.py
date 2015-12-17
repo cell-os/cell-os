@@ -258,6 +258,7 @@ export saasbase_version="{{saasbase_version}}"
 export cellos_version="{{cellos_version}}"
 export cell_bucket_name="{{cell_bucket_name}}"
 export cell_name="{{cell_name}}"
+export full_cell_name="cell-os--{{cell_name}}"
 export cell_role="{{cell_role}}"
 export zk_elb="{{zk_elb}}"
 export marathon_elb="{{marathon_elb}}"
@@ -526,7 +527,7 @@ mkdir -p /opt/cell/puppet/profiles
 AWS_ACCESS_KEY_ID="${SAASBASE_ACCESS_KEY_ID}" AWS_SECRET_ACCESS_KEY="${SAASBASE_SECRET_ACCESS_KEY}" aws s3 cp s3://saasbase-repo/cell-os/${cellos_version}.yaml /opt/cell/puppet/profiles
 
 # attempt to download profile from local bucket as well
-aws s3 cp s3://${cell_bucket_name}/shared/cell-os/${cellos_version}.yaml /opt/cell/puppet/profiles/
+aws s3 cp s3://${cell_bucket_name}/${full_cell_name}/shared/cell-os/${cellos_version}.yaml /opt/cell/puppet/profiles/
 echo ${cellos_version} > /opt/cell/cluster/profile
 touch /opt/cell/cluster/cluster.yaml
 
@@ -534,7 +535,7 @@ touch /opt/cell/cluster/cluster.yaml
 AWS_ACCESS_KEY_ID="${SAASBASE_ACCESS_KEY_ID}" AWS_SECRET_ACCESS_KEY="${SAASBASE_SECRET_ACCESS_KEY}" aws s3 cp s3://saasbase-repo/cell-os/seed-${cellos_version}.tar.gz /opt/cell
 
 # attempt to download seed from local bucket as well
-aws s3 cp s3://$cell_bucket_name/shared/cell-os/seed.tar.gz /opt/cell
+aws s3 cp s3://$cell_bucket_name/${full_cell_name}/shared/cell-os/seed.tar.gz /opt/cell
 
 ####################### provision
 mkdir -p /opt/cell/seed

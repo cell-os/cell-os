@@ -30,30 +30,30 @@ if [[ -f /opt/cell/etc/roles/nucleus ]]; then
   export host=$(hostname -f)
   service hadoop-hdfs-journalnode start
   sleep 10
-  aws s3api put-object --bucket ${cell_bucket_name} --key shared/setup/${aws_parent_stack_name}/zk/$host
+  aws s3api put-object --bucket ${cell_bucket_name} --key ${full_cell_name}/shared/setup/${aws_parent_stack_name}/zk/$host
   if [[ $host == $nn1_host ]]; then
-    aws_wait "aws s3api list-objects --bucket ${cell_bucket_name} --prefix shared/setup/${aws_parent_stack_name}/zk/" ".Contents | length" "3"
+    aws_wait "aws s3api list-objects --bucket ${cell_bucket_name} --prefix ${full_cell_name}/shared/setup/${aws_parent_stack_name}/zk/" ".Contents | length" "3"
     su --login hadoop -c "/home/hadoop/hadoop/bin/hdfs namenode -format -nonInteractive"
     su --login hadoop -c "/home/hadoop/hadoop/bin/hdfs zkfc -formatZK -nonInteractive"
     systemctl start hadoop-hdfs-zkfc
     systemctl start hadoop-hdfs-namenode
-    aws s3api put-object --bucket ${cell_bucket_name} --key shared/setup/${aws_parent_stack_name}/nn1
+    aws s3api put-object --bucket ${cell_bucket_name} --key ${full_cell_name}/shared/setup/${aws_parent_stack_name}/nn1
   fi
 
   if [[ $host == $nn2_host ]]; then
-    aws_wait "aws s3api list-objects --bucket ${cell_bucket_name} --prefix shared/setup/${aws_parent_stack_name}/zk/" ".Contents | length" "3"
-    aws_wait "aws s3api list-objects --bucket ${cell_bucket_name} --prefix shared/setup/${aws_parent_stack_name}/nn1" ".Contents | length" "1"
+    aws_wait "aws s3api list-objects --bucket ${cell_bucket_name} --prefix ${full_cell_name}/shared/setup/${aws_parent_stack_name}/zk/" ".Contents | length" "3"
+    aws_wait "aws s3api list-objects --bucket ${cell_bucket_name} --prefix ${full_cell_name}/shared/setup/${aws_parent_stack_name}/nn1" ".Contents | length" "1"
     su --login hadoop -c "/home/hadoop/hadoop/bin/hdfs namenode -bootstrapStandby -nonInteractive"
     systemctl start hadoop-hdfs-zkfc
     systemctl start hadoop-hdfs-namenode
     sleep 10
-    aws s3api put-object --bucket ${cell_bucket_name} --key shared/setup/${aws_parent_stack_name}/nn2
+    aws s3api put-object --bucket ${cell_bucket_name} --key ${full_cell_name}/shared/setup/${aws_parent_stack_name}/nn2
   fi
 fi
 
 if [[ -f /opt/cell/etc/roles/stateful-body ]]; then
   /usr/local/bin/provision puppet base,hadoop_2_datanode
 
-  aws_wait "aws s3api list-objects --bucket ${cell_bucket_name} --prefix shared/setup/${aws_parent_stack_name}/nn2" ".Contents | length" "1"
+  aws_wait "aws s3api list-objects --bucket ${cell_bucket_name} --prefix ${full_cell_name}/shared/setup/${aws_parent_stack_name}/nn2" ".Contents | length" "1"
   systemctl start hadoop-hdfs-datanode
 fi

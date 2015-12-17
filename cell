@@ -156,7 +156,7 @@ cfn() {
   fi
 
   aws cloudformation ${1}-stack \
-      --template-url "https://s3.amazonaws.com/${bucket_name}/$(basename ${base_stack})" \
+      --template-url "https://s3.amazonaws.com/${bucket_name}/${full_cell_name}/$(basename ${base_stack})" \
       --stack-name "${stack_name}" \
       ${TAGS} \
       --capabilities CAPABILITY_IAM \
@@ -192,13 +192,15 @@ delete_bucket() {
   if [[ -z "${CELL_BUCKET}" ]]; then
     aws s3 rm --recursive --include "*" s3://${bucket_name}
     aws s3 rb s3://${bucket_name}
+  else
+    aws s3 rm --recursive --include "*" s3://${bucket_name}/${full_cell_name}/
   fi
 }
 
 copy_to_bucket() {
-  echo "copy stack to S3://${bucket_name}"
-  ret=$(aws s3 cp ${base_stack} s3://"${bucket_name}"/)
-  ret=$(aws s3 cp ${sub_stack} s3://"${bucket_name}"/)
+  echo "copy stack to s3://${bucket_name}"
+  ret=$(aws s3 cp ${base_stack} "s3://${bucket_name}/${full_cell_name}/")
+  ret=$(aws s3 cp ${sub_stack} "s3://${bucket_name}/${full_cell_name}/")
   if [[ ! $? -eq 0 ]]; then
     exit 1
   fi
@@ -255,8 +257,8 @@ create() {
 delete() {
   [[ check_cell_name ]] || return 1
   echo "WARNING: THIS WILL DELETE ALL RESOURCES ASSOCIATED TO ${cell_name}"
-  echo "DELETE s3://${bucket_name}"
-  aws s3 ls --summarize s3://${bucket_name}
+  echo "DELETE s3://${bucket_name}/${full_cell_name}"
+  aws s3 ls --summarize s3://${bucket_name}/${full_cell_name}
   echo "DELETE ${key_file}"
   echo "DELETE ${aws_key_pair} from current region"
   echo "DELETE CF stack ${stack_name}"
@@ -395,9 +397,9 @@ build_seed() {
 
 seed() {
   build_seed
-  aws s3 cp seed.tar.gz s3://${bucket_name}/shared/cell-os/
+  aws s3 cp seed.tar.gz s3://${bucket_name}/${full_cell_name}/shared/cell-os/
   popd &>/dev/null
-  aws s3 cp "${DIR}/cell-os-base.yaml" "s3://${bucket_name}/shared/cell-os/cell-os-base-${VERSION}.yaml"
+  aws s3 cp "${DIR}/cell-os-base.yaml" "s3://${bucket_name}/${full_cell_name}/shared/cell-os/cell-os-base-${VERSION}.yaml"
 }
 
 cell_i2cssh() {
