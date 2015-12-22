@@ -4,10 +4,14 @@ if [[ "${cell_role}" != "nucleus" ]]; then
   exit 0
 fi
 
-export search_instance_cmd="aws --region ${aws_region} ec2 describe-instances --query 'Reservations[*].Instances[*].[PrivateIpAddress, PrivateDnsName]' --filters Name=instance-state-code,Values=16 Name=tag:cell,Values=${cell_name}"
-
-export nn1_host=$(eval $search_instance_cmd Name=tag:role,Values=nucleus | jq -r '.[][][1]' | head -n 1)
-export nn2_host=$(eval $search_instance_cmd Name=tag:role,Values=nucleus | jq -r '.[][][1]' | head -2 | tail -1)
+# The following HDFS logic is copied (duplicated from) the HDFS provision seeed
+export search_instance_cmd="aws --region ${aws_region} ec2 describe-instances \
+  --query 'Reservations[*].Instances[*].[PrivateIpAddress, PrivateDnsName]' \
+  --filters Name=instance-state-code,Values=16 Name=tag:cell,Values=${cell_name}"
+export nn1_host=$(eval $search_instance_cmd Name=tag:role,Values=nucleus \
+  | jq -r '.[][][1]' | head -n 1)
+export nn2_host=$(eval $search_instance_cmd Name=tag:role,Values=nucleus \
+  | jq -r '.[][][1]' | head -2 | tail -1)
 
 gateway_config_dir="apigateway/api-gateway-config"
 gateway_config_path="/opt/cell/seed/99-cell/${gateway_config_dir}"
@@ -44,7 +48,12 @@ EOT
 
 aws s3 sync --delete  "${gateway_config_path}" "${gateway_s3_uri}"
 
-curl -v -X POST -H "Content-Type: application/json" http://${marathon_elb}/v2/apps\?force\=true -d@"${marathon_workload_path}"
+curl -v -X POST -H "Content-Type: application/json" \
+  http://${marathon_elb}/v2/apps\?force\=true \
+  -d@"${marathon_workload_path}"
 
-# Push the membrane ELB host (IP changes) into Metal Cell DNS (Route 53)
-curl -i -k -X POST "https://dns.metal-cell.adobe.io/gateway?api_key=7f7513685fcb4af1be40814ac2c199fa" --data '{"cell_name": "'${cell_name}'","values": ["'${membrane_elb}'"]}'
+# Push the membrane ELB host (CNAME, because ELB IP can change)
+# into Metal Cell public DNS (Route 53)
+curl -i -k -X POST \
+  "https://dns.metal-cell.adobe.io/gateway?api_key=7f7513685fcb4af1be40814ac2c199fa" \
+  --data '{"cell_name": "'${cell_name}'","values": ["'${membrane_elb}'"]}'
