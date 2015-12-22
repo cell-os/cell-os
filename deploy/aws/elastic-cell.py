@@ -532,12 +532,60 @@ ingress BodySecurityGroup tcp 50000:50100
 ExternalWhitelistSecurityGroup = t.add_resource(security_group(
     'ExternalWhitelistSecurityGroup',
     """
-ingress 127.127.0.0/16 tcp 0:65535
-ingress 127.127.216.100/32 tcp 0:65535
-ingress 127.127.198.0/24 tcp 0:65535
-ingress 127.127.140.131/32 tcp 0:65535
-ingress 127.127.18.225/24 tcp 0:65535
-ingress 127.127.98.227/32 tcp 0:65535
+# Bucharest
+ingress 127.127.140.131/32  tcp  0:65535
+# Dublin
+ingress 127.127.215.11/32  tcp  0:65535
+ingress 127.127.215.13/32  tcp  0:65535
+# Hamburg
+ingress 127.127.139.131/32  tcp  0:65535
+ingress 127.127.139.132/32  tcp  0:65535
+ingress 127.127.58.150/32  tcp  0:65535
+ingress 127.127.58.180/32  tcp  0:65535
+# London
+ingress 127.127.65.2/32  tcp  0:65535
+# Paris
+ingress 127.127.98.227/32  tcp  0:65535
+# Beijing
+# Singapore
+# Seoul
+ingress 127.127.24.4/32  tcp  0:65535
+# Sydney
+ingress 127.127.121.82/32  tcp  0:65535
+# Tokyo
+ingress 127.127.93.230/32  tcp  0:65535
+ingress 127.127.93.231/32  tcp  0:65535
+# Bangalore
+ingress 127.127.216.100/32  tcp  0:65535
+# Noida
+ingress 127.127.112.97/32  tcp  0:65535
+ingress 127.127.112.98/32  tcp  0:65535
+# Basel
+ingress 127.127.117.11/32  tcp  0:65535
+# Lehi
+ingress 127.127.9.200/32  tcp  0:65535
+ingress 127.127.9.201/32  tcp  0:65535
+# Los Angeles
+ingress 127.127.170.7/32  tcp  0:65535
+ingress 127.127.170.15/32  tcp  0:65535
+ingress 127.127.170.24/32  tcp  0:65535
+ingress 127.127.170.104/32  tcp  0:65535
+ingress 127.127.170.204/32  tcp  0:65535
+# New Jersey
+ingress 127.127.3.7/32  tcp  0:65535
+ingress 127.127.3.136/32  tcp  0:65535
+# San Jose
+# San Francisco
+ingress 127.127.10.200/32  tcp  0:65535
+ingress 127.127.10.201/32  tcp  0:65535
+ingress 127.127.10.202/32  tcp  0:65535
+ingress 127.127.10.203/32  tcp  0:65535
+ingress 127.127.10.204/32  tcp  0:65535
+ingress 127.127.10.205/32  tcp  0:65535
+ingress 127.127.10.206/32  tcp  0:65535
+ingress 127.127.10.207/32  tcp  0:65535
+ingress 127.127.10.208/32  tcp  0:65535
+ingress 127.127.10.209/32  tcp  0:65535
     """,
     VPC,
     description="All nodes are part of it. Grants access to some Adobe CIDRs. Email to metal-cell@adobe.com"
