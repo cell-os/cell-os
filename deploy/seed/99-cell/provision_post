@@ -15,7 +15,7 @@ export nn2_host=$(eval $search_instance_cmd Name=tag:role,Values=nucleus \
 
 gateway_config_dir="apigateway/api-gateway-config"
 gateway_config_path="/opt/cell/seed/99-cell/${gateway_config_dir}"
-gateway_s3_uri="s3://${cell_bucket_name}/${cell_name}/membrane/${gateway_config_dir}"
+gateway_s3_uri="s3://${cell_bucket_name}/${full_cell_name}/membrane/${gateway_config_dir}"
 marathon_workload_path="/opt/cell/cluster/apigateway.json"
 cat >${marathon_workload_path} <<-EOT
 {
