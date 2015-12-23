@@ -278,11 +278,15 @@ class Cell(object):
     def build_seed(self):
         with sh.pushd(DIR + "/deploy"):
             tar_zcf(["seed.tar.gz", "seed"])
-            shutil.move("seed.tar.gz", self.tmp("seed.tar.gz"))
+            shutil.move(DIR + "/deploy/seed.tar.gz", self.tmp("seed.tar.gz"))
 
     def seed(self):
         self.build_seed()
-        self.upload(self.tmp("seed.tar.gz"), "/cell-os/")
+        self.upload(self.tmp("seed.tar.gz"), "/shared/cell-os/")
+        self.upload(
+            "{}/cell-os-base.yaml".format(DIR),
+            "/shared/cell-os/cell-os-base-{}.yaml".format(self.version)
+        )
 
     def create_bucket(self):
         if not self.existing_bucket:
@@ -351,6 +355,7 @@ class Cell(object):
 
     def run_seed(self):
         self.build_seed()
+        self.seed()
 
     def stack_action(self, action="create"):
         self.build_stack_files()
@@ -415,6 +420,7 @@ class Cell(object):
                 traceback.print_exc(file=sys.stdout)
                 sys.exit(1)
         try:
+            self.seed()
             self.stack_action()
         except Exception as e:
             print "Error creating cell: "
@@ -573,12 +579,11 @@ class Cell(object):
                 self.instances(role=role, format="PublicIpAddress")
             )
         machines = ",".join([d[0] for d in instances])
-        print machines
         if self.key_file:
             sh.i2cssh("-d", "row", "-l", self.ssh_user, "-m", machines, "-Xi={}".format(self.key_file))
 
     def run_proxy(self):
-        instances = self.instances(role=self.arguments["<role>"], format="PublicIpAddress, KeyName")
+        instances = self.instances(role='stateless-body', format="PublicIpAddress")
         if self.key_file:
             if not os.path.exists(self.tmp("ssh_config")):
                 with open(self.tmp("ssh_config"), "wb+") as f:
