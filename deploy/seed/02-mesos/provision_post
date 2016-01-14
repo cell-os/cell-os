@@ -3,6 +3,7 @@
 provision_with_retry() {
   attempt=0
   max_attempts=5
+  status=-1
   until [ $status == 0 ] ; do
     /usr/local/bin/provision puppet "${1}"
     status=$?
