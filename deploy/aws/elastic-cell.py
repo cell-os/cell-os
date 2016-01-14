@@ -144,7 +144,7 @@ MembraneInstanceType = t.add_parameter(Parameter(
 BucketName = t.add_parameter(Parameter(
     "BucketName",
     Type="String",
-    Description="Cell's S3 bucket name. Used for metadata and backups. Can be one per account as we prefix data with cell name inside",
+    Description="Cell's S3 bucket name. This needs to be an existing bucket, so you have to create it first.",
 ))
 
 SaasBaseAccessKeyId = t.add_parameter(Parameter(
