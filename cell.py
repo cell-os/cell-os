@@ -83,6 +83,23 @@ mkdir_p(tmpdir)
 
 DEFAULT_SOCKET = socket.socket
 
+def flatten(l):
+    """
+    Flattens a list;
+    Taking a list that can contain any number of nested lists, it returns a one-level list with the elements
+    [a] -> [a]
+    [[a]] -> [a]
+    [[a, b, c], d, [[e]]] -> [a, b, c, d, e]
+    """
+    def _flat(l, r):
+        if type(l) is not list:
+            r.append(l)
+        else:
+            for i in l:
+                r = r + flatten(i)
+        return r
+    return _flat(l, [])
+
 def readify(f):
     if f is None:
         return None
@@ -487,10 +504,7 @@ class Cell(object):
                 Filters=filters
             )
         )
-        if len(tmp) > 0:
-            return tmp[0]
-        else:
-            return tmp
+        return tmp
 
     def run_list(self):
         if self.cell == None:
@@ -509,13 +523,13 @@ class Cell(object):
             )
             table_print(elbs)
             print "[nucleus]"
-            table_print(self.instances("nucleus"))
+            table_print(self.instances("nucleus")[0])
             print "[stateless-body]"
-            table_print(self.instances("stateless-body"))
+            table_print(self.instances("stateless-body")[0])
             print "[stateful-body]"
-            table_print(self.instances("stateful-body"))
+            table_print(self.instances("stateful-body")[0])
             print "[membrane]"
-            table_print(self.instances("membrane"))
+            table_print(self.instances("membrane")[0])
             print "[bucket]"
             for f in self.s3.Bucket(self.bucket).objects.filter(Prefix="{}".format(self.full_cell)):
                 print f.key
@@ -549,7 +563,7 @@ class Cell(object):
             )
 
     def run_ssh(self, command=None):
-        instances = self.instances(self.arguments["<role>"], format="PublicIpAddress")
+        instances = flatten(self.instances(self.arguments["<role>"], format="PublicIpAddress"))
         index = int(self.arguments["<index>"])
         if index == None or index == "":
             index = 1
@@ -561,7 +575,7 @@ class Cell(object):
                 self.arguments["<role>"]
             )
             return
-        ip = instances[index]
+        ip = instances[index - 1]
         if command:
             os.system("ssh centos@{} -i {} {}".format(ip, self.key_file, command))
         else:
@@ -588,12 +602,13 @@ class Cell(object):
             instances.extend(
                 self.instances(role=role, format="PublicIpAddress")
             )
-        machines = ",".join([d[0] for d in instances])
+        instances = flatten(instances)
+        machines = ",".join([d for d in instances])
         if self.key_file:
             sh.i2cssh("-d", "row", "-l", self.ssh_user, "-m", machines, "-Xi={}".format(self.key_file))
 
     def run_proxy(self):
-        instances = self.instances(role='stateless-body', format="PublicIpAddress")
+        instances = flatten(self.instances(role='stateless-body', format="PublicIpAddress"))
         if self.key_file:
             if not os.path.exists(self.tmp("ssh_config")):
                 with open(self.tmp("ssh_config"), "wb+") as f:
@@ -604,7 +619,7 @@ Host proxy-cell-{}
   IdentityFile {}
   User centos
   DynamicForward {}
-                    """.format(self.cell, instances[0][0], self.key_file, self.proxy_port)
+                    """.format(self.cell, instances[0], self.key_file, self.proxy_port)
                     )
                     f.flush()
 
