@@ -452,8 +452,11 @@ class Cell(object):
         except Exception as e:
             print "Error creating cell: "
             print e
+            try:
+                self.delete_key()
+            except Exception as e:
+                print "Error deleting key", e
             self.delete_bucket()
-            self.delete_key()
             traceback.print_exc(file=sys.stdout)
             sys.exit(1)
 
@@ -470,12 +473,12 @@ class Cell(object):
                 StackName=self.stack
             )
             try:
-                self.delete_bucket()
-            except Exception as e:
-                pass
-            try:
                 self.delete_key()
             except:
+                pass
+            try:
+                self.delete_bucket()
+            except :
                 pass
         else:
             print "Abort deleting stack"
