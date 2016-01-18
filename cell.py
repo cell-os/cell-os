@@ -598,23 +598,14 @@ Host proxy-cell-{}
                     )
                     f.flush()
 
-            if not sh.which("autossh"):
-                command = sh.autossh
-            else:
-                command = sh.ssh
+            ssh_cmd = str(sh.ssh)
             try:
-                sh.pkill("-9", "-f", "\"^proxy-cell$\"")
+                sh.pkill("-9", "-f", "\"^proxy-cell.*$\"")
                 sh.pkill("-9", "-f", "\".*ssh.*-N.*proxy-cell.*\"")
             except sh.ErrorReturnCode:
                 pass
 
-            command(
-                "-f", "-F", self.tmp("ssh_config"), "-N", "proxy-cell-{}".format(self.cell),
-                _env={
-                    "AUTOSSH_PATH": sh.which("ssh"),
-                    "AUTOSSH_PORT": "0"
-                }
-            )
+            os.system("{} -f -F {} -N proxy-cell-{}".format(ssh_cmd, self.tmp("ssh_config"), self.cell))
 
     def cluster_request(self, url, converter=lambda x: x):
         socks.set_default_proxy(socks.SOCKS5, "127.0.0.1", int(self.proxy_port))
