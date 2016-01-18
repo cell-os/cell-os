@@ -167,6 +167,13 @@ class Cell(object):
         self.asg = self.session.client('autoscaling')
 
     @property
+    def region(self):
+        return first(
+            self.conf('region'),
+            os.getenv('AWS_DEFAULT_REGION')
+        )
+
+    @property
     def existing_bucket(self):
         return first(
             self.conf('bucket'),
@@ -290,9 +297,12 @@ class Cell(object):
 
     def create_bucket(self):
         if not self.existing_bucket:
-            print "CREATE bucket {}".format(self.bucket)
+            print "CREATE bucket {} in region {}".format(self.bucket, self.region)
             self.s3.create_bucket(
-                Bucket=self.bucket
+                Bucket=self.bucket,
+                CreateBucketConfiguration={
+                    'LocationConstraint': self.region
+                }
             )
 
     def delete_bucket(self):
