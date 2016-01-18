@@ -622,7 +622,7 @@ def create_load_balancer(t, name, instance_port, target,
         security_groups=[Ref("LbSecurityGroup")], internal=True):
     return t.add_resource(elb.LoadBalancer(
         name + "Elb",
-        LoadBalancerName=Join("", [Ref("CellName"), "-lb-" + name.lower()]),
+        LoadBalancerName=Join("", [Ref("CellName"), "-" + name.lower()]),
         CrossZone="true",
         Scheme="internal" if internal else "internet-facing",
         SecurityGroups=security_groups,
