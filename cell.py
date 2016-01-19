@@ -41,6 +41,7 @@ Environment variables:
   KEYPATH - the local path where <keypair>.pem is found (defaults to
     ${HOME}/.ssh). The .pem extension is required.
   PROXY_PORT - the SOCKS5 proxy port (defaults to ${PROXY_PORT})
+  SSH_USER - instances ssh login user (defaults to centos)
   SSH_TIMEOUT - ssh timeout in seconds (defaults to 5)
 
 All AWS CLI environment variables (e.g. AWS_DEFAULT_REGION, AWS_ACCESS_KEY_ID,
@@ -588,9 +589,9 @@ class Cell(object):
             return
         ip = instances[index - 1]
         if command:
-            os.system("ssh {} centos@{} -i {} {}".format(ssh_options, ip, self.key_file, command))
+            os.system("ssh {} {}@{} -i {} {}".format(ssh_options, self.ssh_user, ip, self.key_file, command))
         else:
-            os.system("ssh {} centos@{} -i {}".format(ssh_options, ip, self.key_file))
+            os.system("ssh {} {}@{} -i {}".format(ssh_options, self.ssh_user, ip, self.key_file))
 
     def run_cmd(self):
         self.run_ssh(self.arguments['<command>'])
