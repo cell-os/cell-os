@@ -102,10 +102,10 @@ def flatten(l):
         return r
     return _flat(l, [])
 
+
 def readify(f):
     if f is None:
         return None
-    out = ""
     if hasattr(f, 'read'):
         out = f.read()
     else:
@@ -374,7 +374,7 @@ class Cell(object):
 
     def upload(self, path, key):
         if key.endswith("/"):
-            key = key + os.path.basename(path)
+            key += os.path.basename(path)
         if key.startswith("/"):
             key = key[1:]
         self.s3.meta.client.upload_file(
@@ -444,12 +444,12 @@ class Cell(object):
         if self.command == "create":
             try:
                 self.create_bucket()
-            except Exception as e:
+            except Exception:
                 traceback.print_exc(file=sys.stdout)
                 sys.exit(1)
             try:
                 self.create_key()
-            except Exception as e:
+            except Exception:
                 self.delete_bucket()
                 traceback.print_exc(file=sys.stdout)
                 sys.exit(1)
@@ -457,8 +457,7 @@ class Cell(object):
             self.seed()
             self.stack_action()
         except Exception as e:
-            print "Error creating cell: "
-            print e
+            print "Error creating cell: ", e
             try:
                 self.delete_key()
             except Exception as e:
