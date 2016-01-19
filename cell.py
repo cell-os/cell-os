@@ -358,7 +358,10 @@ class Cell(object):
                     or in the config file
                 """.format(self.key_pair, self.key_file)
                 raise KeyException()
-            print "CREATE key pair {}".format(self.key_pair)
+            if  os.path.exists(self.key_file):
+                print "Key file {} already exists".format(self.key_file)
+                raise KeyException()
+            print "CREATE key pair {} in {}".format(self.key_pair, self.key_file)
             result = self.ec2.create_key_pair(
                 KeyName=self.key_pair
             )
