@@ -75,6 +75,10 @@ import boto3.session
 import jmespath
 import sh
 
+from awscli.formatter import TableFormatter
+from awscli.table import MultiTable, Styler
+from awscli.compat import six
+
 DIR = os.path.dirname(os.path.realpath(__file__))
 
 mkdir_p = sh.mkdir.bake("-p")
@@ -116,14 +120,18 @@ def readify(f):
             out = f
     return out
 
-def table_print(arr):
-    if arr == None or len(arr) == 0:
-        return
 
-    headlen = len(arr[0])
-    fs = "{}\t" * headlen
-    for item in arr:
-        print fs.format(*item)
+def printf(operation, data):
+    table = MultiTable(initial_section=False,
+                column_separator='|', styler=Styler(),
+                auto_reformat=False)
+
+    formatter = TableFormatter(type('dummy', (object,), { "color": "on", "query": None }))
+    formatter.table = table
+    stream = six.StringIO()
+    formatter(operation, data, stream=stream)
+    print stream.getvalue()
+    stream.flush()
 
 def command(args):
     return [
@@ -242,6 +250,10 @@ class Cell(object):
     @property
     def cell(self):
         return self.arguments["<cell-name>"]
+
+    @property
+    def dns_suffix(self):
+        return "metal-cell.adobe.io"
 
     @property
     def stack(self):
@@ -523,28 +535,37 @@ class Cell(object):
             stacks = [stack for stack in jmespath.search(
                 "Stacks["
                 "? (Tags[? Key=='name'] && Tags[? Key=='version'] )"
-                "][ StackName, StackStatus, Tags[? Key=='version'].Value | [0], CreationTime]",
+                "][ StackId, StackName, StackStatus, Tags[? Key=='version'].Value | [0], CreationTime]",
                 boto3.client("cloudformation").describe_stacks()
             ) if not re.match(r".*(MembraneStack|NucleusStack|StatefulBodyStack|StatelessBodyStack).*", stack[0])]
-            table_print(stacks)
+            # extract region from stack id arn:aws:cloudformation:us-west-1:482993447592:stack/c1/1af7..
+            stacks = [[stack[1], stack[0].split(":")[3]] + stack[2:] for stack in stacks]
+            printf("list", stacks)
         else:
-            print "[load balancers]"
+            printf("nucleus", self.instances("nucleus"))
+            printf("stateless-body", self.instances("stateless-body"))
+            printf("stateful-body", self.instances("stateful-body"))
+            printf("membrane", self.instances("membrane"))
+
+            print "[bucket]"
+            # for f in self.s3.Bucket(self.bucket).objects.filter(Prefix="{}".format(self.full_cell)):
+            #     print f.key
+
             elbs = jmespath.search(
                 "LoadBalancerDescriptions[*].[LoadBalancerName, DNSName]|[?contains([0], `{}-lb`) == `true`]".format(self.cell),
                 self.elb.describe_load_balancers()
             )
-            table_print(elbs)
-            print "[nucleus]"
-            table_print(self.instances("nucleus")[0])
-            print "[stateless-body]"
-            table_print(self.instances("stateless-body")[0])
-            print "[stateful-body]"
-            table_print(self.instances("stateful-body")[0])
-            print "[membrane]"
-            table_print(self.instances("membrane")[0])
-            print "[bucket]"
-            for f in self.s3.Bucket(self.bucket).objects.filter(Prefix="{}".format(self.full_cell)):
-                print f.key
+
+
+            printf("ELBs", elbs)
+
+            printf("Gateway", [
+                ["zookeeper", "http://zookeeper.{}.{}".format(self.cell, self.dns_suffix)],
+                ["mesos", "http://mesos.{}.{}".format(self.cell, self.dns_suffix)],
+                ["marathon", "http://marathon.{}.{}".format(self.cell, self.dns_suffix)],
+                ["hdfs", "http://hdfs.{}.{}".format(self.cell, self.dns_suffix)],
+            ])
+
 
     def run_scale(self):
         capacity = int(self.arguments['<capacity>'])
