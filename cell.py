@@ -383,9 +383,11 @@ class Cell(object):
 
     def delete_key(self):
         if not self.existing_key_pair:
-            print "Deleting keypair {}".format(self.key_pair)
+            print "DELETE keypair {}".format(self.key_pair)
             self.ec2.delete_key_pair(KeyName=self.key_pair)
-            os.remove(self.key_file)
+            print "DELETE key file {}".format(self.key_file)
+            if os.path.isfile(self.key_file):
+                os.remove(self.key_file)
 
     def upload(self, path, key):
         if key.endswith("/"):
@@ -493,16 +495,10 @@ class Cell(object):
             self.cfn.meta.client.delete_stack(
                 StackName=self.stack
             )
-            try:
-                self.delete_key()
-            except:
-                pass
-            try:
-                self.delete_bucket()
-            except :
-                pass
+            self.delete_key()
+            self.delete_bucket()
         else:
-            print "Abort deleting stack"
+            print "Aborted deleting stack"
 
     def instances(self, role=None, format="PublicIpAddress, PrivateIpAddress, ImageId, State.Name"):
         filters = [
