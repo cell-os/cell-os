@@ -41,6 +41,7 @@ Environment variables:
   KEYPATH - the local path where <keypair>.pem is found (defaults to
     ${HOME}/.ssh). The .pem extension is required.
   PROXY_PORT - the SOCKS5 proxy port (defaults to ${PROXY_PORT})
+  SSH_TIMEOUT - ssh timeout in seconds (defaults to 5)
 
 All AWS CLI environment variables (e.g. AWS_DEFAULT_REGION, AWS_ACCESS_KEY_ID,
 AWS_SECRET_ACCESS_KEY, etc.) and configs apply.
@@ -277,6 +278,11 @@ class Cell(object):
             'centos'
         )
 
+    @property
+    def ssh_timeout(self):
+        return first(os.getenv('SSH_TIMEOUT'),
+                     self.conf('ssh_timeout'),
+                     '5')
 
     def tmp(self, path):
         path = os.path.join(tmpdir, self.cell, path)
@@ -567,6 +573,7 @@ class Cell(object):
             )
 
     def run_ssh(self, command=None):
+        ssh_options="-o ConnectTimeout={}".format(self.ssh_timeout)
         instances = flatten(self.instances(self.arguments["<role>"], format="PublicIpAddress"))
         index = int(self.arguments["<index>"])
         if index == None or index == "":
@@ -581,9 +588,9 @@ class Cell(object):
             return
         ip = instances[index - 1]
         if command:
-            os.system("ssh centos@{} -i {} {}".format(ip, self.key_file, command))
+            os.system("ssh {} centos@{} -i {} {}".format(ssh_options, ip, self.key_file, command))
         else:
-            os.system("ssh centos@{} -i {}".format(ip, self.key_file))
+            os.system("ssh {} centos@{} -i {}".format(ssh_options, ip, self.key_file))
 
     def run_cmd(self):
         self.run_ssh(self.arguments['<command>'])
