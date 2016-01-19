@@ -552,10 +552,14 @@ class Cell(object):
             #     print f.key
 
             elbs = jmespath.search(
-                "LoadBalancerDescriptions[*].[LoadBalancerName, DNSName]|[?contains([0], `{}-lb`) == `true`]".format(self.cell),
+                "LoadBalancerDescriptions[*].[LoadBalancerName, DNSName]|[? contains([0], `{}-`) == `true`]".format(self.cell, self.cell),
                 self.elb.describe_load_balancers()
             )
 
+            # filter ELBs for only this cell (e.g.  c1-mesos and not c1-1-mesos )
+            expression = self.cell + "[-lb]*-(marathon|membrane|mesos|zookeeper)"
+            regexp = re.compile(expression)
+            elbs = filter(lambda name: regexp.match(name[0]), elbs)
 
             printf("ELBs", elbs)
 
