@@ -487,7 +487,7 @@ python get-pip.py
 pip install "pip==7.1.2"
 
 # aws-cli
-pip install --upgrade awscli
+pip install --upgrade "awscli==1.9.21"
 rpm -ivh http://s3.amazonaws.com/saasbase-repo/yumrepo/ec2-utils-0.6-2.el7.centos.noarch.rpm
 rpm -ivh http://s3.amazonaws.com/saasbase-repo/yumrepo/ec2-net-utils-0.6-2.el7.centos.noarch.rpm
 pip uninstall -y certifi
