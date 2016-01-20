@@ -11,4 +11,9 @@ to run in the stateless body you can:
 
     "constraints": [["role", "CLUSTER", "stateless-body"]]
 
+# HTTP access to S3 folder
+Applications that need remote configuration, can upload files to `s3://bucket/shared/http`. The folder can be accessed from inside cell's VPC. 
 
+> **Note:** This folder should only contain information that is shareable between workloads.
+> 
+> **Example:** A `.dockercfg` might be needed in order to get docker images from private registries. This file could be uploaded in this folder and accessed using HTTP.

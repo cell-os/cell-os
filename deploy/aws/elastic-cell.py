@@ -25,6 +25,8 @@ from tropopause import *
 from troposphere import Not, Ref, Equals, If, Tags
 from troposphere import Base64, Select, FindInMap, GetAtt, GetAZs, Join, Output
 from troposphere import Parameter, Ref, Tags, Template
+from troposphere.s3 import BucketPolicy
+from troposphere.ec2 import VPCEndpoint
 
 t = Template()
 
@@ -377,6 +379,41 @@ SharedReadOnlyPolicy = s3_ro_policy(
     [["cell-os--", Ref("CellName"), "/shared/*"]]
 )
 t.add_resource(SharedReadOnlyPolicy)
+
+# In order for the HTTP Bucket Policy to work a VPCEndpoint needs to be created.
+# A VPC endpoint enables you to create a private connection between your VPC and another AWS service
+# without requiring access over the Internet, through a NAT device, a VPN connection, or AWS Direct Connect.
+VpcEndpointS3 = VPCEndpoint(
+    "VpcEndpointS3",
+    RouteTableIds=[Ref("RouteTable")],
+    ServiceName=Join("", ["com.amazonaws.", Ref("AWS::Region"), ".s3"]),
+    VpcId=Ref(VPC),
+)
+t.add_resource(VpcEndpointS3)
+
+SharedReadOnlyHTTPPolicy = BucketPolicy(
+    "BucketHTTPReadonlyS3Policy",
+    Bucket=Ref(BucketName),
+    PolicyDocument={
+        "Version": "2008-10-17",
+        "Statement": [
+            {
+                "Effect": "Allow",
+                "Principal": "*",
+                "Action": "s3:*",
+                "Resource": [
+                    Join("", ["arn:aws:s3:::", Ref(BucketName), "/cell-os--", Ref("CellName"), "/shared/http/*"]),
+                ],
+                "Condition": {
+                    "StringEquals": {
+                        "aws:sourceVpce": Ref(VpcEndpointS3)
+                    }
+                }
+            }
+        ]
+    }
+)
+t.add_resource(SharedReadOnlyHTTPPolicy)
 
 NucleusEc2Policy = t.add_resource(iam.PolicyType(
     'NucleusEc2Policy',
