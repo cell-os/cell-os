@@ -7,15 +7,15 @@
 # For example Docker is low level running directly on the OS and other modules depend on it
 
 docker::version: 1.9.1-1.el7.centos
-java::version: 8u65
+java::version: 8u71
 # zookeeper exhibitor
 zookeeper::version: 3.4.6_1.5.5
-mesos::version: 0.25.0-0.2.70.centos701406
-marathon::version: v0.13.0
-etcd::version: v2.2.2
+mesos::version: 0.26.0-0.2.145.centos701406
+marathon::version: v0.14.0
+etcd::version: v2.2.4
 
 modules:
-  puppet-zookeeper: 0.1.1-adobe
+  puppet-zookeeper: 0.1.2-adobe-SNAPSHOT
   puppet-docker: 4.1.1-adobe-2
   puppet-mesos: 0.6.5-adobe-2
   puppet-marathon: 0.1.4-adobe
