@@ -334,13 +334,14 @@ class Cell(object):
 
     def create_bucket(self):
         if not self.existing_bucket:
-            print "CREATE bucket {} in region {}".format(self.bucket, self.region)
+            print "CREATE bucket s3://{} in region {}".format(self.bucket, self.region)
             self.s3.create_bucket(
                 Bucket=self.bucket,
                 CreateBucketConfiguration={
                     'LocationConstraint': self.region
                 }
             )
+        else: print "Using existing bucket {}".format(self.existing_bucket)
 
     def delete_bucket(self):
         if not self.existing_bucket:
@@ -348,7 +349,7 @@ class Cell(object):
             print "DELETE s3://{}".format(self.bucket)
             self.s3.Bucket(self.bucket).delete()
         else:
-            print "DELETE s3://{}/{}".format(self.bucket, self.full_cell)
+            print "DELETE s3://{}/{}".format(self.bucket, self.full_cell) # only delete bucket sub-folder
             delete_response = self.s3.Bucket(self.bucket).objects.filter(Prefix=self.full_cell).delete()
         if len(delete_response) > 0:
             for f in delete_response[0]['Deleted']:
@@ -364,16 +365,16 @@ class Cell(object):
                 Keypair conflict.
                 Trying to create {} in {}, but it already exists.
                 Please:
-                    - delete it
+                    - delete it (aws ec2 delete-key-pair --key-name {})
                     - try another cell name
                     - or use this key instead by setting throught AWS_KEY_PAIR
                     or in the config file
-                """.format(self.key_pair, self.key_file)
+                """.format(self.key_pair, self.key_file, self.full_cell)
                 raise KeyException()
             if  os.path.exists(self.key_file):
-                print "Key file {} already exists".format(self.key_file)
+                print "Local key file {} already exists".format(self.key_file)
                 raise KeyException()
-            print "CREATE key pair {} in {}".format(self.key_pair, self.key_file)
+            print "CREATE key pair {} -> {}".format(self.key_pair, self.key_file)
             result = self.ec2.create_key_pair(
                 KeyName=self.key_pair
             )
@@ -394,11 +395,9 @@ class Cell(object):
             key += os.path.basename(path)
         if key.startswith("/"):
             key = key[1:]
-        self.s3.meta.client.upload_file(
-            path,
-            self.bucket,
-            self.full_cell + "/" + key
-        )
+        remote_path = self.full_cell + "/" + key
+        self.s3.meta.client.upload_file(path, self.bucket, remote_path)
+        print "UPLOADED {} to s3://{}/{}".format(path, self.bucket, remote_path)
 
     def run_build(self):
         self.build_stack_files()
@@ -412,7 +411,8 @@ class Cell(object):
         self.build_stack_files()
         self.upload(self.tmp("elastic-cell.json"), "/")
         self.upload(self.tmp("elastic-cell-scaling-group.json"), "/")
-        getattr(self.cfn, '{}_stack'.format(action))(
+        print "{} {}".format(action.upper(), self.stack)
+        stack = getattr(self.cfn, '{}_stack'.format(action))(
             StackName=self.stack,
             TemplateURL="https://s3.amazonaws.com/{}/{}/elastic-cell.json".format(self.bucket, self.full_cell),
             Parameters=[
@@ -456,6 +456,7 @@ class Cell(object):
                 },
             ]
         )
+        print stack.stack_id
 
     def run_create(self):
         if self.command == "create":
@@ -482,6 +483,16 @@ class Cell(object):
             self.delete_bucket()
             traceback.print_exc(file=sys.stdout)
             sys.exit(1)
+        print """
+        To watch your cell infrastructure provisioning log you can
+            ./cell log {cell}
+        For detailed node provisioning logs
+            ./cell log {cell} nucleus 1
+        For an upcoming (friendlier) status, and especially if you
+        want to contribute see
+            https://jira.corp.adobe.com/browse/CELL-194
+
+        """.format(cell=self.cell)
 
     def run_update(self):
         self.stack_action(action='update')
@@ -560,10 +571,10 @@ class Cell(object):
             printf("ELBs", elbs)
 
             printf("Gateway", [
-                ["zookeeper", "http://zookeeper.{}.{}".format(self.cell, self.dns_suffix)],
-                ["mesos", "http://mesos.{}.{}".format(self.cell, self.dns_suffix)],
-                ["marathon", "http://marathon.{}.{}".format(self.cell, self.dns_suffix)],
-                ["hdfs", "http://hdfs.{}.{}".format(self.cell, self.dns_suffix)],
+                ["zookeeper", "http://zookeeper.gw.{}.{}".format(self.cell, self.dns_suffix)],
+                ["mesos", "http://mesos.gw.{}.{}".format(self.cell, self.dns_suffix)],
+                ["marathon", "http://marathon.gw.{}.{}".format(self.cell, self.dns_suffix)],
+                ["hdfs", "http://hdfs.gw.{}.{}".format(self.cell, self.dns_suffix)],
             ])
 
 
