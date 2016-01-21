@@ -559,6 +559,7 @@ ingress LbSecurityGroup tcp 8181:8181
 ingress BodySecurityGroup tcp 2181:2181
 ingress BodySecurityGroup tcp 2888:2888
 ingress BodySecurityGroup tcp 3888:3888
+ingress BodySecurityGroup tcp 8181:8181
 ingress BodySecurityGroup tcp 9000:9001
 ingress BodySecurityGroup tcp 50000:50100
     """,
