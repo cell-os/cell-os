@@ -659,6 +659,7 @@ def create_load_balancer(t, name, instance_port, target,
         security_groups=[Ref("LbSecurityGroup")], internal=True):
     return t.add_resource(elb.LoadBalancer(
         name + "Elb",
+        DependsOn="AttachGateway",
         LoadBalancerName=Join("", [Ref("CellName"), "-" + name.lower()]),
         CrossZone="true",
         Scheme="internal" if internal else "internet-facing",
@@ -747,6 +748,7 @@ def create_cellos_substack(t, name=None, role=None, cell_modules=None, tags=[], 
     t.add_resource(cfn.Stack(
         name + "Stack",
         TemplateURL=substack_template_url,
+        DependsOn="AttachGateway",
         TimeoutInMinutes="10",
         Parameters=params
     ))
