@@ -48,9 +48,21 @@ EOT
 
 aws s3 sync --delete  "${gateway_config_path}" "${gateway_s3_uri}"
 
-curl -v -X POST -H "Content-Type: application/json" \
+# This is where we finish with cell-os-base and cell-os clustered starts
+# If there were fatal errors we should have aborted until now.
+# Retrying indefinitely
+response=-1
+count=0
+until [[ "${response}" =~ ^20[0-9]$ || "${response}" == "409" ]]; do
+response=$(curl -X POST -H "Content-Type: application/json" \
   http://${marathon_elb}/v2/apps\?force\=true \
-  -d@"${marathon_workload_path}"
+  -d@"${marathon_workload_path}" \
+  --fail --silent --write-out '%{response_code}' -so /dev/null)
+  count=$(($count + 1))
+  echo -e ".\c"
+  if ! (( ${count} % 10 )); then echo "Trying to deploy gateway and getting ${response}"; fi
+  sleep 1
+done
 
 # Push the membrane ELB host (CNAME, because ELB IP can change)
 # into Metal Cell public DNS (Route 53)
