@@ -659,9 +659,8 @@ Host proxy-cell-{}
 
             ssh_cmd = str(sh.ssh)
             try:
-                sh.pkill("-9", "-f", "\"^proxy-cell.*$\"")
-                sh.pkill("-9", "-f", "\".*ssh.*-N.*proxy-cell.*\"")
-            except sh.ErrorReturnCode:
+                os.system("pkill -9 -f \"ssh.*proxy-cell\"")
+            except Exception:
                 pass
 
             os.system("{} -f -F {} -N proxy-cell-{}".format(ssh_cmd, self.tmp("ssh_config"), self.cell))
