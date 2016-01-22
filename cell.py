@@ -185,10 +185,7 @@ class Cell(object):
             config_sections.insert(0, self.cell)
         self.conf = partial(conf_get, self.config, config_sections)
         self.session = boto3.session.Session(
-            region_name=first(
-                self.conf('region'),
-                os.getenv('AWS_DEFAULT_REGION')
-            ),
+            region_name=self.region,
             aws_access_key_id=self.conf('aws_access_key_id'),
             aws_secret_access_key=self.conf('aws_secret_access_key'),
         )
@@ -201,45 +198,45 @@ class Cell(object):
     @property
     def region(self):
         return first(
+            os.getenv('AWS_DEFAULT_REGION'),
             self.conf('region'),
-            os.getenv('AWS_DEFAULT_REGION')
         )
 
     @property
     def existing_bucket(self):
         return first(
+            os.getenv('CELL_BUCKET'),
             self.conf('bucket'),
-            os.getenv('CELL_BUCKET')
         )
 
     @property
     def bucket(self):
         return first(
-            self.conf('bucket'),
             os.getenv('CELL_BUCKET'),
+            self.conf('bucket'),
             self.full_cell
         )
 
     @property
     def existing_key_pair(self):
         return first(
+            os.getenv('AWS_KEY_PAIR'),
             self.conf('key_pair'),
-            os.getenv('AWS_KEY_PAIR')
         )
 
     @property
     def key_path(self):
         return first(
-            self.conf("keypath"),
             os.getenv("KEYPATH"),
+            self.conf("keypath"),
             os.path.expanduser("~/.ssh")
         )
 
     @property
     def key_pair(self):
         return first(
-            self.conf('key_pair'),
             os.getenv('AWS_KEY_PAIR'),
+            self.conf('key_pair'),
             self.full_cell
         )
 
@@ -266,40 +263,42 @@ class Cell(object):
     @property
     def proxy_port(self):
         return first(
-            self.conf('proxy_port'),
             os.getenv('PROXY_PORT'),
+            self.conf('proxy_port'),
             '1234'
         )
 
     @property
     def saasbase_access_key_id(self):
         return first(
-            self.conf('saasbase_access_key_id'),
             os.getenv('SAASBASE_ACCESS_KEY_ID'),
+            self.conf('saasbase_access_key_id'),
             'XXXXXXXXXXXXXXXXXXXX'
         )
 
     @property
     def saasbase_secret_access_key(self):
         return first(
-            self.conf('saasbase_secret_access_key'),
             os.getenv('SAASBASE_SECRET_ACCESS_KEY'),
+            self.conf('saasbase_secret_access_key'),
             'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
         )
 
     @property
     def ssh_user(self):
         return first(
-            self.conf('ssh_user'),
             os.getenv('SSH_USER'),
+            self.conf('ssh_user'),
             'centos'
         )
 
     @property
     def ssh_timeout(self):
-        return first(os.getenv('SSH_TIMEOUT'),
-                     self.conf('ssh_timeout'),
-                     '5')
+        return first(
+            os.getenv('SSH_TIMEOUT'),
+            self.conf('ssh_timeout'),
+            '5'
+        )
 
     def tmp(self, path):
         path = os.path.join(tmpdir, self.cell, path)
