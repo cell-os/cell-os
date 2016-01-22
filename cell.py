@@ -339,13 +339,19 @@ class Cell(object):
     def create_bucket(self):
         if not self.existing_bucket:
             print "CREATE bucket s3://{} in region {}".format(self.bucket, self.region)
-            self.s3.create_bucket(
-                Bucket=self.bucket,
-                CreateBucketConfiguration={
-                    'LocationConstraint': self.region
-                }
-            )
-        else: print "Using existing bucket {}".format(self.existing_bucket)
+            # See https://github.com/boto/boto3/issues/125
+            if self.region != 'us-east-1':
+                self.s3.create_bucket(
+                    Bucket=self.bucket,
+                    CreateBucketConfiguration={
+                        'LocationConstraint': self.region
+                    }
+                )
+            else:
+                self.s3.create_bucket(Bucket=self.bucket)
+
+        else:
+            print "Using existing bucket s3://{}".format(self.existing_bucket)
 
     def delete_bucket(self):
         if not self.existing_bucket:
