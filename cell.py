@@ -122,6 +122,11 @@ def readify(f):
 
 
 def printf(operation, data):
+    """
+    Formats and prints a data structure as a table
+    :param operation: the title of the table
+    :param data: list or dict to print
+    """
     table = MultiTable(initial_section=False,
                 column_separator='|', styler=Styler(),
                 auto_reformat=False)
@@ -131,7 +136,6 @@ def printf(operation, data):
     stream = six.StringIO()
     formatter(operation, data, stream=stream)
     print stream.getvalue()
-    stream.flush()
 
 def command(args):
     return [
