@@ -541,6 +541,7 @@ class Cell(object):
         want to contribute see
             https://jira.corp.adobe.com/browse/CELL-194
 
+        To open external SSH access see https://inside.corp.adobe.com/itech/kc/IT00792.html
         """.format(cell=self.cell)
 
     def run_update(self):
