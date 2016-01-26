@@ -136,7 +136,7 @@ def printf(operation, data):
                        column_separator='|', styler=Styler(),
                        auto_reformat=False)
 
-    formatter = TableFormatter(type('dummy', (object,), { "color": "on", "query": None }))
+    formatter = TableFormatter(type('dummy', (object,), {"color": "on", "query": None}))
     formatter.table = table
     stream = six.StringIO()
     formatter(operation, data, stream=stream)
@@ -189,7 +189,6 @@ ROLES = ["nucleus", "stateless-body", "stateful-body", "membrane"]
 
 
 class Cell(object):
-
     def __init__(self, arguments, version):
         self.version = version
         self.arguments = arguments
@@ -383,7 +382,7 @@ class Cell(object):
             print "DELETE s3://{}".format(self.bucket)
             self.s3.Bucket(self.bucket).delete()
         else:
-            print "DELETE s3://{}/{}".format(self.bucket, self.full_cell) # only delete bucket sub-folder
+            print "DELETE s3://{}/{}".format(self.bucket, self.full_cell)  # only delete bucket sub-folder
             delete_response = self.s3.Bucket(self.bucket).objects.filter(Prefix=self.full_cell).delete()
         if len(delete_response) > 0:
             for f in delete_response[0]['Deleted']:
@@ -405,7 +404,7 @@ class Cell(object):
                     or in the config file
                 """.format(self.key_pair, self.key_file, self.full_cell)
                 raise KeyException()
-            if  os.path.exists(self.key_file):
+            if os.path.exists(self.key_file):
                 print "Local key file {} already exists".format(self.key_file)
                 raise KeyException()
             print "CREATE key pair {} -> {}".format(self.key_pair, self.key_file)
@@ -747,7 +746,7 @@ url = "{kafka_gateway}"
             )
 
     def run_ssh(self, command=None):
-        ssh_options="{} -o ConnectTimeout={}".format(self.ssh_options, self.ssh_timeout)
+        ssh_options = "{} -o ConnectTimeout={}".format(self.ssh_options, self.ssh_timeout)
 
         instances = flatten(self.instances(self.arguments["<role>"], format="PublicIpAddress"))
         index = int(self.arguments["<index>"])
@@ -865,6 +864,7 @@ Host proxy-cell-{}
     def run_marathon(self):
         url = self.output("lb-marathon")
         self.cluster_request(url)
+
 
 if __name__ == '__main__':
     version = readify(DIR + '/VERSION').strip()
