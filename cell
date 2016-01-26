@@ -44,6 +44,7 @@ Environment variables:
   PROXY_PORT - the SOCKS5 proxy port (defaults to ${PROXY_PORT})
   SSH_USER - instances ssh login user (defaults to centos)
   SSH_TIMEOUT - ssh timeout in seconds (defaults to 5)
+  SSH_OPTIONS - extra ssh options
 
 All AWS CLI environment variables (e.g. AWS_DEFAULT_REGION, AWS_ACCESS_KEY_ID,
 AWS_SECRET_ACCESS_KEY, etc.) and configs apply.
@@ -311,6 +312,14 @@ class Cell(object):
             os.getenv('SSH_TIMEOUT'),
             self.conf('ssh_timeout'),
             '5'
+        )
+
+    @property
+    def ssh_options(self):
+        return first(
+            os.getenv('SSH_OPTIONS'),
+            self.conf('ssh_options'),
+            ''
         )
 
     def tmp(self, path):
@@ -738,10 +747,11 @@ url = "{kafka_gateway}"
             )
 
     def run_ssh(self, command=None):
-        ssh_options="-o ConnectTimeout={}".format(self.ssh_timeout)
+        ssh_options="{} -o ConnectTimeout={}".format(self.ssh_options, self.ssh_timeout)
+
         instances = flatten(self.instances(self.arguments["<role>"], format="PublicIpAddress"))
         index = int(self.arguments["<index>"])
-        if index == None or index == "":
+        if index is None or index == "":
             index = 1
         else:
             index = int(index)
