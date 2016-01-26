@@ -92,6 +92,7 @@ mkdir_p(tmpdir)
 
 DEFAULT_SOCKET = socket.socket
 
+
 def flatten(l):
     """
     Flattens a list;
@@ -131,14 +132,15 @@ def printf(operation, data):
     :param data: list or dict to print
     """
     table = MultiTable(initial_section=False,
-                column_separator='|', styler=Styler(),
-                auto_reformat=False)
+                       column_separator='|', styler=Styler(),
+                       auto_reformat=False)
 
     formatter = TableFormatter(type('dummy', (object,), { "color": "on", "query": None }))
     formatter.table = table
     stream = six.StringIO()
     formatter(operation, data, stream=stream)
     print stream.getvalue()
+
 
 def command(args):
     return [
@@ -147,17 +149,20 @@ def command(args):
         if not kv[0].startswith('<') and not kv[0].startswith('-') and kv[1]
     ][0]
 
+
 def cell_config():
     config = ConfigParser.RawConfigParser()
     config.read(os.path.expanduser('~/.aws/config'))
     config.read(os.path.expanduser('~/.cell'))
     return config
 
+
 def first(*args):
     for item in args:
-        if not item is None:
+        if item is not None:
             return item
     return None
+
 
 def conf_get(config, profiles, key):
     for profile in profiles:
@@ -170,13 +175,18 @@ def conf_get(config, profiles, key):
             return value
     return None
 
+
 class KeyException(Exception):
     pass
+
 
 class BucketException(Exception):
     pass
 
+
 ROLES = ["nucleus", "stateless-body", "stateful-body", "membrane"]
+
+
 class Cell(object):
 
     def __init__(self, arguments, version):
