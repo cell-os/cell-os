@@ -20,6 +20,7 @@ Usage:
   cell scale <cell-name> <role> <capacity>
   cell ssh <cell-name> <role> <index>
   cell i2cssh <cell-name> [<role>]
+  cell mux <cell-name> [<role>]
   cell log <cell-name> [<role> <index>]
   cell cmd <cell-name> <role> <index> <command>
   cell proxy <cell-name>
@@ -791,6 +792,57 @@ url = "{kafka_gateway}"
         machines = ",".join([d for d in instances])
         if self.key_file:
             sh.i2cssh("-d", "row", "-l", self.ssh_user, "-m", machines, "-Xi={}".format(self.key_file))
+
+    def run_mux(self):
+        if not sh.which('tmux'):
+            print("You need tmux for this subcommand. Install it with brew install tmux")
+            return
+        if not sh.which('mux'):
+            print("You need mux for this subcommand. Install it with gem install tmuxinator.")
+            return
+
+        roles = ROLES[:]
+        if self.arguments["<role>"]:
+            roles = [self.arguments["<role>"]]
+
+        cfg_template = '''
+name: {{cell_name}}
+root: ~/
+
+windows:
+  {{#roles}}
+  - {{name}}:
+      layout: tiled
+      panes:
+        {{#instances}}
+        - {{priv_ip_addr}}:
+          - ssh -i {{ssh_key}} -o ConnectTimeout={{ssh_timeout}} {{ssh_options}} {{ssh_user}}@{{pub_ip_addr}}
+          - clear
+        {{/instances}}
+  {{/roles}}
+'''
+        cfg = {
+            'cell_name': self.full_cell,
+            'ssh_key': self.key_file,
+            'ssh_user': self.ssh_user,
+            'ssh_timeout': self.ssh_timeout,
+            'ssh_options': self.ssh_options,
+            'roles': [],
+        }
+
+        for role in sorted(roles):
+            cfg['roles'].append({
+                'name': role,
+                'instances': [{'priv_ip_addr': instance[0], 'pub_ip_addr': instance[1]}
+                              for instance in self.instances(role=role, format="PrivateIpAddress, PublicIpAddress")[0]]
+            })
+
+        with open(os.path.join(os.path.expanduser('~/.tmuxinator'),
+                               '{}.yml'.format(self.full_cell)), 'w') as f:
+            f.write(pystache.render(cfg_template, cfg))
+            f.flush()
+
+        os.system('mux {}'.format(self.full_cell))
 
     def run_proxy(self):
         instances = flatten(self.instances(role='stateless-body', format="PublicIpAddress"))

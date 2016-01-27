@@ -14,36 +14,54 @@ Run `./cell help` to see how to customize your EC2 keypair, and all other option
 $ ./cell help
 
 ```
-  cell-os cli utility 1.2
+cell-os cli 1.2
 
-  usage: ./cell <action> <cell-name> [nucleus|statless-body|stateful-body|membrane] [<index>] [<command>]
-   actions:
-     create <cell-name> - creates a new cell
-     delete <cell-name> - deletes an existing cell
-     list <cell-name> - lists existing stacks or the nodes in a cell
-     scale <cell-name> <role> <capacity> - scales role to desired capacity
-     ssh <cell-name> <role> [<index>] - ssh to first node in role or to index
-     log <cell-name> [<role>] [<index>] - tail stack events or nodes deploy log
-     cmd <cell-name> <role> <index> - run command on node n
-     proxy <cell-name> <role> - open SOCKS proxy to first node in <role>
+Usage:
+  cell build <cell-name> [--template-url <substack-template-url>]
+  cell create <cell-name>
+  cell update <cell-name>
+  cell delete <cell-name>
+  cell list [<cell-name>]
+  cell scale <cell-name> <role> <capacity>
+  cell ssh <cell-name> <role> <index>
+  cell i2cssh <cell-name> [<role>]
+  cell mux <cell-name> [<role>]
+  cell log <cell-name> [<role> <index>]
+  cell cmd <cell-name> <role> <index> <command>
+  cell proxy <cell-name>
+  cell mesos <cell-name> <method> <path> [<payload>]
+  cell marathon <cell-name> <method> <path> [<payload>]
+  cell zk <cell-name> <method> <path> [<payload>]
+  cell dcos <cell-name>
+  cell (-h | --help)
+  cell --version
 
-  Environment variables:
+Options:
+  -h --help                              Show this message.
+  --version                              Show version.
+  --template-url <substack-template-url> The path of the substack template to burn in the stack [default: set path to template].
 
-    AWS_KEY_PAIR - EC2 ssh keypir to use (defaults to first on the account)
-    KEYPATH - the local path where <keypair>.pem is found (defaults to
-      /Users/clehene/.ssh). The .pem extension is required.
-    PROXY_PORT - the SOCKS5 proxy port (defaults to 1234)
+Environment variables:
 
-  All AWS CLI environment variables (e.g. AWS_DEFAULT_REGION, AWS_ACCESS_KEY_ID,
-  AWS_SECRET_ACCESS_KEY, etc.) and configs apply.
+  AWS_KEY_PAIR - EC2 ssh keypair to use (new keypair is created otherwise)
+  CELL_BUCKET - S3 bucket used  (new bucket is created otherwise)
+  KEYPATH - the local path where <keypair>.pem is found (defaults to
+    ${HOME}/.ssh). The .pem extension is required.
+  PROXY_PORT - the SOCKS5 proxy port (defaults to ${PROXY_PORT})
+  SSH_USER - instances ssh login user (defaults to centos)
+  SSH_TIMEOUT - ssh timeout in seconds (defaults to 5)
+  SSH_OPTIONS - extra ssh options
 
-  This CLI is a convenience tool, not intended as an exhaustive cluster manager.
-  For advanced use-cases please use the AWS CLI or the AWS web console.
+All AWS CLI environment variables (e.g. AWS_DEFAULT_REGION, AWS_ACCESS_KEY_ID,
+AWS_SECRET_ACCESS_KEY, etc.) and configs apply.
 
-  For additional help use dl-metal-cell-users@adobe.com.
-  For development related questions use dl-metal-cell-dev@adobe.com
-  Github git.corp.adobe.com/metal-cell/cell-os
-  Slack https://adobe.slack.com/messages/metal-cell/
+This CLI is a convenience tool, not intended as an exhaustive cluster manager.
+For advanced use-cases please use the AWS CLI or the AWS web console.
+
+For additional help use dl-metal-cell-users@adobe.com.
+For development related questions use dl-metal-cell-dev@adobe.com
+Github git.corp.adobe.com/metal-cell/cell-os
+Slack https://adobe.slack.com/messages/metal-cell/
 ```
 
 **Prerequisites**
@@ -116,6 +134,19 @@ Aug 13 20:36:10 ip-172-31-15-216 cloud-init: Cloud-init v. 0.7.5 finished at Thu
 
     ./cell ssh <cell-name> nucleus
     # IMMV check your keys..
+
+**SSH into all the instances in your cell using `mux`**
+
+Install the `tmux`/`tmuxinator` combo on your machime:
+
+    brew install tmux
+    gem install tmuxinator
+
+Once all that is in place, you can SSH into all your cell instances:
+
+    ./cell mux <cell-name>
+
+This will launch a `tmux` session with a separate window for each role. In each window, multiple SSH sessions are started in tiled mode (one for each instance in the corresponding role).
 
 **Run commands on the cell nodes**
 
