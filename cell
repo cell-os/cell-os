@@ -625,11 +625,15 @@ url = "{marathon}"
 [package]
 sources = [ "https://s3.amazonaws.com/saasbase-repo/cell-os/cell-os-dcos-repo-{version}.tar.gz"]
 cache = "{tmp}/dcos_tmp"
+# workaround for bug in dcoscli - does not add kafka url
+[kafka]
+url = "{kafka_gateway}"
                 """.format(
                     mesos=mesos,
                     marathon=marathon,
                     version=self.version,
-                    tmp=self.tmp("")
+                    tmp=self.tmp(""),
+                    kafka_gateway=self.gateway("kafka")
                 )
             )
             f.flush()

@@ -1,0 +1,14 @@
+{
+    "mesos": {
+        "master": "zk://{{zk}}/mesos"
+    }, 
+    "kafka": {
+        "app": {
+            "cpus": 2, 
+            "mem": 512, 
+            "heap-mb": 512,
+            "instances": 1
+        }, 
+        "zk": "{{zk}}"
+    }
+}
