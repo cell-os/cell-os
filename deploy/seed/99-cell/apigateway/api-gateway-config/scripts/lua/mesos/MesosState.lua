@@ -1,19 +1,46 @@
--- It provides methods to obtain the Mesos Master Leader, as well as its state
+-- It provides methods to obtain the Mesos Master Leader, as well as its state.
+--
+--  It is included in the configuration files for Mesos and Marathon in order to
+--  ensure that requests to Mesos API are routed to the Leader.
+
+--  It also helps fixing an issue with the Mesos UI.
+--  When the agents dwell in a private subnet the UI doesn't work correctly anymore
+--  b/c it tries to directly access agents' API.
+--  In order to fix this issue the Mesos API is modified so that the requests are routed back to the Gateway
+--  by updating the address of the slaves before returning the response from master/state.json
 --
 -- User: ddascal
 -- Date: 25/01/16
 --
 
-local cjson = require"cjson"
+local cjson = require "cjson"
 
 local _M = {}
 
 ---
--- the internal location to find the master
+-- the internal location to find the master.
+-- i.e.:
+-- location = /internal/master/redirect {
+--    internal;
+--    proxy_method GET;
+--    proxy_pass_request_body off;
+--    proxy_pass_request_headers off;
+--    proxy_pass $mesos_uri/master/redirect;
+-- }
 local MASTER_REDIRECT_LOCATION = '/internal/master/redirect'
 
 ----
--- the internal location to retrieve the state
+-- the internal location to retrieve the state.
+-- i.e.:
+-- location = /internal/master/state {
+--    internal;
+--    proxy_method GET;
+--    proxy_pass_request_body off;
+--    proxy_pass_request_headers off;
+--    set $mesos_leader $arg_leader;
+--    set_if_empty $mesos_leader $mesos_uri;
+--    proxy_pass $mesos_leader/master/state.json;
+-- }
 local MASTER_STATE_LOCATION = '/internal/master/state'
 
 
@@ -29,7 +56,7 @@ end
 
 local function getMesosLeaderFromCache()
     local dict = ngx.shared.cachedkeys -- cachedkeys is defined in conf.d/api_gateway_init.conf
-    if ( dict == nil ) then
+    if dict == nil then
         ngx.log(ngx.WARN, "Could not read from dict `cachedkeys`. Please define it with 'lua_shared_dict cachedkeys 10m'")
         return nil
     end
@@ -38,7 +65,7 @@ end
 
 local function setMesosLeaderInCache(mesos_leader)
     local dict = ngx.shared.cachedkeys -- cachedkeys is defined in conf.d/api_gateway_init.conf
-    if ( dict == nil ) then
+    if dict == nil then
         ngx.log(ngx.WARN, "Could not write to dict `cachedkeys`. Please define it with 'lua_shared_dict cachedkeys 10m'")
         return nil
     end
@@ -48,7 +75,7 @@ end
 
 local function invalidateLocalCache()
     local dict = ngx.shared.cachedkeys -- cachedkeys is defined in conf.d/api_gateway_init.conf
-    if ( dict == nil ) then
+    if dict == nil then
         ngx.log(ngx.WARN, "Could not invalidate dict `cachedkeys`. Please define it with 'lua_shared_dict cachedkeys 10m'")
         return nil
     end
@@ -62,29 +89,29 @@ end
 local function getMesosLeaderFromMesosAPI(internal_location)
     local response = ngx.location.capture(internal_location)
     local loc = response.header["Location"]
-    if ( loc == nil ) then
+    if loc == nil then
         ngx.log(ngx.WARN, tostring(url), "Could not find the master. For status", tostring(response.status), " and body:", tostring(response.body))
         return nil
     end
     local m, err = ngx.re.match(loc, "(http[s]:)*(//)*(?<host>.*)")
-    if ( m.host == nil or err ~= nil ) then
-        ngx.log(ngx.WARN, tostring(internal_location), " returned unknown Location header:", tostring(loc), ". Could not match the host. err=", err )
+    if (m.host == nil or err ~= nil) then
+        ngx.log(ngx.WARN, tostring(internal_location), " returned unknown Location header:", tostring(loc), ". Could not match the host. err=", err)
         return nil
     end
 
     return m.host
 end
 
---- It teturns the Mesos Leader.
+--- It returns the Mesos Leader either from the local cache or from /master/redirect response
 -- NOTE: this cached leader might have changed since it was used last time
 ---
 function _M:getMesosLeader()
     local cachedLeader = getMesosLeaderFromCache()
-    if ( cachedLeader ~= nil ) then
+    if cachedLeader ~= nil then
         ngx.log(ngx.DEBUG, "Returning the mesos leader from shared cache:", tostring(cachedLeader))
         return cachedLeader
     end
-    -- at this point we need to discover the Leader as no leader was found in cache
+    -- at this point we need to discover the leader as the cache is empty
     local discoveredLeader = getMesosLeaderFromMesosAPI(MASTER_REDIRECT_LOCATION)
     -- then cache the leader
     if discoveredLeader ~= nil then
@@ -97,7 +124,11 @@ function _M:getMesosLeader()
     return nil
 end
 
-
+--- It returns the state info from the Mesos Leader.
+--   If the cached Mesos Leader is not leading anymore, it will lookup for a new leader and then retry once more.
+-- @param update_slave_hostnames When true it updates the hostname and pid of each slave
+--                               to point to the Gateway
+--
 function _M:getState(update_slave_hostnames)
     local leader = self:getMesosLeader()
     local response = ngx.location.capture(MASTER_STATE_LOCATION .. "?leader=" .. tostring(leader))
@@ -108,7 +139,7 @@ function _M:getState(update_slave_hostnames)
         -- go back on the leader
         invalidateLocalCache()
         leader = self:getMesosLeader()
-        if ( leader ~= nil ) then
+        if leader ~= nil then
             -- reload the state
             response = ngx.location.capture(MASTER_STATE_LOCATION .. "?leader=" .. tostring(leader))
             mesos_state = assert(cjson.decode(response.body), 'Could not decode ' .. tostring(response.body))
@@ -129,13 +160,17 @@ function _M:getState(update_slave_hostnames)
     return mesos_state
 end
 
+--- It returns the private address of a given slave_id which could be an IP address or a hostname.
+-- This is used by the Gateway to proxy requests to `/slave/<slave_id>/<api>` through to slave nodes: `<slave_address>/<api>`
+-- @param slave_id The ID of the slave
+--
 function _M:getSlaveAddress(slave_id)
     local state = self:getState(false)
     for _, slave in ipairs(state['slaves']) do
         if slave['id'] == slave_id then
             local slave_address = ngx.re.gsub(slave['pid'], '.*@', '', 'jo')
+            ngx.log(ngx.DEBUG, 'Resolved Mesos slave ', tostring(slave_id), ' to address: ', tostring(slave_address))
             return slave_address
-            -- ngx.log(ngx.DEBUG, 'Resolved Mesos slave to address ', tostring(slave_address) )
         end
     end
     return nil
