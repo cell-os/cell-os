@@ -70,6 +70,11 @@ import shutil
 import socket
 import ConfigParser
 
+if os.name == 'posix' and sys.version_info[0] < 3:
+    import subprocess32 as subprocess
+else:
+    import subprocess
+
 import socks
 import requests
 from docopt import docopt
@@ -716,7 +721,7 @@ url = "{kafka_gateway}"
         command = " ".join(["dcos"] + dcos_args)
         print "Running {}...".format(command)
         os.environ["DCOS_CONFIG"] = self.tmp("dcos.toml")
-        os.system(command)
+        subprocess.call(command, shell=True)
 
     def run_scale(self):
         capacity = int(self.arguments['<capacity>'])
@@ -763,16 +768,20 @@ url = "{kafka_gateway}"
             return
         ip = instances[index - 1]
         if command:
-            os.system("ssh {} {}@{} -i {} {}".format(ssh_options, self.ssh_user, ip, self.key_file, command))
+            subprocess.call("ssh {} {}@{} -i {} {}".format(
+                ssh_options, self.ssh_user, ip, self.key_file, command
+            ), shell=True)
         else:
-            os.system("ssh {} {}@{} -i {}".format(ssh_options, self.ssh_user, ip, self.key_file))
+            subprocess.call("ssh {} {}@{} -i {}".format(
+                ssh_options, self.ssh_user, ip, self.key_file
+            ), shell=True)
 
     def run_cmd(self):
         self.run_ssh(self.arguments['<command>'])
 
     def run_log(self):
         if not self.arguments["<role>"]:
-            os.system("watch -n 1 \"aws cloudformation describe-stack-events --stack-name {} --output table --query 'StackEvents[*].[Timestamp, LogicalResourceId, ResourceStatus]' --max-items 10\"".format(self.stack))
+            subprocess.call("watch -n 1 \"aws cloudformation describe-stack-events --stack-name {} --output table --query 'StackEvents[*].[Timestamp, LogicalResourceId, ResourceStatus]' --max-items 10\"".format(self.stack), shell=True)
         else:
             self.run_ssh("tail -f -n 20 /var/log/cloud-init-output.log")
 
@@ -842,7 +851,7 @@ windows:
             f.write(pystache.render(cfg_template, cfg))
             f.flush()
 
-        os.system('mux {}'.format(self.full_cell))
+        subprocess.call('mux {}'.format(self.full_cell), shell=True)
 
     def run_proxy(self):
         instances = flatten(self.instances(role='stateless-body', format="PublicIpAddress"))
@@ -862,11 +871,11 @@ Host proxy-cell-{}
 
             ssh_cmd = str(sh.ssh)
             try:
-                os.system("pkill -9 -f \"ssh.*proxy-cell\"")
+                subprocess.call("pkill -9 -f \"ssh.*proxy-cell\"", shell=True)
             except Exception:
                 pass
 
-            os.system("{} -f -F {} -N proxy-cell-{}".format(ssh_cmd, self.tmp("ssh_config"), self.cell))
+            subprocess.call("{} -f -F {} -N proxy-cell-{} &>/dev/null".format(ssh_cmd, self.tmp("ssh_config"), self.cell), shell=True)
 
     def cluster_request(self, url, converter=lambda x: x):
         socks.set_default_proxy(socks.SOCKS5, "127.0.0.1", int(self.proxy_port))
