@@ -68,6 +68,7 @@ import os
 import re
 import shutil
 import socket
+import time
 import ConfigParser
 
 if os.name == 'posix' and sys.version_info[0] < 3:
@@ -335,6 +336,14 @@ class Cell(object):
     @property
     def command(self):
         return command(self.arguments)[0]
+
+    @property
+    def cache_expiry(self):
+        return first(
+            os.getenv('CACHE_EXPIRY_SECONDS'),
+            self.conf('cache_expiry_seconds'),
+            60 * 3
+        )
 
     def gateway(self, service):
         return "http://{}.gw.{}.{}".format(service, self.cell, self.dns_suffix)
@@ -617,27 +626,46 @@ class Cell(object):
                 ["hdfs", "http://hdfs.gw.{}.{}".format(self.cell, self.dns_suffix)],
             ])
 
-    def write_config(self, force=False):
-        if os.path.exists(self.tmp("config.yaml")) and not force:
+    def is_fresh_file(self, path):
+        """ Checks if a file has been touched in the last X minutes """
+        return os.path.exists(path) and \
+             (time.time() - os.stat(path).st_mtime) / 3600.0 < self.cache_expiry
+
+    def ensure_cell_config(self):
+        """
+        Creates a cell generic configuration YAML file, containing the most
+        important cell attributes:
+            - zookeeper
+            - mesos
+            - marathon
+        """
+        generic_config = self.tmp("config.yaml")
+        if self.is_fresh_file(generic_config):
             return
         # create cell variables
         tmp = flatten(self.instances("nucleus", format="PrivateIpAddress"))
         zk = ",".join([ip + ":2181" for ip in tmp])
-        mesos = "http://mesos.gw.{}.{}".format(self.cell, self.dns_suffix)
-        marathon = "http://marathon.gw.{}.{}".format(self.cell, self.dns_suffix)
 
         generic_config = self.tmp("config.yaml")
-        print "Save generic yaml config as {}".format(generic_config)
         with open(generic_config, "wb+") as f:
             f.write("""\
-zk: {}
-mesos: {}
-marathon: {}
-            """.format(zk, mesos, marathon))
+zk: {zookeeper}
+mesos: {mesos}
+marathon: {marathon}
+            """.format(
+                zookeeper=zk,
+                mesos=self.gateway("mesos"),
+                marathon=self.gateway("marathon"),
+            ))
             f.flush()
 
+    def ensure_dcos_config(self):
+        """
+        Creates a DCOS cli configuration file
+        """
         dcos_config = self.tmp("dcos.toml")
-        print "Save DCOS config as {}".format(dcos_config)
+        if self.is_fresh_file(dcos_config):
+            return
         with open(dcos_config, "wb+") as f:
             f.write("""\
 [core]
@@ -653,14 +681,43 @@ cache = "{tmp}/dcos_tmp"
 [kafka]
 url = "{kafka_gateway}"
                 """.format(
-                    mesos=mesos,
-                    marathon=marathon,
+                    mesos=self.gateway("mesos"),
+                    marathon=self.gateway("marathon"),
                     version=self.version,
                     tmp=self.tmp(""),
                     kafka_gateway=self.gateway("kafka")
                 )
             )
             f.flush()
+
+    def ensure_ssh_config(self):
+        """
+        Creates a ssh configuration file used for proxying
+        """
+        ssh_config = self.tmp("ssh_config")
+        if self.is_fresh_file(ssh_config):
+            return
+        stateless_instances = flatten(self.instances(role='stateless-body', format="PublicIpAddress"))
+        with open(ssh_config, "wb+") as f:
+            f.write("""\
+Host proxy-cell-{cell}
+Hostname {host}
+StrictHostKeyChecking no
+IdentityFile {key}
+User centos
+DynamicForward {port}
+            """.format(
+                cell=self.cell,
+                host=stateless_instances[0],
+                key=self.key_file,
+                port=self.proxy_port)
+            )
+            f.flush()
+
+    def ensure_config(self):
+        self.ensure_cell_config()
+        self.ensure_dcos_config()
+        self.ensure_ssh_config()
 
     def prepare_dcos_package_install(self, args):
         is_install = 'install' in args and 'package' in args
@@ -714,7 +771,7 @@ url = "{kafka_gateway}"
 
     # we wrap the dcos command with the gateway configuration
     def run_dcos(self):
-        self.write_config()
+        self.ensure_config()
         dcos_args = sys.argv[3:]
         dcos_args = self.prepare_dcos_package_install(dcos_args)
 
@@ -752,7 +809,8 @@ url = "{kafka_gateway}"
             )
 
     def run_ssh(self, command=None):
-        ssh_options = "{} -o ConnectTimeout={}".format(self.ssh_options, self.ssh_timeout)
+        self.ensure_config()
+        ssh_options="{} -o ConnectTimeout={}".format(self.ssh_options, self.ssh_timeout)
 
         instances = flatten(self.instances(self.arguments["<role>"], format="PublicIpAddress"))
         index = int(self.arguments["<index>"])
@@ -803,6 +861,7 @@ url = "{kafka_gateway}"
             sh.i2cssh("-d", "row", "-l", self.ssh_user, "-m", machines, "-Xi={}".format(self.key_file))
 
     def run_mux(self):
+        self.ensure_config()
         if not sh.which('tmux'):
             print("You need tmux for this subcommand. Install it with brew install tmux")
             return
@@ -854,28 +913,14 @@ windows:
         subprocess.call('mux {}'.format(self.full_cell), shell=True)
 
     def run_proxy(self):
-        instances = flatten(self.instances(role='stateless-body', format="PublicIpAddress"))
-        if self.key_file:
-            if not os.path.exists(self.tmp("ssh_config")):
-                with open(self.tmp("ssh_config"), "wb+") as f:
-                    f.write("""\
-Host proxy-cell-{}
-  Hostname {}
-  StrictHostKeyChecking no
-  IdentityFile {}
-  User centos
-  DynamicForward {}
-                    """.format(self.cell, instances[0], self.key_file, self.proxy_port)
-                    )
-                    f.flush()
+        self.ensure_config()
+        ssh_cmd = str(sh.ssh)
+        try:
+            subprocess.call("pkill -9 -f \"ssh.*proxy-cell\"", shell=True)
+        except Exception:
+            pass
 
-            ssh_cmd = str(sh.ssh)
-            try:
-                subprocess.call("pkill -9 -f \"ssh.*proxy-cell\"", shell=True)
-            except Exception:
-                pass
-
-            subprocess.call("{} -f -F {} -N proxy-cell-{} &>/dev/null".format(ssh_cmd, self.tmp("ssh_config"), self.cell), shell=True)
+        subprocess.call("{} -f -F {} -N proxy-cell-{} &>/dev/null".format(ssh_cmd, self.tmp("ssh_config"), self.cell), shell=True)
 
     def cluster_request(self, url, converter=lambda x: x):
         socks.set_default_proxy(socks.SOCKS5, "127.0.0.1", int(self.proxy_port))
