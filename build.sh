@@ -6,7 +6,7 @@
 set -e
 VERSION=$(cat VERSION)
 
-pip install -r requirements.txt
+sudo pip install -r requirements.txt
 
 rm -rf build
 mkdir build
