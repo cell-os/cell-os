@@ -281,54 +281,35 @@ SubnetRouteTableAssociation = t.add_resource(ec2.SubnetRouteTableAssociation(
     RouteTableId=Ref("RouteTable"),
 ))
 
-NucleusS3Policy = t.add_resource(iam.PolicyType(
-    'NucleusS3Policy',
-    PolicyName='NucleusS3Policy',
-    PolicyDocument=awacs.aws.Policy(
-        Statement=[
-            awacs.aws.Statement(
-                Effect=awacs.aws.Allow,
-                Resource=[
-                    Join("", ["arn:aws:s3:::", Ref(BucketName)]),
-                    Join("", ["arn:aws:s3:::", Ref(BucketName), "/cell-os--", Ref("CellName"), "/*"]),
-                    #FIXME: this is an Exhibitor configuration issue, it creates the backups in /cell-os--cellname_nucleus_exhibitor
-                    Join("", ["arn:aws:s3:::", Ref(BucketName), "/cell-os--", Ref("CellName"), "_nucleus_exhibitor"]),
-                    Join("", ["arn:aws:s3:::", Ref(BucketName), "/cell-os--", Ref("CellName"), "_nucleus_exhibitor/*"]),
-                    Join("", ["arn:aws:s3:::", Ref(BucketName), "/*"]),
-                ],
-                Action=[
-                    awacs.aws.Action("s3", "AbortMultipartUpload"),
-                    awacs.aws.Action("s3", "DeleteObject"),
-                    awacs.aws.Action("s3", "GetBucketAcl"),
-                    awacs.aws.Action("s3", "GetBucketPolicy"),
-                    awacs.aws.Action("s3", "GetObject"),
-                    awacs.aws.Action("s3", "GetObjectAcl"),
-                    awacs.aws.Action("s3", "GetObjectVersion"),
-                    awacs.aws.Action("s3", "GetObjectVersionAcl"),
-                    awacs.aws.Action("s3", "ListBucket"),
-                    awacs.aws.Action("s3", "ListBucketMultipartUploads"),
-                    awacs.aws.Action("s3", "ListBucketVersions"),
-                    awacs.aws.Action("s3", "ListMultipartUploadParts"),
-                    awacs.aws.Action("s3", "PutObject"),
-                    awacs.aws.Action("s3", "PutObjectAcl"),
-                    awacs.aws.Action("s3", "PutObjectVersionAcl")
-                ]
-            )
-        ]
-    ),
-    Roles=[
-        Ref("NucleusRole"),
-    ]
-))
-
-def s3_ro_policy(name, roles, paths):
-    resources = [Join("", ["arn:aws:s3:::", Ref("BucketName")])]
+def s3_policy(name, roles, paths, mode="ro"):
+    resources = []
     for path in paths:
-        join_args = ["arn:aws:s3:::", Ref("BucketName"), "/"]
+        join_args = ["arn:aws:s3:::", Ref("BucketName")]
         join_args.extend(path)
         resources.append(
             Join("", join_args)
         )
+    actions = [
+        awacs.aws.Action("s3", "GetBucketAcl"),
+        awacs.aws.Action("s3", "GetBucketPolicy"),
+        awacs.aws.Action("s3", "GetObject"),
+        awacs.aws.Action("s3", "GetObjectAcl"),
+        awacs.aws.Action("s3", "GetObjectVersion"),
+        awacs.aws.Action("s3", "GetObjectVersionAcl"),
+        awacs.aws.Action("s3", "ListBucket"),
+        awacs.aws.Action("s3", "ListBucketMultipartUploads"),
+        awacs.aws.Action("s3", "ListBucketVersions"),
+        awacs.aws.Action("s3", "ListMultipartUploadParts"),
+    ]
+    if mode == "rw":
+        actions.extend([
+            awacs.aws.Action("s3", "AbortMultipartUpload"),
+            awacs.aws.Action("s3", "DeleteObject"),
+            awacs.aws.Action("s3", "PutObject"),
+            awacs.aws.Action("s3", "PutObjectAcl"),
+            awacs.aws.Action("s3", "PutObjectVersionAcl")
+        ])
+
     return iam.PolicyType(
         name,
         PolicyName=name,
@@ -337,46 +318,56 @@ def s3_ro_policy(name, roles, paths):
                 awacs.aws.Statement(
                     Effect=awacs.aws.Allow,
                     Resource=resources,
-                    Action=[
-                        awacs.aws.Action("s3", "GetBucketAcl"),
-                        awacs.aws.Action("s3", "GetBucketPolicy"),
-                        awacs.aws.Action("s3", "GetObject"),
-                        awacs.aws.Action("s3", "GetObjectAcl"),
-                        awacs.aws.Action("s3", "GetObjectVersion"),
-                        awacs.aws.Action("s3", "GetObjectVersionAcl"),
-                        awacs.aws.Action("s3", "ListBucket"),
-                        awacs.aws.Action("s3", "ListBucketMultipartUploads"),
-                        awacs.aws.Action("s3", "ListBucketVersions"),
-                        awacs.aws.Action("s3", "ListMultipartUploadParts"),
-                    ]
+                    Action=actions
                 )
             ]
         ),
         Roles=[Ref(role) for role in roles]
     )
 
-MembraneReadOnlyPolicy = s3_ro_policy(
+NucleusS3Policy = s3_policy(
+    "NucleusS3Policy",
+    ["NucleusRole"],
+    [
+        [],
+        ["/cell-os--", Ref("CellName"), "/*"],
+        ["/cell-os--", Ref("CellName"), "_nucleus_exhibitor"],
+        ["/cell-os--", Ref("CellName"), "_nucleus_exhibitor/*"],
+        ["/*"]
+    ],
+    mode="rw"
+)
+t.add_resource(NucleusS3Policy)
+
+MembraneReadOnlyPolicy = s3_policy(
     "MembraneReadOnlyS3Policy",
     ["MembraneRole"],
-    [["cell-os--", Ref("CellName"), "/membrane/*"]]
+    [[], ["/cell-os--", Ref("CellName"), "/membrane/*"]],
+    mode="ro"
 )
 t.add_resource(MembraneReadOnlyPolicy)
-StatelessBodyReadOnlyPolicy = s3_ro_policy(
+
+StatelessBodyReadOnlyPolicy = s3_policy(
     "StatelessBodyReadOnlyS3Policy",
     ["StatelessBodyRole"],
-    [["cell-os--", Ref("CellName"), "/stateless-body/*"]]
+    [[], ["/cell-os--", Ref("CellName"), "/stateless-body/*"]],
+    mode="ro"
 )
 t.add_resource(StatelessBodyReadOnlyPolicy)
-StatefulBodyReadOnlyPolicy = s3_ro_policy(
+
+StatefulBodyReadOnlyPolicy = s3_policy(
     "StatefulBodyReadOnlyS3Policy",
     ["StatefulBodyRole"],
-    [["cell-os--", Ref("CellName"), "/stateful-body/*"]]
+    [[], ["/cell-os--", Ref("CellName"), "/stateful-body/*"]],
+    mode="ro"
 )
 t.add_resource(StatefulBodyReadOnlyPolicy)
-SharedReadOnlyPolicy = s3_ro_policy(
+
+SharedReadOnlyPolicy = s3_policy(
     "SharedReadOnlyS3Policy",
     ["StatelessBodyRole", "StatefulBodyRole", "MembraneRole"],
-    [["cell-os--", Ref("CellName"), "/shared/*"]]
+    [[], ["/cell-os--", Ref("CellName"), "/shared/*"]],
+    mode="ro"
 )
 t.add_resource(SharedReadOnlyPolicy)
 
