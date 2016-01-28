@@ -11,3 +11,4 @@ dcos == 0.3.0
 dcoscli == 0.3.0
 pystache == 0.5.4
 PyYaml == 3.11
+subprocess32 == 3.2.7
