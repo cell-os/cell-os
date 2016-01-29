@@ -931,7 +931,7 @@ if __name__ == '__main__':
     version = readify(DIR + '/VERSION').strip()
     # docopt hack to allow arbitrary arguments to docopt
     # necessary to call dcos subcommand
-    if sys.argv[1] == 'dcos':
+    if len(sys.argv) > 1 and sys.argv[1] == 'dcos':
         arguments = docopt(__doc__, argv=sys.argv[1:3], version=version)
     else:
         arguments = docopt(__doc__, version=version)
