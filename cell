@@ -392,7 +392,7 @@ class Cell(object):
             delete_response = self.s3.Bucket(self.bucket).objects.filter(Prefix=self.full_cell).delete()
         if len(delete_response) > 0:
             for f in delete_response[0]['Deleted']:
-                print "DELETE s3://", f['Key']
+                print "DELETE s3://{}".format(f['Key'])
 
     def create_key(self):
         if not self.existing_key_pair:
