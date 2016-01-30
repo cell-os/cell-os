@@ -460,6 +460,31 @@ NucleusCfnPolicy = t.add_resource(iam.PolicyType(
     ]
 ))
 
+CloudWatchLogsPolicy = t.add_resource(iam.PolicyType(
+    'CloudWatchLogsPolicy',
+    PolicyName='CloudWatchLogsPolicy',
+    PolicyDocument=awacs.aws.Policy(
+        Statement=[
+            awacs.aws.Statement(
+                Effect=awacs.aws.Allow,
+                Resource=["arn:aws:logs:*:*:*"],
+                Action=[
+                    awacs.aws.Action("logs", "CreateLogGroup"),
+                    awacs.aws.Action("logs", "CreateLogStream"),
+                    awacs.aws.Action("logs", "PutLogEvents"),
+                    awacs.aws.Action("logs", "DescribeLogStreams")
+                ]
+            )
+        ]
+    ),
+    Roles=[
+        Ref("NucleusRole"),
+        Ref("StatefulBodyRole"),
+        Ref("StatelessBodyRole"),
+        Ref("MembraneRole")
+    ]
+))
+
 NucleusRole = t.add_resource(iam.Role(
     "NucleusRole",
     AssumeRolePolicyDocument=awacs.aws.Policy(

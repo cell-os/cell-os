@@ -516,6 +516,23 @@ source /etc/profile.d/cellos.sh
 export wait_handle='Ref(WaitHandle)'
 export cell_modules='Ref(CellModules)'
 
+# install awslogs
+curl https://s3.amazonaws.com/aws-cloudwatch/downloads/latest/awslogs-agent-setup.py -O
+cat >> awslogs.conf <<-EOT
+[general]
+state_file = /var/awslogs/state/agent-state
+
+[/var/log/cloud-init-output.log]
+datetime_format = %Y-%m-%d %H:%M:%S
+file = /var/log/cloud-init-output.log
+buffer_duration = 5000
+log_stream_name = ${full_cell_name}
+initial_position = start_of_file
+log_group_name = /var/log/cloud-init-output.log
+EOT
+
+python ./awslogs-agent-setup.py -r ${aws_region} -n -c awslogs.conf
+
 export search_instance_cmd="aws --region ${aws_region} ec2 describe-instances --query 'Reservations[*].Instances[*].[PrivateIpAddress, PrivateDnsName]' --filters Name=instance-state-code,Values=16 Name=tag:cell,Values=${cell_name}"
 
 # prepare roles
