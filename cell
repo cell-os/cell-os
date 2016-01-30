@@ -537,12 +537,14 @@ class Cell(object):
             ./cell log {cell}
         For detailed node provisioning logs
             ./cell log {cell} nucleus 1
+        For detailed debugging logs, go to CloudWatch:
+            https://{region}.console.aws.amazon.com/cloudwatch/home?region={region}#logs:
         For an upcoming (friendlier) status, and especially if you
         want to contribute see
             https://jira.corp.adobe.com/browse/CELL-194
 
         To open external SSH access see https://inside.corp.adobe.com/itech/kc/IT00792.html
-        """.format(cell=self.cell)
+        """.format(cell=self.cell, region=self.region)
 
     def run_update(self):
         self.stack_action(action='update')
