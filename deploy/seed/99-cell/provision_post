@@ -1,9 +1,12 @@
 #!/bin/bash
 
+module_name="99-cell"
 if [[ "${cell_role}" != "nucleus" ]]; then
+  report_status "${module_name} skipped"
   exit 0
 fi
 
+report_status "${module_name} start"
 # The following HDFS logic is copied (duplicated from) the HDFS provision seeed
 export search_instance_cmd="aws --region ${aws_region} ec2 describe-instances \
   --query 'Reservations[*].Instances[*].[PrivateIpAddress, PrivateDnsName]' \
@@ -60,7 +63,10 @@ response=$(curl -X POST -H "Content-Type: application/json" \
   --fail --silent --write-out '%{response_code}' -so /dev/null)
   count=$(($count + 1))
   echo -e ".\c"
-  if ! (( ${count} % 10 )); then echo "Trying to deploy gateway and getting ${response}"; fi
+  if ! (( ${count} % 10 )); then
+    echo "Trying to deploy gateway and getting ${response}"
+    report_status "${module_name} retry"
+  fi
   sleep 1
 done
 
@@ -69,3 +75,5 @@ done
 curl -i -k -X POST \
   "https://dns.metal-cell.adobe.io/gateway?api_key=7f7513685fcb4af1be40814ac2c199fa" \
   --data '{"cell_name": "'${cell_name}'","values": ["'${membrane_elb}'"]}'
+
+report_status "${module_name} end"

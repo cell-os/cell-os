@@ -24,7 +24,9 @@ hadoop::proxyusers: {}
 hadoop_data_nodes: []
 EOT
 
+module_name="10-hdfs-raw"
 if [[ -f /opt/cell/etc/roles/nucleus ]]; then
+  report_status "${module_name} start"
   /usr/local/bin/provision puppet base,hadoop_2_namenode,hadoop_2,hadoop_2_journalnode
 
   export host=$(hostname -f)
@@ -49,11 +51,14 @@ if [[ -f /opt/cell/etc/roles/nucleus ]]; then
     sleep 10
     aws s3api put-object --bucket ${cell_bucket_name} --key ${full_cell_name}/shared/setup/${aws_parent_stack_name}/nn2
   fi
-fi
-
-if [[ -f /opt/cell/etc/roles/stateful-body ]]; then
+  report_status "${module_name} end"
+elif [[ -f /opt/cell/etc/roles/stateful-body ]]; then
+  report_status "${module_name} start"
   /usr/local/bin/provision puppet base,hadoop_2_datanode
 
   aws_wait "aws s3api list-objects --bucket ${cell_bucket_name} --prefix ${full_cell_name}/shared/setup/${aws_parent_stack_name}/nn2" ".Contents | length" "1"
   systemctl start hadoop-hdfs-datanode
+  report_status "${module_name} end"
+else
+  report_status "${module_name} skipped"
 fi
