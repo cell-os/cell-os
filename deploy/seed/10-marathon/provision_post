@@ -1,6 +1,8 @@
 #!/bin/bash
 
 export zk=$(zk-list-nodes)
+module_name="10-marathon"
+
 if [[ -f /opt/cell/etc/roles/stateless-body ]]; then
 
 
@@ -10,7 +12,10 @@ marathon::master: zk://$zk/mesos
 marathon::bin_path: /opt/marathon/bin
 marathon::install_java: false
 EOT
+  report_status "${module_name} start"
   provision puppet marathon
-
+  report_status "${module_name} end"
+else
+  report_status "${module_name} skipped"
 fi
 

@@ -391,6 +391,19 @@ class Cell(object):
         else:
             print "Using existing bucket s3://{}".format(self.existing_bucket)
 
+        print "CORS Configuration for bucket {}".format(self.bucket)
+        bucket = self.s3.Bucket(self.bucket)
+        cors = bucket.Cors()
+        config = {
+            "CORSRules": [{
+                "AllowedMethods": ["GET"],
+                "AllowedOrigins": ["*"],
+            }]
+        }
+        cors.put(CORSConfiguration=config)
+        self.upload(DIR + "/deploy/aws/resources/status.html", "/shared/status/",
+                    extra_args={"ContentType": "text/html"})
+
     def delete_bucket(self):
         if not self.existing_bucket:
             delete_response = self.s3.Bucket(self.bucket).objects.delete()
@@ -439,13 +452,24 @@ class Cell(object):
             if os.path.isfile(self.key_file):
                 os.remove(self.key_file)
 
-    def upload(self, path, key):
+    def upload(self, path, key, extra_args={}):
+        """
+        Uploads a file to S3
+            - either to a subdirectory - appends the file name
+              afile -> /subdir/afile
+            - or directly to another file (a -> /subdir/b)
+              afile -> /subdir/bfile
+        Arguments:
+            path - full local file path
+            key - key to upload to s3,
+            extra_args - extra args passed through to the boto3 s3.upload_file method
+        """
         if key.endswith("/"):
             key += os.path.basename(path)
         if key.startswith("/"):
             key = key[1:]
         remote_path = self.full_cell + "/" + key
-        self.s3.meta.client.upload_file(path, self.bucket, remote_path)
+        self.s3.meta.client.upload_file(path, self.bucket, remote_path, ExtraArgs=extra_args)
         print "UPLOADED {} to s3://{}/{}".format(path, self.bucket, remote_path)
 
     def run_build(self):
@@ -539,12 +563,11 @@ class Cell(object):
             ./cell log {cell} nucleus 1
         For detailed debugging logs, go to CloudWatch:
             https://{region}.console.aws.amazon.com/cloudwatch/home?region={region}#logs:
-        For an upcoming (friendlier) status, and especially if you
-        want to contribute see
-            https://jira.corp.adobe.com/browse/CELL-194
+        For detailed status (times included), navigate to
+            http://{full_cell}.s3-{region}.amazonaws.com/{full_cell}/shared/status/status.html
 
         To open external SSH access see https://inside.corp.adobe.com/itech/kc/IT00792.html
-        """.format(cell=self.cell, region=self.region)
+        """.format(cell=self.cell, full_cell=self.full_cell, region=self.region)
 
     def run_update(self):
         self.stack_action(action='update')

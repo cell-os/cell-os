@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Cell status</title>
+
+  <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/meyer-reset/2.0/reset.min.css"></link>
+  <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.0.1/lodash.min.js" ></script>
+  <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/zepto/1.1.6/zepto.min.js" ></script>
+  <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.11.1/moment.min.js" ></script>
+  <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/moment-duration-format/1.3.0/moment-duration-format.min.js" ></script>
+  <script type="text/javascript">
+window.state = {}
+
+$(document).ready(function() {
+    var STATUS_LOCATION = "/shared/status/"
+    var LOAD_INTERVAL_MS = 2000
+    var DISPLAY_INTERVAL_MS = 3000
+    config = getArgs(window.location)
+
+    /**
+     * detects cell name and bucket from an url
+     */
+    function getArgs(loc) {
+        var bucket = /:\/\/([^\.]*)\./g.exec(loc)[1]
+        var tmp = /\.s3(.*)\.amazonaws/.exec(loc)[1]
+        return {"bucket": bucket, "region": tmp}
+    }
+
+    /**
+     * creates an S3 listing url
+     * @param config object containing bucket and region
+     * @return {String} full S3 listing url
+     */
+    function listUrl(config) {
+        var url = "http://" + config.bucket + ".s3" + config.region + ".amazonaws.com/?delimiter=/&prefix=" + config.bucket + STATUS_LOCATION
+        return url
+    }
+
+    /**
+     * Parses a status instance file into a instance structure
+     * @param file multi line string, file contents
+     * @return state object containing metadata
+     */
+    function parseInstanceFile(file) {
+        var state = {}
+        _.each(file.split("\n"), function(line) {
+            // 00-docker start ts1
+            // 00-docker end ts2
+            var pieces = line.split(" ")
+            var subject = pieces[0]
+            var action = pieces[1]
+            var time = parseInt(pieces[2])
+            if (state[pieces[0]] === undefined) {
+              state[subject] = {}
+            }
+            state[subject][action] = time
+        })
+        var role = _.keys(_.get(state, "role"))[0]
+        var start_time = _.get(state, "role." + role, -1)
+        state.start = start_time
+        state.role = role
+        state.seeds = _.keys(_.get(state, "seeds"))[0]
+        return state
+    }
+
+    /**
+     * Parses the S3 listing xml result into a list of instance status files
+     * @param xml - Xml S3 listing result object
+     * @return {Array} list of file names
+     */
+    function filesFromListing(xml) {
+        var xmlContents = $(xml).find('Contents')
+        return _.chain(xmlContents)
+            .map(function(item) {
+                item = $(item)
+                return {
+                    key: item.find('Key').text(),
+                    last_modified: item.find('LastModified').text(),
+                    size: item.find('Size').text()
+                }
+            })
+            .filter(function(item) {
+                return item.key.search("status.html") < 0
+            })
+            .value()
+    }
+
+    /**
+     * Two step loading function
+     * - loads the listing
+     *   - for each file in the listing, load the file, and parse it
+     */
+    function loadData() {
+        $.ajax({
+            type: "GET", 
+            url: listUrl(config), 
+            success: function(xml) {
+              _.each(filesFromListing(xml), function(item) {
+                  $.get("http://" + config.bucket + ".s3" + config.region + ".amazonaws.com/" + item.key, function(file) {
+                      window.state[item.key] = parseInstanceFile(file)
+                  })
+              })
+            }
+        })
+    }
+
+    /**
+     * Creates a cell structure that contains the current cell provisioning status
+     * - start / end time (if the cell is ready)
+     * - exhibitor converge time
+     * - status for each invididual instance
+     */
+    function prepareData(config, state) {
+        //{ "i-xxx": }
+        var cell = {
+            name: config.bucket,
+            cell_start: -1,  // first instance up
+            cell_end: -1,  //last instance up
+            zk_start: -1,
+            zk_end: -1,
+            instances: []
+        }
+        cell.instances = _.map(window.state, function(v, k) {
+            v.id = k.replace(/.*\/([^\/]*)/, "$1")
+            return v
+        })
+        if (cell.instances.length == 0) {
+            return cell
+        }
+        cell.cell_start = _.chain(cell.instances)
+            .map(function(m) { return _.get(m, "start", -1) })
+            .max()
+            .value()
+        cell.cell_end = _.chain(cell.instances)
+            .map(function(m) { return _.get(m, "cell.end", -1) })
+            .max()
+            .value()
+        var zk_start = _.chain(cell.instances)
+            .map(function(m) { return _.get(m, "01-exhibitor.start", -1) })
+            .max()
+            .value()
+        if (! _.isUndefined(zk_start)) {
+            cell.zk_start = zk_start
+        }
+        var zk_end = _.chain(cell.instances)
+            .map(function(m) { return _.get(m, "zk_barrier.end", -1) })
+            .min()
+            .value()
+        if (! _.isUndefined(zk_end)) {
+            cell.zk_end = zk_end
+        }
+        return cell
+    }
+
+    /**
+     * Renders cell status 
+     */
+    function displayCell(cell) {
+        var ct = _.template($('#cell_template').html(), {
+            "imports": {
+                "ddiff": ddiff,
+                "nowdiff": nowdiff
+            }
+        })
+        $("#status").html(ct(cell))
+        _.each(["nucleus", "stateless-body", "stateful-body", "membrane"], function(role) {
+            displayInstances(role, cell.instances)
+        })
+    }
+
+    /**
+     * Renders a list of instances in a role (nucleus, etc)
+     */
+    function displayInstances(role, instances) {
+        $("#" + role).html("")
+        var mt = _.template($('#instance_template').html(), {
+            "imports": {
+                "ddiff": ddiff,
+                "nowdiff": nowdiff
+            }
+        })
+        var arr = _.chain(instances)
+            .filter(function(item) { return item.role == role })
+            .value()
+
+        _.forEach(arr, function(k) {
+            $("#" + role).append(mt({instance: k}))
+        })
+    }
+
+    /**
+     * human readable time diff from now
+     */
+    function nowdiff(then, format) {
+        if (_.isUndefined(format)) {
+            format = "d[d] hh:mm:ss"
+        }
+        return ddiff(moment(), then, format)
+    }
+
+    /**
+     * show human readable time diff in minutes
+     */
+    function ddiff(now, then, format) {
+        if (_.isUndefined(format)) {
+            format = "hh:mm:ss"
+        }
+        var diff = now.diff(then)
+        return moment.duration(diff).format(format)
+    }
+
+    // trigger first data load
+    loadData()
+    // load data task - fills window.state
+    setInterval(function() {
+        loadData()
+    }, LOAD_INTERVAL_MS)
+    // display data task - reads window.state
+    setTimeout(function() {
+        var cell = prepareData(config, window.state)
+        displayCell(cell)
+    }, DISPLAY_INTERVAL_MS)
+})
+  </script>
+  <script type="text/template" id="cell_template" style="display: none">
+    <div id="cell_status" class="cell">
+      <div>Provisioning for cell <%= name %> started <%= moment.unix(cell_start).format() %> (<%= nowdiff(moment.unix(cell_start)) %> ago)</div>
+      <div>Zookeeper status: 
+      <% if (zk_end > 0) { %>
+        <span class="complete">done (took <strong><%= ddiff(moment.unix(zk_end), moment.unix(zk_start)) %></strong>)</span>
+      <% } else { %>
+        <% if (zk_start > 0) { %>
+          <span class="started">in progress (started <strong><%= nowdiff(moment.unix(zk_start)) %> ago</strong>)</span>
+        <% } else { %>
+          <span class="missing">not started</span>
+        <% } %>
+      <% } %>
+      </div>
+      <div>Cell status: 
+        <% if (cell_end > 0) { %>
+          <span class="complete">done (took <strong><%= ddiff(moment.unix(cell_end), moment.unix(cell_start)) %></strong>)</span>
+        <% } else { %>
+        <span class="started">in progress (started <%= ddiff(moment(), moment.unix(cell_start)) %> ago)</span>
+        <% } %>
+      </div>
+    </div>
+  </script>
+  <script type="text/template" id="instance_template" style="display: none">
+    <div id="<%= instance.id %>" class="instance">
+      <div class="header"><%= instance.role %>/<span id="status_<%= instance.id %>"><%= instance.id %></div>
+      <table>
+        <% _.each(instance.seeds.split(","), function(seed) { %>
+        <%
+          var state = "unknown"
+          var time = ""
+          if (_.has(instance, seed)) {
+            if (_.get(instance, seed + ".skipped", -1) > 0) {
+              state = "skipped"
+            } else {
+              var end = _.get(instance, seed + ".end", -1)
+              var start = _.get(instance, seed + ".start", -1)
+              if (end > 0) {
+                state = "complete"
+                time = nowdiff(moment.unix(end)) + " ago (took " + ddiff(moment.unix(end), moment.unix(start)) + ")"
+              } else {
+                state = "started"
+                time = nowdiff(moment.unix(start)) + " ago"
+              }
+            }
+          }
+        %>
+        <tr class="<%= state %>">
+          <td><span id="seed_<%= instance.id %>_<%= seed %>"><%= seed %></td>
+          <td><%= state %></td>
+          <td><%= time %></td>
+        </tr>
+        <% }) %>
+      </table>
+    </div>
+  </script>
+  <style>
+
+  body {
+    font: 12px monospace;
+  }
+  .header {
+    background-color: #ccc;
+  }
+  #nucleus, #stateless-body, #stateful-body, #membrane {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+  .skipped {
+      text-decoration: line-through;
+      background-color: #cccc00;
+  }
+  .complete {
+      background-color: #00cc00;
+  }
+  .instance {
+    flex: 0 0 32%;
+    margin: 0 1em 1em 0;
+    background-color: #eee;
+  }
+  td {
+    padding: 0 1em 0 0;
+  }
+  #cell_status {
+      margin: 0 0 1em 0;
+  }
+  </style>
+</head>
+
+<body>
+  <div id="root">
+    <div id="status"></div>
+    <div id="nucleus"></div>
+    <div id="stateless-body"></div>
+    <div id="stateful-body"></div>
+    <div id="membrane"></div>
+  </div>
+</body>
+</html> 

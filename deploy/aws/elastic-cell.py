@@ -371,6 +371,14 @@ SharedReadOnlyPolicy = s3_policy(
 )
 t.add_resource(SharedReadOnlyPolicy)
 
+SharedStatusRWPolicy = s3_policy(
+    "SharedStatusRWPolicy",
+    ["StatelessBodyRole", "StatefulBodyRole", "MembraneRole", "NucleusRole"],
+    [["/cell-os--", Ref("CellName"), "/shared/status/*"]],
+    mode="rw"
+)
+t.add_resource(SharedStatusRWPolicy)
+
 # In order for the HTTP Bucket Policy to work a VPCEndpoint needs to be created.
 # A VPC endpoint enables you to create a private connection between your VPC and another AWS service
 # without requiring access over the Internet, through a NAT device, a VPN connection, or AWS Direct Connect.
@@ -382,12 +390,17 @@ VpcEndpointS3 = VPCEndpoint(
 )
 t.add_resource(VpcEndpointS3)
 
-SharedReadOnlyHTTPPolicy = BucketPolicy(
-    "BucketHTTPReadonlyS3Policy",
+# TODO: move this to config, have only one place (also separate list below for
+# ssh
+egress_ips = ["127.127.16.0/23", "127.127.128.10/32", "127.127.9.200/32", "127.127.9.201/32", "127.127.9.253/32", "127.127.5.2/32", "127.127.10.200/32", "127.127.10.201/32", "127.127.10.202/32", "127.127.10.203/32", "127.127.10.204/32", "127.127.10.205/32", "127.127.10.206/32", "127.127.10.207/32", "127.127.10.208/32", "127.127.10.209/32", "127.127.10.210/32", "127.127.11.4/32", "127.127.19.4/32", "127.127.22.5/32", "127.127.22.150/32", "127.127.118.2/32", "127.127.118.6/32", "127.127.118.254/32", "127.127.114.129/32", "127.127.112.97/32", "127.127.112.98/32", "127.127.117.11/32", "127.127.62.150/32", "127.127.62.180/32", "127.127.140.131/32", "127.127.215.11/32", "127.127.215.4/32", "127.127.139.131/32", "127.127.58.150/32", "127.127.58.180/32", "127.127.65.2/32", "127.127.98.227/32", "127.127.98.228/32", "127.127.24.4/32", "127.127.121.82/32", "127.127.58.150/32", "127.127.58.180/32", "127.127.93.230/32"]
+
+SharedBucketPolicy = BucketPolicy(
+    "SharedBucketPolicy",
     Bucket=Ref(BucketName),
     PolicyDocument={
         "Version": "2008-10-17",
         "Statement": [
+            # Read only HTTP access
             {
                 "Effect": "Allow",
                 "Principal": "*",
@@ -400,11 +413,46 @@ SharedReadOnlyHTTPPolicy = BucketPolicy(
                         "aws:sourceVpce": Ref(VpcEndpointS3)
                     }
                 }
+            },
+            # public read
+            {
+                "Effect": "Allow",
+                "Principal": {"AWS": "*"},
+                "Action": [
+                    "s3:ListBucket"
+                ],
+                "Resource": [
+                    Join("", ["arn:aws:s3:::", Ref(BucketName)]),
+                ],
+                "Condition": {
+                    "StringLike": {
+                        "s3:prefix": [Join("", ["cell-os--", Ref("CellName"), "/shared/status/*"])],
+                    },
+                    "IpAddress": {
+                        "aws:SourceIp": egress_ips
+                    }
+                }
+            },
+            # public list
+            {
+                "Effect": "Allow",
+                "Principal": {"AWS": "*"},
+                "Action": [
+                    "s3:GetObject",
+                ],
+                "Resource": [
+                    Join("", ["arn:aws:s3:::", Ref(BucketName), "/cell-os--", Ref("CellName"), "/shared/status/*"]),
+                ],
+                "Condition": {
+                    "IpAddress": {
+                        "aws:SourceIp": egress_ips
+                    }
+                }
             }
         ]
     }
 )
-t.add_resource(SharedReadOnlyHTTPPolicy)
+t.add_resource(SharedBucketPolicy)
 
 NucleusEc2Policy = t.add_resource(iam.PolicyType(
     'NucleusEc2Policy',

@@ -18,6 +18,9 @@ EOT
 attempt=0
 max_attempts=5
 status=-1
+
+module_name="00-docker"
+report_status "${module_name} start"
 until [ $status == 0 ] ; do
   /usr/local/bin/provision puppet docker
   status=$?
@@ -27,6 +30,9 @@ until [ $status == 0 ] ; do
   fi
   if [[ $status != 0 ]]; then
     echo "Retry Docker provisioning step: exit code $status, attempt $attempt / $max_attempts"
+    report_status "${module_name} retry"
     sleep 5
   fi
 done
+
+report_status "${module_name} end"

@@ -1,3 +1,6 @@
 #!/bin/bash
 
+module_name="00-java"
+report_status "${module_name} start"
 /usr/local/bin/provision puppet base,java
+report_status "${module_name} end"
