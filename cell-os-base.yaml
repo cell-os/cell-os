@@ -9,7 +9,7 @@
 docker::version: 1.9.1-1.el7.centos
 java::version: 8u71
 # zookeeper exhibitor
-zookeeper::version: 3.4.6_1.5.5
+zookeeper::version: 3.4.6_1.5.6
 mesos::version: 0.26.0-0.2.145.centos701406
 marathon::version: v0.14.0
 etcd::version: v2.2.4
