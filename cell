@@ -675,7 +675,7 @@ email = "cell@metal-cell.adobe.io"
 [marathon]
 url = "{marathon}"
 [package]
-sources = [ "https://s3.amazonaws.com/saasbase-repo/cell-os/cell-os-dcos-repo-{version}.tar.gz"]
+sources = [ "https://s3.amazonaws.com/saasbase-repo/cell-os/cell-os-universe-{version}.zip"]
 cache = "{tmp}/dcos_tmp"
 # workaround for bug in dcoscli - does not add kafka url
 [kafka]

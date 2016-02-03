@@ -42,6 +42,8 @@ When running the Cell-OS DCOS wrapper( `./cell dcos...`), we:
 ```bash
 # prepare config files
 ./cell config CELLNAME
+# optional step - add a package repository
+./cell dcos CELLNAME config append package.sources https://github.com/mesosphere/universe/archive/version-1.x.zip
 # create dcos package cache
 ./cell dcos CELLNAME package update
  # installs the cli package
