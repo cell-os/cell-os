@@ -6,7 +6,9 @@
 set -e
 VERSION=$(cat VERSION)
 
-sudo pip install -r requirements.txt
+virtualenv env
+source env/bin/activate
+pip install -r requirements.txt
 
 rm -rf build
 mkdir build
