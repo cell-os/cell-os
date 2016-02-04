@@ -41,16 +41,19 @@ Currently only AWS is supported by the CLI.
 
 The cell cli tools use a bunch of Python packages, that talk to AWS. 
 
+We recommend using [virtualenv](http://virtualenv.readthedocs.org/en/latest/)
+
+    virtualenv env
+    source env/bin/activate
+
     pip install -r requirements.txt
 
 #### Configure [AWS CLI](http://aws.amazon.com/cli/)
 
-    pip install awscli
     aws configure
 
 #### Install `watch`
- With [Homebrew](http://brew.sh/) installed: `brew install watch`
- 
+ With [Homebrew](http://brew.sh/) installed: `brew install watch`  
  With [ports](http://www.macports.org/) installed: `sudo port install watch`
 
 ## Usage
@@ -71,7 +74,7 @@ Delete an existing cell
 The cell-os version bundle captures the necessary module versions that are developed,
 tested and certified to work together.
 
-[cell-os-1.0](cell-os-base-1.0-SNAPSHOT.yaml)
+[cell-os-base](cell-os-base.yaml)
 
 # Documentation
 
