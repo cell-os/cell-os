@@ -70,6 +70,8 @@ import shutil
 import socket
 import time
 import ConfigParser
+import curses
+import datetime
 
 if os.name == 'posix' and sys.version_info[0] < 3:
     import subprocess32 as subprocess
@@ -129,9 +131,9 @@ def readify(f):
     return out
 
 
-def printf(operation, data):
+def tabulate(operation, data):
     """
-    Formats and prints a data structure as a table
+    Formats a data structure as a table
     :param operation: the title of the table
     :param data: list or dict to print
     """
@@ -143,7 +145,7 @@ def printf(operation, data):
     formatter.table = table
     stream = six.StringIO()
     formatter(operation, data, stream=stream)
-    print stream.getvalue()
+    return stream.getvalue()
 
 
 def command(args):
@@ -618,12 +620,12 @@ class Cell(object):
             ) if not re.match(r".*(MembraneStack|NucleusStack|StatefulBodyStack|StatelessBodyStack).*", stack[0])]
             # extract region from stack id arn:aws:cloudformation:us-west-1:482993447592:stack/c1/1af7..
             stacks = [[stack[1], stack[0].split(":")[3]] + stack[2:] for stack in stacks]
-            printf("list", stacks)
+            print tabulate("list", stacks)
         else:
-            printf("nucleus", self.instances("nucleus"))
-            printf("stateless-body", self.instances("stateless-body"))
-            printf("stateful-body", self.instances("stateful-body"))
-            printf("membrane", self.instances("membrane"))
+            print tabulate("nucleus", self.instances("nucleus"))
+            print tabulate("stateless-body", self.instances("stateless-body"))
+            print tabulate("stateful-body", self.instances("stateful-body"))
+            print tabulate("membrane", self.instances("membrane"))
 
             print "[bucket]"
             # for f in self.s3.Bucket(self.bucket).objects.filter(Prefix="{}".format(self.full_cell)):
@@ -639,9 +641,9 @@ class Cell(object):
             regexp = re.compile(expression)
             elbs = filter(lambda name: regexp.match(name[0]), elbs)
 
-            printf("ELBs", elbs)
+            print tabulate("ELBs", elbs)
 
-            printf("Gateway", [
+            print tabulate("Gateway", [
                 ["zookeeper", "http://zookeeper.gw.{}.{}".format(self.cell, self.dns_suffix)],
                 ["mesos", "http://mesos.gw.{}.{}".format(self.cell, self.dns_suffix)],
                 ["marathon", "http://marathon.gw.{}.{}".format(self.cell, self.dns_suffix)],
@@ -859,9 +861,44 @@ DynamicForward {port}
     def run_cmd(self):
         self.run_ssh(self.arguments['<command>'])
 
+    def get_stack_log(self, max_items=30):
+        """
+        Return stack events as recorded in cloudformation
+        Return:  list of (timestamp, logical-resource-idm resource-status) tuples
+        """
+        events = []
+        paginator = self.cfn.meta.client.get_paginator("describe_stack_events")
+        status = paginator.paginate(StackName=self.stack,
+                                    PaginationConfig={
+                                        'MaxItems': 30
+                                    })
+        for event in status.search("StackEvents[*].[Timestamp, LogicalResourceId, ResourceStatus]"):
+            events.append([str(e) for e in event])
+        return events
+
     def run_log(self):
         if not self.arguments["<role>"]:
-            subprocess.call("watch -n 1 \"aws cloudformation describe-stack-events --stack-name {} --output table --query 'StackEvents[*].[Timestamp, LogicalResourceId, ResourceStatus]' --max-items 10\"".format(self.stack), shell=True)
+
+            def draw(stdscr):
+                while True:
+                    try:
+                        stdscr.clear()
+                        stdscr.addstr("Refreshing every 5 seconds: {}\n".format(datetime.datetime.now()))
+                        status = tabulate("Stack Events", self.get_stack_log())
+                        for line in status.split("\n"):
+                            try:
+                                stdscr.addstr("%s\n" % line)
+                            except:
+                                # when no space available on screen, break
+                                break
+                        stdscr.refresh()
+                        time.sleep(5)
+                    except KeyboardInterrupt:
+                        break
+                    except Exception, e:
+                        # any curses error should trigger a refresh
+                        continue
+            curses.wrapper(draw)
         else:
             self.run_ssh("tail -f -n 20 /var/log/cloud-init-output.log")
 
