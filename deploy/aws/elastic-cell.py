@@ -228,7 +228,7 @@ DHCP = t.add_resource(ec2.DHCPOptions(
         "ec2.internal",
         Join("", [Ref("AWS::Region"), ".compute.internal"])
     ),
-    DomainNameServers=['AmazonProvidedDNS', '169.254.169.253']
+    DomainNameServers=['AmazonProvidedDNS']
 ))
 
 VPCDHCPOptionsAssociation = t.add_resource(ec2.VPCDHCPOptionsAssociation(
