@@ -37,18 +37,19 @@ It currently consists of Zookeeper, Docker, Mesos and Marathon.
 Details, caveats, TODOs in the [aws deployment section](deploy/aws/README.md)
 Currently only AWS is supported by the CLI.
 
-### Requirements
 
-The cell cli tools use a bunch of Python packages, that talk to AWS. 
+### Install
 
 We recommend using [virtualenv](http://virtualenv.readthedocs.org/en/latest/)
 
     virtualenv env
     source env/bin/activate
 
-    pip install -r requirements.txt
+    pip install --upgrade git+ssh://git.corp.adobe.com/metal-cell/cell-os.git
+    cell --help
 
 #### Configure [AWS CLI](http://aws.amazon.com/cli/)
+The cell cli tool is using a bunch of Python packages, that talk to AWS:
 
     aws configure
 
@@ -75,6 +76,13 @@ The cell-os version bundle captures the necessary module versions that are devel
 tested and certified to work together.
 
 [cell-os-base](cell-os-base.yaml)
+# Development
+
+Install `requirements.txt` dependencies
+
+    cd git-repo/cell-os
+    pip install -r requirements.txt
+    ./cell
 
 # Documentation
 
