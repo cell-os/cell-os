@@ -89,17 +89,13 @@ import yaml
 from awscli.formatter import TableFormatter
 from awscli.table import MultiTable, Styler
 from awscli.compat import six
-
-DIR = os.path.dirname(os.path.realpath(__file__))
-
+DEFAULT_SOCKET = socket.socket
 mkdir_p = sh.mkdir.bake("-p")
 tar_zcf = sh.tar.bake("zcf")
 
-tmpdir = DIR + "/.generated"
-mkdir_p(tmpdir)
-
-DEFAULT_SOCKET = socket.socket
-
+# work directory
+DIR = None
+TMPDIR = None
 
 def flatten(l):
     """
@@ -161,7 +157,7 @@ def command(args):
 def cell_config():
     config = ConfigParser.RawConfigParser()
     config.read(os.path.expanduser('~/.aws/config'))
-    config.read(os.path.expanduser('~/.cell'))
+    config.read(os.path.expanduser('~/.cellos/config'))
     return config
 
 
@@ -329,7 +325,7 @@ class Cell(object):
         )
 
     def tmp(self, path):
-        path = os.path.join(tmpdir, self.cell, path)
+        path = os.path.join(TMPDIR, self.cell, path)
         mkdir_p(os.path.dirname(path))
         return path
 
@@ -998,8 +994,18 @@ windows:
         self.cluster_request(url)
 
 
-if __name__ == '__main__':
-    version = readify(DIR + '/VERSION').strip()
+def main(work_dir=None):
+    global DIR, TMPDIR
+    DIR = os.path.dirname(os.path.realpath(__file__))
+    if work_dir is None:
+        work_dir = os.path.expanduser('~/.cellos')
+        import pkg_resources
+        version = pkg_resources.get_distribution("cellos").version
+    else:
+        version = readify(DIR + '/VERSION').strip()
+
+    TMPDIR = os.path.join(work_dir, ".generated")
+    mkdir_p(TMPDIR)
     # docopt hack to allow arbitrary arguments to docopt
     # necessary to call dcos subcommand
     if len(sys.argv) > 1 and sys.argv[1] == 'dcos':
@@ -1007,3 +1013,8 @@ if __name__ == '__main__':
     else:
         arguments = docopt(__doc__, version=version)
     Cell(arguments, version).run()
+
+if __name__ == '__main__':
+    # running in dev mode,
+    # set the current directory work dir
+    main(os.path.dirname(os.path.realpath(__file__)))
