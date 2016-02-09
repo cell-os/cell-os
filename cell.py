@@ -336,7 +336,7 @@ class Cell(object):
         return command(self.arguments)[0]
 
     @property
-    def cache_expiry(self):
+    def cache_expiry_seconds(self):
         return first(
             os.getenv('CACHE_EXPIRY_SECONDS'),
             self.conf('cache_expiry_seconds'),
@@ -651,9 +651,9 @@ class Cell(object):
             ])
 
     def is_fresh_file(self, path):
-        """ Checks if a file has been touched in the last X minutes """
+        """ Checks if a file has been touched in the last X seconds """
         return os.path.exists(path) and \
-             (time.time() - os.stat(path).st_mtime) / 3600.0 < self.cache_expiry
+             (time.time() - os.stat(path).st_mtime) < self.cache_expiry_seconds
 
     def ensure_cell_config(self):
         """
@@ -1051,7 +1051,9 @@ def main(work_dir=None):
         arguments = docopt(__doc__, version=version)
     Cell(arguments, version).run()
 
+
 if __name__ == '__main__':
     # running in dev mode,
     # set the current directory work dir
     main(os.path.dirname(os.path.realpath(__file__)))
+
