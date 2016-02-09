@@ -14,6 +14,10 @@ VERSION=$(cat VERSION)
 
 virtualenv -p${PYTHONEXE:-python} env
 source env/bin/activate
+
+python -V
+pip -V
+
 pip install -r requirements.txt
 
 rm -rf build
