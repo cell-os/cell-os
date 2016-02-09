@@ -12,7 +12,7 @@
 set -e
 VERSION=$(cat VERSION)
 
-virtualenv env
+virtualenv -p${PYTHONEXE:-python} env
 source env/bin/activate
 pip install -r requirements.txt
 
