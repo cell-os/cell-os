@@ -169,15 +169,16 @@ BodyStackTemplate = t.add_parameter(Parameter(
 ))
 
 t.add_mapping("RegionMap", {
-    'ap-northeast-1': {'AMI': 'ami-24f47024'},
-    'ap-southeast-1': {'AMI': 'ami-3e9e906c'},
-    'ap-southeast-2': {'AMI': 'ami-f54d0fcf'},
-    'eu-central-1': {'AMI': 'ami-649d9a79'},
-    'eu-west-1': {'AMI': 'ami-e2580795'},
-    'sa-east-1': {'AMI': 'ami-476ae25a'},
-    'us-east-1': {'AMI': 'ami-11b7017a'},
-    'us-west-1': {'AMI': 'ami-37a45d73'},
-    'us-west-2': {'AMI': 'ami-bd5b4f8d'}
+    'ap-northeast-1': {'AMI' : 'ami-5105013f'},
+    'ap-northeast-2': {'AMI' : 'ami-4e01cf20'},
+    'ap-southeast-1': {'AMI' : 'ami-77d11f14'},
+    'ap-southeast-2': {'AMI' : 'ami-00567163'},
+    'eu-central-1': {'AMI' : 'ami-6c190200'},
+    'eu-west-1': {'AMI' : 'ami-69b5051a'},
+    'sa-east-1': {'AMI' : 'ami-5edb5832'},
+    'us-east-1': {'AMI' : 'ami-e8042f82'},
+    'us-west-1': {'AMI' : 'ami-59addb39'},
+    'us-west-2': {'AMI' : 'ami-ad00e1cd'}
 })
 
 t.add_condition(
