@@ -475,7 +475,6 @@ class Cell(object):
         self.build_seed()
 
     def run_seed(self):
-        self.build_seed()
         self.seed()
 
     def stack_action(self, action="create"):
@@ -530,18 +529,17 @@ class Cell(object):
         print stack.stack_id
 
     def run_create(self):
-        if self.command == "create":
-            try:
-                self.create_bucket()
-            except Exception:
-                traceback.print_exc(file=sys.stdout)
-                sys.exit(1)
-            try:
-                self.create_key()
-            except Exception:
-                self.delete_bucket()
-                traceback.print_exc(file=sys.stdout)
-                sys.exit(1)
+        try:
+            self.create_bucket()
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+            sys.exit(1)
+        try:
+            self.create_key()
+        except Exception:
+            self.delete_bucket()
+            traceback.print_exc(file=sys.stdout)
+            sys.exit(1)
         try:
             self.seed()
             self.stack_action()

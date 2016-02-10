@@ -366,6 +366,7 @@ while true; do
         break
       else
         echo -n "."
+        sleep 1
       fi
     else
       echo -n "."
