@@ -343,6 +343,14 @@ class Cell(object):
             60 * 3
         )
 
+    @property
+    def statuspage(self):
+        # s3 endpoint is not consistent across AWS regions
+        # in us-east-1 the endpoint doesn't contain the region in the url
+        s3_endpoint = "s3-{region}.amazonaws.com".format(region=self.region).replace('us-east-1', 'external-1')
+        return "http://{full_cell}.{s3_endpoint}/{full_cell}/shared/status/status.html".format(full_cell=self.full_cell,
+                                                                                               s3_endpoint=s3_endpoint)
+
     def gateway(self, service):
         return "http://{}.gw.{}.{}".format(service, self.cell, self.dns_suffix)
 
@@ -560,10 +568,10 @@ class Cell(object):
         For detailed debugging logs, go to CloudWatch:
             https://{region}.console.aws.amazon.com/cloudwatch/home?region={region}#logs:
         For detailed status (times included), navigate to
-            http://{full_cell}.s3-{region}.amazonaws.com/{full_cell}/shared/status/status.html
+            {statuspage}
 
         To open external SSH access see https://inside.corp.adobe.com/itech/kc/IT00792.html
-        """.format(cell=self.cell, full_cell=self.full_cell, region=self.region)
+        """.format(cell=self.cell, full_cell=self.full_cell, region=self.region, statuspage=self.statuspage)
 
     def run_update(self):
         self.stack_action(action='update')
