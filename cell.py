@@ -637,6 +637,9 @@ class Cell(object):
             # for f in self.s3.Bucket(self.bucket).objects.filter(Prefix="{}".format(self.full_cell)):
             #     print f.key
 
+            status_page={"status_page": self.statuspage}
+            print tabulate("Status Page", status_page)
+
             elbs = jmespath.search(
                 "LoadBalancerDescriptions[*].[LoadBalancerName, DNSName]|[? contains([0], `{}-`) == `true`]".format(self.cell, self.cell),
                 self.elb.describe_load_balancers()
