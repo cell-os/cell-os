@@ -8,7 +8,7 @@ Cell-OS can use DCOS packages.
 * Operator has a [dcos-cli tool](https://github.com/mesosphere/dcos-cli/)
 * We provide our [own package repository](http://git.corp.adobe.com/metal-cell/cell-universe) (the tool can use more than one)
 
-Some DCOS packages rely on some magic parameters being set by the DCOS environment (this part will get better as the open-source version will get fleshed out)
+Some DCOS packages rely on some magic parameters being set by the DCOS environment (this part will get better as the open-source version will get fleshed out).  
 Because of this, we need to have a customization layer for DCOS packages where we inject Cell-OS parameters (Basically, Zookeeper quorum, Mesos and Marathon URLs)
 
 ```json
