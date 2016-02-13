@@ -697,7 +697,7 @@ marathon: {marathon}
         Creates a DCOS cli configuration file
         """
         dcos_config = self.tmp("dcos.toml")
-        if self.is_fresh_file(dcos_config):
+        if os.path.exists(dcos_config):
             return
         with open(dcos_config, "wb+") as f:
             f.write("""\
