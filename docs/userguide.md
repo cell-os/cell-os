@@ -20,6 +20,14 @@ An empty cell exposes at least a set of urls that can be used to get configurati
 * `http://hdfs.gw.CELLNAME.metal-cell.adobe.io` - active HDFS namenode (see information on HDFS capacity, etc)
     * `http://hdfs.gw.CELLNAME.metal-cell.adobe.io.conf`, `http://hdfs.gw.CELLNAME.metal-cell.adobe.io/conf?format=json` - useful endpoint to use in HDFS clients (dumps running HDFS configuration)
 
+## Configuring Cell service discovery
+
+A workload running in marathon has a set of specific labels that can be used to control Gateway's behavior: 
+
+* `lb:enabled` - enables or disables proxying functionality for this service; Default is *true*;
+* `lb:ports` - Indexes of ports to forward to;
+* `lb:module` - Specifies the custom GW module to handle this application type; the configuration and proxying microservice for this specific application;
+
 ## Workload discovery
 
 User workloads are discovered in the same way; 
