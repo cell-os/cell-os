@@ -87,3 +87,4 @@ Install `requirements.txt` dependencies
 ** [AWS deployment](docs/deployment-aws.md)
 * [Builds and Packaging](docs/packaging.md)
 * [User Guide](docs/userguide.md)
+* [Developer's guide](docs/hacking.md)
