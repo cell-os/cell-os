@@ -18,6 +18,7 @@ import awacs.iam
 
 import troposphere.iam as iam
 import troposphere.ec2 as ec2
+import troposphere.route53 as route53
 import troposphere.elasticloadbalancing as elb
 import troposphere.cloudformation as cfn
 from tropopause import *
@@ -68,6 +69,12 @@ NucleusSize = t.add_parameter(Parameter(
     Type="Number",
     Description="Number of nodes in the cell nucleus",
 ))
+
+# TODO: decide whether we want to make these parameters
+cell_domain_prefix = "gw."
+cell_domain_suffix = ".metal-cell.adobe.io"
+def cell_domain():
+    return [cell_domain_prefix, Ref("CellName"), cell_domain_suffix]
 
 accepted_instance_types = [
     "t2.micro", "t2.small", "t2.medium", "t2.large",
@@ -204,6 +211,12 @@ t.add_output(Output(
 ))
 
 t.add_output(Output(
+    "InternalMembraneElbOutput",
+    Description="Address of the Internal Membrane LB",
+    Value=Join('', ['http://', GetAtt("InternalMembraneElb", 'DNSName')]),
+))
+
+t.add_output(Output(
     "MarathonElbOutput",
     Description="Address of the Mesos LB",
     Value=Join('', ['http://', GetAtt("MarathonElb", 'DNSName')]),
@@ -217,6 +230,20 @@ VPC = t.add_resource(ec2.VPC(
     Tags=Tags(
         Application=Ref("AWS::StackId"),
     ),
+))
+
+HostedZone = t.add_resource(route53.HostedZone(
+    "HostedZone",
+    HostedZoneConfig=route53.HostedZoneConfiguration(
+        Comment="Cell hosted zone"
+    ),
+    Name=Join("", cell_domain()),
+    VPCs=[
+        route53.HostedZoneVPCs(
+            VPCId=Ref("VPC"),
+            VPCRegion=Ref("AWS::Region")
+        )
+    ]
 ))
 
 # region domain is ec2.internal in us-east-1, REGION.compute.internal for
@@ -775,6 +802,24 @@ MembraneElb = create_load_balancer(t,
     False
 )
 
+InternalMembraneElb = create_load_balancer(t,
+    "InternalMembrane",
+    80,
+    "/health-check",
+    [Ref("PublicSecurityGroup")]
+)
+
+InternalMembraneDNSRecord = t.add_resource(route53.RecordSetType(
+    "InternalMembraneDNSRecord",
+    HostedZoneName=Join("", cell_domain() + ["."]),
+    Comment="CNAME redirect to internal membrane elb",
+    Name=Join("", ["*", "."] + cell_domain()),
+    Type="CNAME",
+    TTL="900",
+    ResourceRecords=[GetAtt("InternalMembraneElb", "DNSName")],
+    DependsOn=["InternalMembraneElb", "HostedZone"]
+))
+
 WaitHandle = t.add_resource(cfn.WaitConditionHandle("WaitHandle",))
 
 def create_cellos_substack(t, name=None, role=None, cell_modules=None, tags=[], security_groups=[], load_balancers=[], instance_profile=None, instance_type=None):
@@ -788,6 +833,7 @@ def create_cellos_substack(t, name=None, role=None, cell_modules=None, tags=[], 
         "MarathonElb": GetAtt("MarathonElb", "DNSName"),
         "MesosElb": GetAtt("MesosElb", "DNSName"),
         "MembraneElb": GetAtt("MembraneElb", "DNSName"),
+        "InternalMembraneElb": GetAtt("InternalMembraneElb", "DNSName"),
         "AssociatePublicIpAddress": "true",
         "GroupSize": Ref(name + "Size"),
         "ImageId": FindInMap("RegionMap", Ref("AWS::Region"), "AMI"),
@@ -847,7 +893,8 @@ create_cellos_substack(
         Ref(ExternalWhitelistSecurityGroup)
     ],
     load_balancers=[
-        Ref("MembraneElb")
+        Ref("MembraneElb"),
+        Ref("InternalMembraneElb")
     ],
     instance_type=Ref("MembraneInstanceType")
 )
