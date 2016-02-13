@@ -43,7 +43,7 @@ our $HttpConfig = <<_EOC_;
 #        require "resty.core"
 #    ';
     include /etc/api-gateway/environment.conf.d/api-gateway-env.http.conf;
-    include /etc/api-gateway/conf.d/commons/whitelist-adobecorp.conf;
+    include /etc/api-gateway/conf.d/commons/whitelist.conf;
     include /etc/api-gateway/conf.d/commons/blacklist.conf;
 
     include /etc/api-gateway/conf.d/*.conf;

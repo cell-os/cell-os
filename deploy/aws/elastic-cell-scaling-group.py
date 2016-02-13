@@ -114,6 +114,12 @@ membrane_load_balancer = t.add_parameter(Parameter(
     Description="Membrane ELB Endpoint",
 ))
 
+internal_membrane_load_balancer = t.add_parameter(Parameter(
+    "InternalMembraneElb",
+    Type="String",
+    Description="Internal Membrane ELB Endpoint",
+))
+
 subnet = t.add_parameter(Parameter(
     "Subnet",
     Type="AWS::EC2::Subnet::Id",
@@ -264,6 +270,7 @@ export zk_elb="{{zk_elb}}"
 export marathon_elb="{{marathon_elb}}"
 export mesos_elb="{{mesos_elb}}"
 export membrane_elb="{{membrane_elb}}"
+export internal_membrane_elb="{{internal_membrane_elb}}"
 export instance_id=`wget -qO- http://169.254.169.254/latest/meta-data/instance-id`
 export aws_region=`wget -qO- http://169.254.169.254/latest/meta-data/placement/availability-zone | sed 's/.$//'`
 """),
@@ -276,6 +283,7 @@ export aws_region=`wget -qO- http://169.254.169.254/latest/meta-data/placement/a
                         "marathon_elb": Ref("MarathonElb"),
                         "mesos_elb": Ref("MesosElb"),
                         "membrane_elb": Ref("MembraneElb"),
+                        "internal_membrane_elb": Ref("InternalMembraneElb"),
                         "aws_stack_name": Ref("AWS::StackName"),
                         "aws_parent_stack_name": Ref("ParentStackName"),
                         "aws_region": Ref("AWS::Region"),
