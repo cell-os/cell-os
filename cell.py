@@ -99,6 +99,24 @@ tar_zcf = sh.tar.bake("zcf")
 DIR = None
 TMPDIR = None
 
+
+def deep_merge(a, b):
+    """
+    Merges 2 dictionaries together;
+    values in b will overwrite those in a
+    """
+    for key in b:
+        if key in a:
+            if isinstance(a[key], dict) and isinstance(b[key], dict):
+                deep_merge(a[key], b[key])
+            elif isinstance(a[key], list) and isinstance(b[key], list):
+                a[key].extend(b[key])
+            else:
+                a[key] = b[key]
+        else:
+            a[key] = b[key]
+    return a
+
 def flatten(l):
     """
     Flattens a list;
@@ -684,10 +702,12 @@ class Cell(object):
 zk: {zookeeper}
 mesos: {mesos}
 marathon: {marathon}
+cell: {cell}
             """.format(
                 zookeeper=zk,
                 mesos=self.gateway("mesos"),
                 marathon=self.gateway("marathon"),
+                cell=self.cell
             ))
             f.flush()
 
@@ -750,19 +770,20 @@ DynamicForward {port}
         self.ensure_ssh_config()
 
     def prepare_dcos_package_install(self, args):
-        is_install = 'install' in args and 'package' in args
+        is_install = args[0] == 'package' and args[1] == 'install'
         if not is_install:
             return args
 
-        def is_package_arg(arg):
-            return arg not in ['package', 'install'] and arg[0:2] != "--"
-
         # if we have an dcos package install command, check to see if we have
         # an options file - supported package
-        package = [arg for arg in args if is_package_arg(arg)]
-        if len(package) != 1:
+        package = args[-1]
+        if package[0:2] == "--":
             # can't find package, return
-            print "Unsupported package or bad command: {}".format(str(package))
+            print "Unsupported package or bad command: {}".format(" ".join(args))
+            return args
+
+        if "--cli" in args and not "--app" in args:
+            print "Not using options for cli install"
             return args
 
         # prepare dcos packages
@@ -770,7 +791,6 @@ DynamicForward {port}
         # for each DCOS package we install
         # this file is rendered into
         # .generated/<cell-name>/<package>_dcos_options.json
-        package = package[0]
         opts_template = DIR + "/deploy/dcos/{}.json.template".format(package)
         if not os.path.exists(opts_template):
             print "Unsupported package or bad command: {}".format(str(package))
@@ -792,7 +812,14 @@ DynamicForward {port}
         # try to append options to the command
         has_options = '--options' in args
         if has_options:
-            print "Command already contains --options, can't add options file !!!"
+            print "Command already contains --options, merging options file !!!"
+            cell_json = json.loads(readify(opts_file))
+            opts_file_index = args.index("--options") + 1
+            user_json = json.loads(readify(args[opts_file_index]))
+            aggregated_json = deep_merge(dict(cell_json), user_json)
+            with open(opts_file, "wb+") as outf:
+                outf.write(json.dumps(aggregated_json, indent=4))
+            args[opts_file_index] = opts_file
             return args
 
         print "Adding package install options"
