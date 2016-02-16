@@ -899,11 +899,12 @@ DynamicForward {port}
         Return stack events as recorded in cloudformation
         Return:  list of (timestamp, logical-resource-idm resource-status) tuples
         """
+        max_items = 10
         events = []
         paginator = self.cfn.meta.client.get_paginator("describe_stack_events")
         status = paginator.paginate(StackName=self.stack,
                                     PaginationConfig={
-                                        'MaxItems': 30
+                                        'MaxItems': max_items
                                     })
         for event in status.search("StackEvents[*].[Timestamp, LogicalResourceId, ResourceStatus]"):
             events.append([str(e) for e in event])
@@ -911,12 +912,13 @@ DynamicForward {port}
 
     def run_log(self):
         if not self.arguments["<role>"]:
-
+            refresh_interval = 2
             def draw(stdscr):
                 while True:
                     try:
                         stdscr.clear()
-                        stdscr.addstr("Refreshing every 5 seconds: {}\n".format(datetime.datetime.now()))
+                        stdscr.addstr("Refreshing every {}s: {}\n"
+                                .format(refresh_interval, datetime.datetime.now()))
                         status = tabulate("Stack Events", self.get_stack_log())
                         for line in status.split("\n"):
                             try:
@@ -925,7 +927,7 @@ DynamicForward {port}
                                 # when no space available on screen, break
                                 break
                         stdscr.refresh()
-                        time.sleep(5)
+                        time.sleep(refresh_interval)
                     except KeyboardInterrupt:
                         break
                     except Exception, e:
