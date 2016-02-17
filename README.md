@@ -84,5 +84,5 @@ Install `requirements.txt` dependencies
 
 * [Command Line Interface](docs/cli.md)
 * [cell-os deployment implementation](docs/deployment-implementation.md)
-* [AWS deployment](deploy/aws/README.md)
+** [AWS deployment](docs/deployment-aws.md)
 * [Builds and Packaging](docs/packaging.md)
