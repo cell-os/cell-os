@@ -271,8 +271,8 @@ class Cell(object):
         return self.arguments["<cell-name>"]
 
     @property
-    def dns_suffix(self):
-        return "metal-cell.adobe.io"
+    def dns_name(self):
+        return "gw.{cell}.metal-cell.adobe.io".format(cell=self.cell)
 
     @property
     def stack(self):
@@ -350,9 +350,8 @@ class Cell(object):
         s3_endpoint = "s3-{region}.amazonaws.com".format(region=self.region).replace('us-east-1', 'external-1')
         return "http://{full_cell}.{s3_endpoint}/{full_cell}/shared/status/status.html".format(full_cell=self.full_cell,
                                                                                                s3_endpoint=s3_endpoint)
-
     def gateway(self, service):
-        return "http://{}.gw.{}.{}".format(service, self.cell, self.dns_suffix)
+        return "http://{}.{}".format(service, self.dns_name)
 
     def run(self):
         getattr(self, 'run_%s' % self.command)()
@@ -653,10 +652,10 @@ class Cell(object):
             print tabulate("ELBs", elbs)
 
             print tabulate("Gateway", [
-                ["zookeeper", "http://zookeeper.gw.{}.{}".format(self.cell, self.dns_suffix)],
-                ["mesos", "http://mesos.gw.{}.{}".format(self.cell, self.dns_suffix)],
-                ["marathon", "http://marathon.gw.{}.{}".format(self.cell, self.dns_suffix)],
-                ["hdfs", "http://hdfs.gw.{}.{}".format(self.cell, self.dns_suffix)],
+                ["zookeeper", self.gateway("zookeeper")],
+                ["mesos", self.gateway("mesos")],
+                ["marathon", self.gateway("marathon")],
+                ["hdfs", self.gateway("marathon")],
             ])
 
     def is_fresh_file(self, path):
