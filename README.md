@@ -86,3 +86,4 @@ Install `requirements.txt` dependencies
 * [cell-os deployment implementation](docs/deployment-implementation.md)
 ** [AWS deployment](docs/deployment-aws.md)
 * [Builds and Packaging](docs/packaging.md)
+* [User Guide](docs/userguide.md)
