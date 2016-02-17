@@ -704,20 +704,18 @@ marathon: {marathon}
 mesos_master_url = "{mesos}"
 reporting = false
 email = "cell@metal-cell.adobe.io"
+cell_url = "http://{{service}}.{dns}"
 [marathon]
 url = "{marathon}"
 [package]
 sources = [ "https://s3.amazonaws.com/saasbase-repo/cell-os/cell-os-universe-{version}.zip"]
 cache = "{tmp}/dcos_tmp"
-# workaround for bug in dcoscli - does not add kafka url
-[kafka]
-url = "{kafka_gateway}"
                 """.format(
                     mesos=self.gateway("mesos"),
                     marathon=self.gateway("marathon"),
                     version=self.version,
                     tmp=self.tmp(""),
-                    kafka_gateway=self.gateway("kafka")
+                    dns=self.dns_name
                 )
             )
             f.flush()
@@ -798,7 +796,7 @@ DynamicForward {port}
             return args
 
         print "Adding package install options"
-        args.extend(["--options", self.tmp("{}.json".format(package))])
+        args.insert(-1, "--options=" + self.tmp("{}.json".format(package)))
         return args
 
     # we wrap the dcos command with the gateway configuration
