@@ -506,11 +506,7 @@ class Cell(object):
         self.build_stack_files()
         self.upload(self.tmp("elastic-cell.json"), "/")
         self.upload(self.tmp("elastic-cell-scaling-group.json"), "/")
-        print "{} {}".format(action.upper(), self.stack)
-        stack = getattr(self.cfn, '{}_stack'.format(action))(
-            StackName=self.stack,
-            TemplateURL="https://s3.amazonaws.com/{}/{}/elastic-cell.json".format(self.bucket, self.full_cell),
-            Parameters=[
+        parameters = [
                 {
                     'ParameterKey': 'CellName',
                     'ParameterValue': self.cell,
@@ -535,23 +531,41 @@ class Cell(object):
                     'ParameterKey': 'SaasBaseSecretAccessKey',
                     'ParameterValue': self.saasbase_secret_access_key,
                 },
-            ],
-            DisableRollback=True,
-            Capabilities=[
-                'CAPABILITY_IAM',
-            ],
-            Tags=[
-                {
-                    'Key': 'name',
-                    'Value': self.cell
-                },
-                {
-                    'Key': 'version',
-                    'Value': self.version
-                },
             ]
-        )
-        print stack.stack_id
+        template_url = "https://s3.amazonaws.com/{}/{}/elastic-cell.json".format(self.bucket, self.full_cell)
+        print "{} {}".format(action.upper(), self.stack)
+        if action == "create":
+            stack = self.cfn.create_stack(
+                StackName=self.stack,
+                Parameters=parameters,
+                TemplateURL=template_url,
+                DisableRollback=True,
+                Capabilities=[
+                    'CAPABILITY_IAM',
+                ],
+                Tags=[
+                    {
+                        'Key': 'name',
+                        'Value': self.cell
+                    },
+                    {
+                        'Key': 'version',
+                        'Value': self.version
+                    },
+                ]
+            )
+            print stack.stack_id
+        elif action == "update":
+            response = self.cfn.meta.client.update_stack(
+                StackName=self.stack,
+                Parameters=parameters,
+                TemplateURL=template_url,
+                Capabilities=[
+                    'CAPABILITY_IAM',
+                ],
+            )
+            print response
+
 
     def run_create(self):
         try:
