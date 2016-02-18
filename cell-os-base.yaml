@@ -10,7 +10,7 @@ saasbase_deployment::version: 1.27
 docker::version: 1.10.2-1.el7.centos
 java::version: 8u74
 # zookeeper exhibitor
-zookeeper::version: 3.4.6_1.5.6
+zookeeper::version: 3.4.6_1.5.6-1
 mesos::version: 0.27.1-2.0.226.centos701406
 marathon::version: v0.15.3
 etcd::version: v2.2.5
