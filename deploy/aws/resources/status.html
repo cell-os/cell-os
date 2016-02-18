@@ -16,15 +16,15 @@ $(document).ready(function() {
     var STATUS_LOCATION = "/shared/status/"
     var LOAD_INTERVAL_MS = 2000
     var DISPLAY_INTERVAL_MS = 3000
-    config = getArgs(window.location)
+    config = extractConfig(window.location)
 
     /**
      * detects cell name and bucket from an url
      */
-    function getArgs(loc) {
-        var bucket = /:\/\/([^\.]*)\./g.exec(loc)[1]
-        var tmp = /\.s3(.*)\.amazonaws/.exec(loc)[1]
-        return {"bucket": bucket, "region": tmp}
+    function extractConfig(url) {
+        var bucket = /:\/\/([^\.]*)\./g.exec(url)[1]
+        var region = /\.s3(.*)\.amazonaws/.exec(url)[1]
+        return {"bucket": bucket, "region": region}
     }
 
     /**
@@ -32,9 +32,10 @@ $(document).ready(function() {
      * @param config object containing bucket and region
      * @return {String} full S3 listing url
      */
-    function listUrl(config) {
-        var url = "http://" + config.bucket + ".s3" + config.region + ".amazonaws.com/?delimiter=/&prefix=" + config.bucket + STATUS_LOCATION
-        return url
+    function createListUrl(config) {
+        return "http://" + config.bucket + ".s3" + config.region +
+                ".amazonaws.com/?delimiter=/&prefix=" +
+                config.bucket + STATUS_LOCATION
     }
 
     /**
@@ -94,7 +95,7 @@ $(document).ready(function() {
     function loadData() {
         $.ajax({
             type: "GET", 
-            url: listUrl(config), 
+            url: createListUrl(config),
             success: function(xml) {
               _.each(filesFromListing(xml), function(item) {
                   $.get("http://" + config.bucket + ".s3" + config.region + ".amazonaws.com/" + item.key, function(file) {
@@ -248,7 +249,7 @@ $(document).ready(function() {
   </script>
   <script type="text/template" id="instance_template" style="display: none">
     <div id="<%= instance.id %>" class="instance">
-      <div class="header"><%= instance.role %>/<span id="status_<%= instance.id %>"><%= instance.id %></div>
+      <div class="header"><%= instance.role %>/<span id="status_<%= instance.id %>"><%= instance.id %></span></div>
       <table>
         <% _.each(instance.seeds.split(","), function(seed) { %>
         <%
@@ -271,7 +272,7 @@ $(document).ready(function() {
           }
         %>
         <tr class="<%= state %>">
-          <td><span id="seed_<%= instance.id %>_<%= seed %>"><%= seed %></td>
+          <td><span id="seed_<%= instance.id %>_<%= seed %>"><%= seed %></span></td>
           <td><%= state %></td>
           <td><%= time %></td>
         </tr>
@@ -294,10 +295,10 @@ $(document).ready(function() {
   }
   .skipped {
       text-decoration: line-through;
-      background-color: #cccc00;
+      color: #A7A7A7;
   }
   .complete {
-      background-color: #00cc00;
+      background-color: #DCEFC3;
   }
   .instance {
     flex: 0 0 32%;
