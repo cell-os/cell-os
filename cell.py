@@ -1098,6 +1098,15 @@ def main(work_dir=None):
         arguments = docopt(__doc__, argv=sys.argv[1:3], version=version)
     else:
         arguments = docopt(__doc__, version=version)
+
+    if arguments["<cell-name>"] and len(arguments["<cell-name>"]) >= 22:
+        print """\
+<cell-name> argument must be < 22 chars long, exiting...
+
+It is used to build an ELB name which is 32 chars max:
+    http://docs.aws.amazon.com/ElasticLoadBalancing/latest/APIReference/API_CreateLoadBalancer.html
+"""
+        sys.exit(1)
     Cell(arguments, version).run()
 
 
