@@ -213,7 +213,7 @@ t.add_output(Output(
 t.add_output(Output(
     "InternalMembraneElbOutput",
     Description="Address of the Internal Membrane LB",
-    Value=Join('', ['http://', GetAtt("InternalMembraneElb", 'DNSName')]),
+    Value=Join('', ['http://', GetAtt("IMembraneElb", 'DNSName')]),
 ))
 
 t.add_output(Output(
@@ -830,7 +830,7 @@ MembraneElb = create_load_balancer(t,
 )
 
 InternalMembraneElb = create_load_balancer(t,
-    "InternalMembrane",
+    "IMembrane",
     80,
     "/health-check",
     [Ref("PublicSecurityGroup")]
@@ -843,8 +843,8 @@ InternalMembraneDNSRecord = t.add_resource(route53.RecordSetType(
     Name=Join("", ["*", "."] + cell_domain()),
     Type="CNAME",
     TTL="900",
-    ResourceRecords=[GetAtt("InternalMembraneElb", "DNSName")],
-    DependsOn=["InternalMembraneElb", "HostedZone"]
+    ResourceRecords=[GetAtt("IMembraneElb", "DNSName")],
+    DependsOn=["IMembraneElb", "HostedZone"]
 ))
 
 WaitHandle = t.add_resource(cfn.WaitConditionHandle("WaitHandle",))
@@ -860,7 +860,7 @@ def create_cellos_substack(t, name=None, role=None, cell_modules=None, tags=[], 
         "MarathonElb": GetAtt("MarathonElb", "DNSName"),
         "MesosElb": GetAtt("MesosElb", "DNSName"),
         "MembraneElb": GetAtt("MembraneElb", "DNSName"),
-        "InternalMembraneElb": GetAtt("InternalMembraneElb", "DNSName"),
+        "InternalMembraneElb": GetAtt("IMembraneElb", "DNSName"),
         "AssociatePublicIpAddress": "true",
         "GroupSize": Ref(name + "Size"),
         "ImageId": FindInMap("RegionMap", Ref("AWS::Region"), "AMI"),
@@ -921,7 +921,7 @@ create_cellos_substack(
     ],
     load_balancers=[
         Ref("MembraneElb"),
-        Ref("InternalMembraneElb")
+        Ref("IMembraneElb")
     ],
     instance_type=Ref("MembraneInstanceType")
 )
