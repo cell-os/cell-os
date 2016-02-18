@@ -475,7 +475,7 @@ message=$1
 ts=$(date +"%s")
 status_file=/opt/cell/status/${instance_id}.json
 
-echo -e "${message} ${ts}" >> $status_file
+echo -e "${message} ${ts}" | tee -a $status_file
 
 aws s3 cp $status_file s3://${cell_bucket_name}/${full_cell_name}/shared/status/${instance_id} \
     --metadata-directive REPLACE --cache-control max-age=0,public \
