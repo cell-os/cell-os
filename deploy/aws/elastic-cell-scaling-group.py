@@ -546,6 +546,7 @@ source /etc/profile.d/cellos.sh
 export wait_handle='Ref(WaitHandle)'
 export cell_modules='Ref(CellModules)'
 
+report_status "seeds ${cell_modules},zk_barrier"
 # install awslogs
 curl https://s3.amazonaws.com/aws-cloudwatch/downloads/latest/awslogs-agent-setup.py -O
 cat >> awslogs.conf <<-EOT
@@ -606,6 +607,7 @@ for s in /opt/cell/seed/*; do
 done
 
 # wait for zk
+report_status "zk_barrier start"
 /usr/local/bin/zk-barrier
 export zk=`zk-list-nodes 2>/dev/null`
 
