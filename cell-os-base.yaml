@@ -15,7 +15,7 @@ marathon::version: v0.15.1
 etcd::version: v2.2.5
 
 modules:
-  puppet-zookeeper: 0.1.2-adobe-SNAPSHOT
+  puppet-zookeeper: 0.1.2-adobe
   puppet-docker: 5.0.0-adobe
   puppet-mesos: 0.6.5-adobe-2
   puppet-marathon: 0.1.4-adobe
