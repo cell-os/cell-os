@@ -547,6 +547,8 @@ export wait_handle='Ref(WaitHandle)'
 export cell_modules='Ref(CellModules)'
 
 report_status "seeds ${cell_modules},zk_barrier"
+report_status "${cell_role} start"
+
 # install awslogs
 curl https://s3.amazonaws.com/aws-cloudwatch/downloads/latest/awslogs-agent-setup.py -O
 cat >> awslogs.conf <<-EOT
@@ -564,8 +566,6 @@ EOT
 
 python ./awslogs-agent-setup.py -r ${aws_region} -n -c awslogs.conf
 
-report_status "role ${cell_role}"
-report_status "seeds ${cell_modules}"
 
 export search_instance_cmd="aws --region ${aws_region} ec2 describe-instances --query 'Reservations[*].Instances[*].[PrivateIpAddress, PrivateDnsName]' --filters Name=instance-state-code,Values=16 Name=tag:cell,Values=${cell_name}"
 
@@ -610,7 +610,6 @@ done
 report_status "zk_barrier start"
 /usr/local/bin/zk-barrier
 export zk=`zk-list-nodes 2>/dev/null`
-
 report_status "zk_barrier end"
 
 # execute post
@@ -620,7 +619,7 @@ for s in /opt/cell/seed/*; do
     fi
 done
 
-report_status "cell end"
+report_status "${cell_role} end"
 
 # All is well so signal success
 cfn-signal -e 0 -r "Stack setup complete" "${wait_handle}"

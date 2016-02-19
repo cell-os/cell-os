@@ -62,23 +62,44 @@ $(document).ready(function() {
      */
     function parseInstanceFile(file) {
         var state = {}
+        state.spans = {}
+
         _.each(file.split("\n"), function(line) {
-            // 00-docker start ts1
-            // 00-docker end ts2
             var pieces = line.split(" ")
             var subject = pieces[0]
             var action = pieces[1]
             var time = parseInt(pieces[2])
-            if (state[pieces[0]] === undefined) {
-              state[subject] = {}
+
+            switch (subject) {
+                case "seeds":
+                    // seeds are used to drive the display for each instance
+                    // in order to include skipped steps - represented as missing data
+                    state.seeds = action.split(",")
+                    break;
+                case "role":
+                    state.role = action
+                    break;
+                default:
+                    if (state.spans[subject] === undefined) {
+                        state.spans[subject] = {name: subject}
+                    }
+                    var span = state.spans[subject];
+                    span[action] = time
+                    // although we may remove skipped, let's make a skipped action look
+                    // like a normal span
+                    if (action == 'skipped') {
+                        span.start = span.skipped
+                        span.end = span.skipped
+                    }
+                    if (!(span.end === undefined) && !(span.start === undefined)) {
+                        span['duration'] = span.end - span.start
+                    }
             }
-            state[subject][action] = time
         })
-        var role = _.keys(_.get(state, "role"))[0]
-        var start_time = _.get(state, "role." + role, -1)
-        state.start = start_time
-        state.role = role
-        state.seeds = _.keys(_.get(state, "seeds"))[0]
+
+        state.seeds = _.sortBy(state.seeds, function (seed) {
+            return state.spans[seed].start
+        })
         return state
     }
 
@@ -129,7 +150,7 @@ $(document).ready(function() {
      * - exhibitor converge time
      * - status for each invididual instance
      */
-    function prepareData(config, state) {
+    function extractViewState(config, state) {
         //{ "i-xxx": }
         var cell = {
             name: config.bucket,
@@ -139,7 +160,7 @@ $(document).ready(function() {
             zk_end: -1,
             instances: []
         }
-        cell.instances = _.map(window.state, function(v, k) {
+        cell.instances = _.map(state, function(v, k) {
             v.id = k.replace(/.*\/([^\/]*)/, "$1")
             return v
         })
@@ -147,23 +168,25 @@ $(document).ready(function() {
             return cell
         }
         cell.cell_start = _.chain(cell.instances)
-            .map(function(m) { return _.get(m, "start", -1) })
-            .max()
+            .map(function(m) { return _.get(m, "spans." + m.role + ".start", -1) })
+            .filter(function(m) { return m > 0 }) // don't include missing values
+            .min()
             .value()
         cell.cell_end = _.chain(cell.instances)
-            .map(function(m) { return _.get(m, "cell.end", -1) })
+            .map(function(m) { return _.get(m, "spans." + m.role + ".end", -1) })
             .max()
             .value()
         var zk_start = _.chain(cell.instances)
-            .map(function(m) { return _.get(m, "01-exhibitor.start", -1) })
-            .max()
+            .map(function(m) { return _.get(m, "spans.01-exhibitor.start", -1) })
+            .filter(function(m) { return m > 0 }) // dont't include missing values
+            .min()
             .value()
         if (! _.isUndefined(zk_start)) {
             cell.zk_start = zk_start
         }
         var zk_end = _.chain(cell.instances)
-            .map(function(m) { return _.get(m, "zk_barrier.end", -1) })
-            .min()
+            .map(function(m) { return _.get(m, "spans.zk_barrier.end", -1) })
+            .max()
             .value()
         if (! _.isUndefined(zk_end)) {
             cell.zk_end = zk_end
@@ -172,16 +195,16 @@ $(document).ready(function() {
     }
 
     /**
-     * Renders cell status 
+     * Renders cell status
      */
     function displayCell(cell) {
-        var ct = _.template($('#cell_template').html(), {
+        var cellTemplate = _.template($('#cell_template').html(), {
             "imports": {
-                "ddiff": ddiff,
-                "nowdiff": nowdiff
+                "timeDelta": timeDelta,
+                "timeSinceNow": timeSinceNow
             }
         })
-        $("#status").html(ct(cell))
+        $("#status").html(cellTemplate(cell))
         _.each(["nucleus", "stateless-body", "stateful-body", "membrane"], function(role) {
             displayInstances(role, cell.instances)
         })
@@ -192,40 +215,66 @@ $(document).ready(function() {
      */
     function displayInstances(role, instances) {
         $("#" + role).html("")
-        var mt = _.template($('#instance_template').html(), {
+        var nodeTemplate = _.template($('#instance_template').html(), {
             "imports": {
-                "ddiff": ddiff,
-                "nowdiff": nowdiff
+                "timeDelta": timeDelta,
+                "timeSinceNow": timeSinceNow,
+                "extractModuleViewState": extractModuleViewState
             }
         })
-        var arr = _.chain(instances)
+        var roleInstances = _.chain(instances)
             .filter(function(item) { return item.role == role })
             .value()
 
-        _.forEach(arr, function(k) {
-            $("#" + role).append(mt({instance: k}))
+        state.seeds = _.sortBy(state.seeds, function(seed){
+            state[seed].start
+        })
+        _.forEach(roleInstances, function(instance) {
+            $("#" + role).append(nodeTemplate({instance: instance}))
         })
     }
 
     /**
      * human readable time diff from now
      */
-    function nowdiff(then, format) {
+    function timeSinceNow(then, format) {
         if (_.isUndefined(format)) {
             format = "d[d] hh:mm:ss"
         }
-        return ddiff(moment(), then, format)
+        return timeDelta(moment(), then, format)
     }
 
     /**
      * show human readable time diff in minutes
      */
-    function ddiff(now, then, format) {
+    function timeDelta(now, then, format) {
         if (_.isUndefined(format)) {
-            format = "hh:mm:ss"
+            format = "mm:ss"
         }
         var diff = now.diff(then)
-        return moment.duration(diff).format(format)
+        return moment.duration(diff).format(format, { trim: false })
+    }
+
+    //TODO rename
+    function extractModuleViewState(instance, seed) {
+        var span = instance.spans[seed]
+        var state = "unknown"
+        var time = ""
+
+        if (_.has(span, "skipped")) {
+            state = "skipped"
+        }
+        if (span.end > 0) {
+            if (state != 'skipped') {
+                state = "complete"
+            }
+            time = "(took " + timeDelta(moment.unix(span.end), moment.unix(span.start)) + ")"
+        } else {
+            state = "started"
+            time = timeSinceNow(moment.unix(span.start)) + " ago"
+        }
+
+        return { state: state, time: time }
     }
 
     // trigger first data load
@@ -236,74 +285,73 @@ $(document).ready(function() {
     }, LOAD_INTERVAL_MS)
     // display data task - reads window.state
     setTimeout(function() {
-        var cell = prepareData(config, window.state)
-        displayCell(cell)
+        var viewState = extractViewState(config, window.state)
+        displayCell(viewState)
     }, DISPLAY_INTERVAL_MS)
 })
   </script>
+
   <script type="text/template" id="cell_template" style="display: none">
     <div id="cell_status" class="cell">
-      <div>Provisioning for cell <%= name %> started <%= moment.unix(cell_start).format() %> (<%= nowdiff(moment.unix(cell_start)) %> ago)</div>
-      <div>Zookeeper status: 
+      <div><pre>
+ ██████╗███████╗██╗     ██╗             ██████╗  ███████╗
+██╔════╝██╔════╝██║     ██║            ██╔═══██╗ ██╔════╝
+██║     █████╗  ██║     ██║     █████╗ ██║   ██║ ███████╗
+██║     ██╔══╝  ██║     ██║     ╚════╝ ██║   ██║ ╚════██║
+╚██████╗███████╗███████╗██████╗        ╚██████╔╝ ███████║
+ ╚═════╝╚══════╝╚══════╝╚═════╝         ╚═════╝  ╚══════╝
+      </pre></div>
+      <div>Provisioning for cell<strong> <%= name %> </strong><br/>
+          Started <%= moment.unix(cell_start).format() %> (<%= timeSinceNow(moment.unix(cell_start)) %> ago)</div>
+      <div>Zookeeper span (first exhibitor start trace to last zk_barrier):
       <% if (zk_end > 0) { %>
-        <span class="complete">done (took <strong><%= ddiff(moment.unix(zk_end), moment.unix(zk_start)) %></strong>)</span>
+        <span class="complete">done (took <strong><%= timeDelta(moment.unix(zk_end), moment.unix(zk_start)) %></strong>)</span>
       <% } else { %>
         <% if (zk_start > 0) { %>
-          <span class="started">in progress (started <strong><%= nowdiff(moment.unix(zk_start)) %> ago</strong>)</span>
+          <span class="started">in progress (started <strong><%= timeSinceNow(moment.unix(zk_start)) %> ago</strong>)</span>
         <% } else { %>
           <span class="missing">not started</span>
         <% } %>
       <% } %>
       </div>
-      <div>Cell status: 
+      <div>Cell total span (first provision trace to last):
         <% if (cell_end > 0) { %>
-          <span class="complete">done (took <strong><%= ddiff(moment.unix(cell_end), moment.unix(cell_start)) %></strong>)</span>
+          <span class="complete">done (took <strong><%= timeDelta(moment.unix(cell_end), moment.unix(cell_start)) %></strong>)</span>
         <% } else { %>
-        <span class="started">in progress (started <%= ddiff(moment(), moment.unix(cell_start)) %> ago)</span>
+        <span class="started">in progress (started <%= timeDelta(moment(), moment.unix(cell_start), 'hh:mm:ss') %> ago)</span>
         <% } %>
       </div>
     </div>
   </script>
+
   <script type="text/template" id="instance_template" style="display: none">
     <div id="<%= instance.id %>" class="instance">
-      <div class="header"><%= instance.role %>/<span id="status_<%= instance.id %>"><%= instance.id %></span></div>
+      <div class="header">
+          <%= instance.role %>/<span id="status_<%= instance.id %>"><%= instance.id %></span>
+      </div>
       <table>
-        <% _.each(instance.seeds.split(","), function(seed) { %>
-        <%
-          var state = "unknown"
-          var time = ""
-          if (_.has(instance, seed)) {
-            if (_.get(instance, seed + ".skipped", -1) > 0) {
-              state = "skipped"
-            } else {
-              var end = _.get(instance, seed + ".end", -1)
-              var start = _.get(instance, seed + ".start", -1)
-              if (end > 0) {
-                state = "complete"
-                time = nowdiff(moment.unix(end)) + " ago (took " + ddiff(moment.unix(end), moment.unix(start)) + ")"
-              } else {
-                state = "started"
-                time = nowdiff(moment.unix(start)) + " ago"
-              }
-            }
-          }
-        %>
-        <tr class="<%= state %>">
+        <% _.each(instance.seeds, function(seed) { var ret = extractModuleViewState(instance, seed) %>
+        <tr class="<%= ret.state %>">
           <td><span id="seed_<%= instance.id %>_<%= seed %>"><%= seed %></span></td>
-          <td><%= state %></td>
-          <td><%= time %></td>
+          <td><%= ret.state %></td>
+          <td><%= ret.time %></td>
         </tr>
         <% }) %>
       </table>
     </div>
   </script>
+
   <style>
 
   body {
     font: 12px monospace;
   }
+  strong {
+    font-weight: bold;
+  }
   .header {
     background-color: #ccc;
+    font-weight: bold;
   }
   #nucleus, #stateless-body, #stateful-body, #membrane {
     display: flex;
