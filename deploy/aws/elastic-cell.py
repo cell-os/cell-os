@@ -407,9 +407,10 @@ SharedStatusRWPolicy = s3_policy(
 )
 t.add_resource(SharedStatusRWPolicy)
 
-# In order for the HTTP Bucket Policy to work a VPCEndpoint needs to be created.
+# In order to access an S3 bucket from HTTP we need a VpcEndpoint
 # A VPC endpoint enables you to create a private connection between your VPC and another AWS service
 # without requiring access over the Internet, through a NAT device, a VPN connection, or AWS Direct Connect.
+# http://docs.aws.amazon.com/AmazonVPC/latest/UserGuide/vpc-endpoints.html
 VpcEndpointS3 = VPCEndpoint(
     "VpcEndpointS3",
     RouteTableIds=[Ref("RouteTable")],
@@ -420,7 +421,15 @@ t.add_resource(VpcEndpointS3)
 
 # TODO: move this to config, have only one place (also separate list below for
 # ssh
-egress_ips = ["127.127.16.0/23", "127.127.128.10/32", "127.127.9.200/32", "127.127.9.201/32", "127.127.9.253/32", "127.127.5.2/32", "127.127.10.200/32", "127.127.10.201/32", "127.127.10.202/32", "127.127.10.203/32", "127.127.10.204/32", "127.127.10.205/32", "127.127.10.206/32", "127.127.10.207/32", "127.127.10.208/32", "127.127.10.209/32", "127.127.10.210/32", "127.127.11.4/32", "127.127.19.4/32", "127.127.22.5/32", "127.127.22.150/32", "127.127.118.2/32", "127.127.118.6/32", "127.127.118.254/32", "127.127.114.129/32", "127.127.112.97/32", "127.127.112.98/32", "127.127.117.11/32", "127.127.62.150/32", "127.127.62.180/32", "127.127.140.131/32", "127.127.215.11/32", "127.127.215.4/32", "127.127.139.131/32", "127.127.58.150/32", "127.127.58.180/32", "127.127.65.2/32", "127.127.98.227/32", "127.127.24.4/32", "127.127.113.4/32", "127.127.121.82/32", "127.127.58.150/32", "127.127.58.180/32", "127.127.93.230/32"]
+egress_ips = ["127.127.16.0/23", "127.127.128.10/32", "127.127.9.200/32", "127.127.9.201/32", "127.127.9.253/32",
+              "127.127.5.2/32", "127.127.10.200/32", "127.127.10.201/32", "127.127.10.202/32", "127.127.10.203/32",
+              "127.127.10.204/32", "127.127.10.205/32", "127.127.10.206/32", "127.127.10.207/32", "127.127.10.208/32",
+              "127.127.10.209/32", "127.127.10.210/32", "127.127.11.4/32", "127.127.19.4/32", "127.127.22.5/32",
+              "127.127.22.150/32", "127.127.118.2/32", "127.127.118.6/32", "127.127.118.254/32", "127.127.114.129/32",
+              "127.127.112.97/32", "127.127.112.98/32", "127.127.117.11/32", "127.127.62.150/32", "127.127.62.180/32",
+              "127.127.140.131/32", "127.127.215.11/32", "127.127.215.4/32", "127.127.139.131/32", "127.127.58.150/32",
+              "127.127.58.180/32", "127.127.65.2/32", "127.127.98.227/32", "127.127.24.4/32", "127.127.113.4/32",
+              "127.127.121.82/32", "127.127.58.150/32", "127.127.58.180/32", "127.127.93.230/32"]
 
 SharedBucketPolicy = BucketPolicy(
     "SharedBucketPolicy",
@@ -428,7 +437,7 @@ SharedBucketPolicy = BucketPolicy(
     PolicyDocument={
         "Version": "2008-10-17",
         "Statement": [
-            # Read only HTTP access
+            # Read only HTTP access for S3 /shared/http
             {
                 "Effect": "Allow",
                 "Principal": "*",
@@ -442,7 +451,7 @@ SharedBucketPolicy = BucketPolicy(
                     }
                 }
             },
-            # public read
+            # public list needed by the status page
             {
                 "Effect": "Allow",
                 "Principal": {"AWS": "*"},
@@ -454,6 +463,7 @@ SharedBucketPolicy = BucketPolicy(
                 ],
                 "Condition": {
                     "StringLike": {
+                        # S3 lists the entire bucket recursively, so we need to filter
                         "s3:prefix": [Join("", ["cell-os--", Ref("CellName"), "/shared/status/*"])],
                     },
                     "IpAddress": {
@@ -461,7 +471,7 @@ SharedBucketPolicy = BucketPolicy(
                     }
                 }
             },
-            # public list
+            # public read needed by the status page
             {
                 "Effect": "Allow",
                 "Principal": {"AWS": "*"},
@@ -892,6 +902,7 @@ def create_cellos_substack(t, name=None, role=None, cell_modules=None, tags=[], 
         Parameters=params
     ))
 
+# TODO (clehene) cell_modules should come from cluster.yaml (equivalent) mapping of role -> [modules] (CELL-302)
 create_cellos_substack(
     t,
     name="Nucleus",

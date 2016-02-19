@@ -502,12 +502,16 @@ aws s3 cp $status_file s3://${cell_bucket_name}/${full_cell_name}/shared/status/
     InstanceType=Ref(instance_type),
     UserData=make_user_data("""\
 #!/bin/bash
+# TODO add a header describing the overall idea and plan of improvement (proper cloud-init, etc.)
 # default images mount the first ephemeral disk to /mnt
+# this is from cloud-init config that comes with the cloud-init.rpm
 umount /mnt
 # set timezone
 echo "UTC" > /etc/timezone
 ln -sf /usr/share/zoneinfo/UTC /etc/localtime
-# Base packages
+
+# Base packages (required for cfn-init)
+# kpartx and parted for detect and mount partition
 yum install -y wget ruby ruby-devel kpartx parted
 
 # Pip
@@ -518,8 +522,12 @@ pip install "pip==7.1.2"
 
 # aws-cli
 pip install --upgrade "awscli==1.9.21"
+# TODO ec2-utils and ec2-net-utils - why??
 rpm -ivh http://s3.amazonaws.com/saasbase-repo/yumrepo/ec2-utils-0.6-2.el7.centos.noarch.rpm
 rpm -ivh http://s3.amazonaws.com/saasbase-repo/yumrepo/ec2-net-utils-0.6-2.el7.centos.noarch.rpm
+
+# pip install awscli installs certify - that deprecates some crypto shit and things don't work well
+# TODO check if upgrading this fixes it
 pip uninstall -y certifi
 pip install certifi==2015.04.28
 
@@ -538,6 +546,7 @@ function error_exit
 }
 
 # Process CloudFormation init definitions
+# TODO error_exist should signal an error to CF so that we can fail this instance
 cfn-init -s Ref(AWS::StackName) -r BodyLaunchConfig  --region Ref(AWS::Region) || error_exit 'Failed to run cfn-init'
 
 # export vars
@@ -546,6 +555,7 @@ source /etc/profile.d/cellos.sh
 export wait_handle='Ref(WaitHandle)'
 export cell_modules='Ref(CellModules)'
 
+report_status "role ${cell_role}"
 report_status "seeds ${cell_modules},zk_barrier"
 report_status "${cell_role} start"
 
