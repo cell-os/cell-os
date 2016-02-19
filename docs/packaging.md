@@ -1,5 +1,35 @@
 ## Cell-OS base deployment packages
 
+TODO
+
+## Useful base Docker images
+
+Docker is the most usual packaging mechanism for Cell-OS. 
+Our recommended base images are all based on Alpine Linux and optimized for size. 
+
+> Note: Alpine Linux will become the default base image for Docker.
+
+Some useful base images to start for your workloads: 
+
+* [docker-alpine](https://github.com/gliderlabs/docker-alpine)
+    * Beware of some issues with DNS resolving from `resolv.conf`
+    * Should be fixed with `alpine:3.4`
+* [sillelien-alpine](https://github.com/sillelien/base-alpine)
+    * docker-alpine with java and dns hacks (using dnsmasq and the S6 process supervisor)
+    * a good starting point, we need to remove tutum specific things from it
+* [sillelien-alpine-glibc](https://github.com/sillelien/base-alpine-glibc)
+    * on top of the previous image, also adds glibc
+* [docker-alpine-jdk8](https://github.com/frol/docker-alpine-oraclejdk8)
+    * base alpine image with Oracle JDK 8 (which we should standardize for production workloads)
+* [docker-alpine-java](https://github.com/anapsix/docker-alpine-java)
+    * another version for a Java one. 
+
+Some useful tools/documentation for Docker images: 
+
+* [Atlassian: Minimal Java Docker Containers](https://developer.atlassian.com/blog/2015/08/minimal-java-docker-containers/)
+* [Docker Image Size Comparison](https://www.brianchristner.io/docker-image-base-os-size-comparison/)
+* [imagelayers.io](https://imagelayers.io/) - very useful tool to compare images and get size information for each layer
+
 ## Cell-OS DCOS packages
 
 Cell-OS can use DCOS packages. 
