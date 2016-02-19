@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <title>Cell status</title>
 
-  <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/meyer-reset/2.0/reset.min.css"></link>
+  <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/meyer-reset/2.0/reset.min.css">
   <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.0.1/lodash.min.js" ></script>
   <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/zepto/1.1.6/zepto.min.js" ></script>
   <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.11.1/moment.min.js" ></script>
@@ -19,12 +19,12 @@ $(document).ready(function() {
     config = extractConfig(window.location)
 
     /**
-     * detects cell name and bucket from an url
+     * detects cell name, bucket, region from the url
      */
     function extractConfig(url) {
         var bucket = /:\/\/([^\.]*)\./g.exec(url)[1]
         var region = /\.s3(.*)\.amazonaws/.exec(url)[1]
-        return {"bucket": bucket, "region": region}
+        return {"cell_name": bucket, "bucket": bucket, "region": region}
     }
 
     /**
@@ -40,6 +40,23 @@ $(document).ready(function() {
 
     /**
      * Parses a status instance file into a instance structure
+     *
+     * seeds 00-docker,00-java,01-exhibitor,02-mesos,10-marathon,99-cell,zk_barrier 1455659275
+     * stateless-body start 1455659274
+     * 00-docker start 1455659282
+     * 00-docker end 1455659339
+     * 00-java start 1455659339
+     * 00-java end 1455659415
+     * 01-exhibitor skipped 1455659416
+     * zk_barrier start 1455659416
+     * zk_barrier end 1455660144
+     * 02-mesos start 1455660145
+     * 02-mesos end 1455660170
+     * 10-marathon start 1455660170
+     * 10-marathon end 1455660225
+     * 99-cell skipped 1455660226
+     * stateless-body end 1455660227
+     *
      * @param file multi line string, file contents
      * @return state object containing metadata
      */
