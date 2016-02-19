@@ -471,7 +471,7 @@ echo $(get_private_ip)
 source /etc/profile.d/cellos.sh
 mkdir -p /opt/cell/status
 
-message=$1
+message=$@
 ts=$(date +"%s")
 status_file=/opt/cell/status/${instance_id}.json
 
