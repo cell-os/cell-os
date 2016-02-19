@@ -653,7 +653,7 @@ class Cell(object):
                 "Stacks["
                 "? (Tags[? Key=='name'] && Tags[? Key=='version'] )"
                 "][ StackId, StackName, StackStatus, Tags[? Key=='version'].Value | [0], CreationTime]",
-                boto3.client("cloudformation").describe_stacks()
+                self.cfn.meta.client.describe_stacks()
             ) if not re.match(r".*(MembraneStack|NucleusStack|StatefulBodyStack|StatelessBodyStack).*", stack[0])]
             # extract region from stack id arn:aws:cloudformation:us-west-1:482993447592:stack/c1/1af7..
             stacks = [[stack[1], stack[0].split(":")[3]] + stack[2:] for stack in stacks]
@@ -1064,7 +1064,7 @@ windows:
     def output(self, filter):
         return jmespath.search(
             "Stacks[0].Outputs | [?contains(OutputValue, `{}`) == `true`]|[0]|OutputValue".format(filter),
-            boto3.client("cloudformation").describe_stacks(StackName=self.stack)
+            self.cfn.meta.client.describe_stacks(StackName=self.stack)
         )
 
     def run_mesos(self):
