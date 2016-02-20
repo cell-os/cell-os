@@ -98,7 +98,7 @@ $(document).ready(function() {
         })
 
         state.seeds = _.sortBy(state.seeds, function (seed) {
-            return state.spans[seed].start
+            return _.get(state.spans, seed + ".start", Number.MAX_VALUE)
         })
         return state
     }
@@ -257,6 +257,9 @@ $(document).ready(function() {
 
     //TODO rename
     function extractModuleViewState(instance, seed) {
+        if (!_.has(instance.spans, seed)) {
+            return { state: "pending", time: 0 }
+        }
         var span = instance.spans[seed]
         var state = "unknown"
         var time = ""
@@ -271,7 +274,7 @@ $(document).ready(function() {
             time = "(took " + timeDelta(moment.unix(span.end), moment.unix(span.start)) + ")"
         } else {
             state = "started"
-            time = timeSinceNow(moment.unix(span.start)) + " ago"
+            time = timeSinceNow(moment.unix(span.start), 'hh:mm:ss') + " ago"
         }
 
         return { state: state, time: time }
@@ -302,7 +305,9 @@ $(document).ready(function() {
  ╚═════╝╚══════╝╚══════╝╚═════╝         ╚═════╝  ╚══════╝
       </pre></div>
       <div>Provisioning for cell<strong> <%= name %> </strong><br/>
+      <% if (cell_start > 0) { %>
           Started <%= moment.unix(cell_start).format() %> (<%= timeSinceNow(moment.unix(cell_start)) %> ago)</div>
+      <% } %>
       <div>Zookeeper span (first exhibitor start trace to last zk_barrier):
       <% if (zk_end > 0) { %>
         <span class="complete">done (took <strong><%= timeDelta(moment.unix(zk_end), moment.unix(zk_start)) %></strong>)</span>
@@ -318,7 +323,11 @@ $(document).ready(function() {
         <% if (cell_end > 0) { %>
           <span class="complete">done (took <strong><%= timeDelta(moment.unix(cell_end), moment.unix(cell_start)) %></strong>)</span>
         <% } else { %>
-        <span class="started">in progress (started <%= timeDelta(moment(), moment.unix(cell_start), 'hh:mm:ss') %> ago)</span>
+          <% if (cell_start > 0) { %>
+            <span class="started">in progress (started <%= timeDelta(moment(), moment.unix(cell_start), 'hh:mm:ss') %> ago)</span>
+          <% } else { %>
+            <span class="missing">not started</span>
+          <% } %>
         <% } %>
       </div>
     </div>
@@ -361,10 +370,15 @@ $(document).ready(function() {
   .skipped {
       text-decoration: line-through;
       color: #A7A7A7;
+      background-color: #DCEFC3;
   }
   .complete {
       background-color: #DCEFC3;
   }
+  .started {
+      background-color: yellowgreen;
+  }
+
   .instance {
     flex: 0 0 32%;
     margin: 0 1em 1em 0;
