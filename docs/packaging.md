@@ -67,21 +67,43 @@ When running the Cell-OS DCOS wrapper( `./cell dcos...`), we:
 * if we don't, we run the command as specified; some packages might work, some not
 * we are working on a subset of available packages
 
-### Usage 
+## Core CellOS Services
+
+```
+# cell name variable used only for example purposes
+export cell_name=<YOUR-CELL-NAME-HERE>
+```
 
 ```bash
-# prepare config files
-./cell config CELLNAME
-# optional step - add a package repository
-./cell dcos CELLNAME config append package.sources https://github.com/mesosphere/universe/archive/version-1.x.zip
-# create dcos package cache
-./cell dcos CELLNAME package update
- # installs the cli package
-./cell dcos CELLNAME package install --cli kafka
-# Run Kafka Mesos framework on Marathon
-./cell dcos CELLNAME package install --app --app-id=kafka kafka
+# create / update dcos package cache
+./cell dcos ${cell_name} package update
+```
+
+### Kafka
+
+Using the [mesos-kafka scheduler](https://github.com/mesos/kafka). For additional operations please consult the [upstream documentation](https://github.com/mesos/kafka#starting-and-using-1-broker)
+
+```bash
+ 
+# installs the cli package (locally)
+./cell dcos ${cell_name} package install --cli kafka
+./cell dcos ${cell_name} kafka help
+
+# Install / Run Kafka Mesos framework on Marathon
+./cell dcos ${cell_name} package install --app --app-id=kafka kafka
+```
+
+```bash
 # Add a broker
-./cell dcos CELLNAME kafka broker add 0 --cpus 2 --mem 1024 --options "log.dirs=/mnt/data_1/kafka_data/broker0" --constraints "role=like:stateful.*,hostname=unique"
+./cell dcos ${cell_name} kafka broker add 0 --cpus 2 --mem 1024 --options "log.dirs=/mnt/data_1/kafka_data/broker0" --constraints "role=like:stateful.*,hostname=unique"
+```
+* `--options` - note that we're passing the mount point when we add the broker. 
+   * We'll later pick this behind the scenes 
+* `--constraints` - we want peristent workloads to go only to the stateful part of the cell (stateful-body)
+   * also we want to run one broker per node per cluster (nodes from multiple cluster may end up on the same node)
+
+
+```bash
 # Start Broker !!!
-./cell dcos CELLNAME kafka broker start 0
+./cell dcos ${cell_name} kafka broker start 0
 ```
