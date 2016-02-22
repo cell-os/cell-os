@@ -24,9 +24,6 @@ Usage:
   cell log <cell-name> [<role> <index>]
   cell cmd <cell-name> <role> <index> <command>
   cell proxy <cell-name>
-  cell mesos <cell-name> <method> <path> [<payload>]
-  cell marathon <cell-name> <method> <path> [<payload>]
-  cell zk <cell-name> <method> <path> [<payload>]
   cell dcos <cell-name>
   cell (-h | --help)
   cell --version
@@ -78,7 +75,6 @@ if os.name == 'posix' and sys.version_info[0] < 3:
 else:
     import subprocess
 
-import socks
 import requests
 from docopt import docopt
 import boto3
@@ -1030,55 +1026,11 @@ windows:
 
         subprocess.call("{} -f -F {} -N proxy-cell-{} &>/dev/null".format(ssh_cmd, self.tmp("ssh_config"), self.cell), shell=True)
 
-    def cluster_request(self, url, converter=lambda x: x):
-        socks.set_default_proxy(socks.SOCKS5, "127.0.0.1", int(self.proxy_port))
-        socket.socket = socks.socksocket
-        print "Making request to {}...".format(url)
-        kwargs = {
-            "method": self.arguments["<method>"],
-            "url": url + "/" + self.arguments["<path>"],
-            "headers": {
-                "Content-Type": "application/json"
-            },
-        }
-        data = readify(self.arguments["<payload>"])
-        if data:
-            kwargs['data'] = converter(data)
-        response = requests.request(**kwargs)
-        socket.socket = DEFAULT_SOCKET
-        try:
-            json_response = json.loads(response.content)
-            print "Response: {}\n{}".format(
-                response.status_code,
-                json.dumps(
-                    json_response,
-                    indent=2
-                )
-            )
-        except ValueError:
-            print "Response: {}\n{}".format(
-                response.status_code,
-                response.content
-            )
-
     def output(self, filter):
         return jmespath.search(
             "Stacks[0].Outputs | [?contains(OutputValue, `{}`) == `true`]|[0]|OutputValue".format(filter),
             self.cfn.meta.client.describe_stacks(StackName=self.stack)
         )
-
-    def run_mesos(self):
-        url = self.output("lb-mesos")
-        self.cluster_request(url)
-
-    def run_zk(self):
-        url = self.output("lb-zookeeper")
-        self.cluster_request(url, converter=binascii.hexlify)
-
-    def run_marathon(self):
-        url = self.output("lb-marathon")
-        self.cluster_request(url)
-
 
 def main(work_dir=None):
     global DIR, TMPDIR
