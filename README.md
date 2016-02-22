@@ -22,9 +22,6 @@ It currently consists of Zookeeper, Docker, Mesos and Marathon.
 | cell-os-base-1.0-SNAPSHOT | Vagrant       | your laptop   | [Amoeba](https://git.corp.adobe.com/metal-cell/amoeba) ||
 | cell-os-base-1.0-SNAPSHOT | vanilla / DIY | *             | [existing clusters](https://git.corp.adobe.com/metal-cell/clusters)    ||
 | cell-os-base-1.0-SNAPSHOT | CMDB          | TBD           | TBD ||
-| cell-os-base-1.1          | GCE           | N/A           | N/A ||
-| cell-os-base-1.1          | IT Cloud      | N/A           | N/A ||
-| cell-os-base-1.1          | CPT           | N/A           | N/A ||
 
 
 # CLI
@@ -38,9 +35,24 @@ Details, caveats, TODOs in the [aws deployment section](deploy/aws/README.md)
 Currently only AWS is supported by the CLI.
 
 
-### Install
+## Install
+
+#### Configure [AWS CLI](http://aws.amazon.com/cli/)
+The cell cli tool is using a bunch of Python packages, that talk to AWS:
+
+    aws configure
 
 We recommend using [virtualenv](http://virtualenv.readthedocs.org/en/latest/)
+
+#### Running from source
+
+Install `requirements.txt` dependencies
+
+    cd git-repo/cell-os
+    pip install -r requirements.txt
+    ./cell
+
+#### pip pacakge (new feature*)
 
     virtualenv env
     source env/bin/activate
@@ -48,10 +60,8 @@ We recommend using [virtualenv](http://virtualenv.readthedocs.org/en/latest/)
     pip install --upgrade git+ssh://git.corp.adobe.com/metal-cell/cell-os.git
     cell --help
 
-#### Configure [AWS CLI](http://aws.amazon.com/cli/)
-The cell cli tool is using a bunch of Python packages, that talk to AWS:
-
-    aws configure
+ \* We've recently added the pip functionality and has so far worked well. If you have any issues
+please report them promptly. 
 
 ## Usage
 
@@ -72,13 +82,6 @@ The cell-os version bundle captures the necessary module versions that are devel
 tested and certified to work together.
 
 [cell-os-base](cell-os-base.yaml)
-# Development
-
-Install `requirements.txt` dependencies
-
-    cd git-repo/cell-os
-    pip install -r requirements.txt
-    ./cell
 
 # Documentation
 
