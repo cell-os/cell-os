@@ -54,7 +54,7 @@ function _M:endpoints_for_app(app_name)
         'Could not make request to ' .. self.marathon_endpoint .. "/v2/tasks"
     )
     local tasks = assert(cjson.decode(res.body),  'Could not decode ' .. tostring(res.body))
-    out = {}
+    local out = {}
     for i, task in pairs(tasks.tasks) do
         if mangled_app_name(task.appId) == app_name then
             table.insert(out, {host=task.host, ports=task.ports})

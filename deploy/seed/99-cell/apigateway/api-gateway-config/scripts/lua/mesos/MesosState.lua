@@ -90,7 +90,7 @@ local function getMesosLeaderFromMesosAPI(internal_location)
     local response = ngx.location.capture(internal_location)
     local loc = response.header["Location"]
     if loc == nil then
-        ngx.log(ngx.WARN, tostring(url), "Could not find the master. For status", tostring(response.status), " and body:", tostring(response.body))
+        ngx.log(ngx.WARN, tostring(internal_location), "Could not find the master. For status", tostring(response.status), " and body:", tostring(response.body))
         return nil
     end
     local m, err = ngx.re.match(loc, "(http[s]:)*(//)*(?<host>.*)")
