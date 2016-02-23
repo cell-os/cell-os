@@ -683,7 +683,7 @@ class Cell(object):
                 ["zookeeper", self.gateway("zookeeper")],
                 ["mesos", self.gateway("mesos")],
                 ["marathon", self.gateway("marathon")],
-                ["hdfs", self.gateway("marathon")],
+                ["hdfs", self.gateway("hdfs")],
             ])
 
     def is_fresh_file(self, path):
