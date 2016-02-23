@@ -1,62 +1,181 @@
-# Running and deploying on CellOS
+# Intro
 
-# Cell resources available for users on startup
+This userguide assumes you have a working cell.
 
-* S3 bucket: `s3://cell-os--CELLNAME/cell-os--CELLNAME`
-    * Writable dirs are: `s3://cell-os--CELLNAME/cell-os--CELLNAME/shared/http`
-* Marathon, Mesos endpoints (see below)
-    * Mesos roles: by default all machines in a certain role are tagged with an attribute called `role`, and the value of that cell subdivision (`stateless-body`, `stateful-body`, `membrane`)
-* HDFS
-* Gateway URLS
+To create a cell see the [cli instalation](https://git.corp.adobe.com/metal-cell/cell-os#install) the [cli documentation](https://git.corp.adobe.com/metal-cell/cell-os/blob/master/docs/cli.md)
 
-# Cell service discovery
+TLDR: 
 
-Cellos uses Adobe.io gateway for service discovery.
-An empty cell exposes at least a set of urls that can be used to get configuration from:
+    ./cell create my-new-cell
 
-* `http://zookeeper.gw.CELLNAME.metal-cell.adobe.io` - endpoint for Exhibitor / Zookeeper
-* `http://mesos.gw.CELLNAME.metal-cell.adobe.io` - endpoint for Mesos (see running frameworks and tasks, active mesos slaves, get information on running tasks)
-* `http://marathon.gw.CELLNAME.metal-cell.adobe.io` - endpoint for Marathon (POST to it so long-running workloads start on Mesos, see list of running apps, etc)
-* `http://hdfs.gw.CELLNAME.metal-cell.adobe.io` - active HDFS namenode (see information on HDFS capacity, etc)
-    * `http://hdfs.gw.CELLNAME.metal-cell.adobe.io.conf`, `http://hdfs.gw.CELLNAME.metal-cell.adobe.io/conf?format=json` - useful endpoint to use in HDFS clients (dumps running HDFS configuration)
+For convenience 
 
-## Configuring Cell service discovery
+    export $CELL_NAME=my-new-cell
 
-A workload running in marathon has a set of specific labels that can be used to control Gateway's behavior: 
+# Cell resources available for users on startup:
 
-* `lb:enabled` - enables or disables proxying functionality for this service; Default is *true*;
-* `lb:ports` - Indexes of ports to forward to;
-* `lb:module` - Specifies the custom GW module to handle this application type; the configuration and proxying microservice for this specific application;
+    ./cell list $CELL_NAME 
 
-## Workload discovery
+## Core services
 
-User workloads are discovered in the same way; 
-An user application `APP`, running on Marathon, will be available at `http://app.gw.CELLNAME.metal-cell.adobe.io`
+Started automatically with the cell:
 
-By default, all exposed ports and hosts in Marathon will be created as a load-balanced upstream configuration for Gateway. 
-This means that hitting `http://app.gw.CELLNAME.metal-cell.adobe.io` will hit all exposed ports and hosts in a round-robin fashion.
+*  api-gateway / load balancer (available under `*.gw.$CELL_NAME.metal-cell.adobe.io` DNS)
+* `http://zookeeper.gw.$CELL_NAME.metal-cell.adobe.io`
+* `http://mesos.gw.$CELL_NAME.metal-cell.adobe.io`
+* `http://marathon.gw.$CELL_NAME.metal-cell.adobe.io`
+* `http://hdfs.gw.$CELL_NAME.metal-cell.adobe.io`
 
-> The endpoints described are available only from a set of specified egress IPS.
-> Currently, this includes all Adobe egress IPs.
+Not started automatically (yet) but deployable through the cell cli as [DCOS packages](https://git.corp.adobe.com/metal-cell/cell-universe)
 
-# Running workloads on Marathon/Mesos
+* Kafka
+* HBase 
+* OpenTSDB
 
-Please see upstream Marathon documentation: [Application Basics](https://mesosphere.github.io/marathon/docs/application-basics.html)
-To run a Mesos framework (which is in itself a long-running program), users can start them in Marathon
+## S3 Bucket
+Each cell has an associated bucket with several subdirectories.  
+By default this will be:
+
+    s3://cell-os--$CELL_NAME/cell-os--$CELL_NAME
+
+For more info see [HTTP access to S3 folder](#HTTP-access-to-S3-folder)
+
+**The endpoints described are available only from a restricted set of egress IPS**
+
+# Running Workloads
+
+## CellOS Services
+
+CellOS comes with a [DCOS repository](https://git.corp.adobe.com/metal-cell/cell-universe) that you can use 
+
+    $ ./cell dcos $CELL_NAME package update
+    
+    $ ./cell dcos $CELL_NAME package list
+    Running dcos package list...
+    NAME        VERSION  APP     COMMAND     DESCRIPTION
+    kafka       0.9.4.0  /kafka  kafka       Apache Kafka running on top of Apache Mesos
+
+To run an existing service [packaging/services section](packaging.md#core-cellos-services).
+
+TLDR - it's typically something like:
+
+    $ ./cell dcos $CELL_NAME package install ...
+
+## Running your own workloads
+
+To get started you can run a simple docker container by:
+
+```
+$ curl -X POST -H "Content-Type: application/json" \
+-d '
+{
+  "id": "hello-cellos",
+  "cmd": "python -m SimpleHTTPServer $PORT", 
+  "mem": 50, 
+  "cpus": 0.1, 
+  "instances": 1
+}' \
+http://marathon.gw.$CELL_NAME.metal-cell.adobe.io/v2/apps
+```
+
+Now if you open `http://hello-cellos.gw.$CELL_NAME.metal-cell.adobe.io` in a browser you should see the server running.
+
+> **Pro tip**
+> install [httpie](https://github.com/jkbrzt/httpie) using your package manager (brew, apt, yum, pip):
+```    
+brew install httpie
+```
+> try
+```
+`http http://marathon.gw.$CELL_NAME.metal-cell.adobe.io/v2/tasks Accept:text/plain`
+```
+
+## DCOS Packages
+
+See the [packaging](packaging.md) documentation for more details.
+
+It's easy to run applications with Marathon, however most times your service will depend on other services (like Kafka) as well as expose its own configuration handles.
+
+You can do this by generating Marathon templates, versioning them and making them available in a repo.
+
+DCOS packages are a convenient way (simply JSON) to package and distribute your service. 
+They simply specify a Marathon JSON template together with some metadata that allows you to configure a service. 
+
+See [cell universe](https://git.corp.adobe.com/metal-cell/cell-universe) for existing CellOS DCOS packages.  
+
+Marathon documentation: [Application Basics](https://mesosphere.github.io/marathon/docs/application-basics.html)
 
 ## Scheduling to specific cell subdivisions
 
-Each subdivision's is available through the Mesos `role` attribute:
-To set a [Marathon constraint](https://github.com/mesosphere/marathon/blob/master/docs/docs/constraints.md)
-to run in the stateless body you can:
+If you want your workload to run only on `stateful-body` or only on `membrane` you can restrict it
+trough [marathon constraints](https://github.com/mesosphere/marathon/blob/master/docs/docs/constraints.md).
+
+Each subdivision's role is available through the Mesos `role` attribute:
+
+To run in the stateless body you can:
 
     "constraints": [["role", "CLUSTER", "stateless-body"]]
 
-> Public workloads need to be scheduled on the `membrane` role
+# Private Docker Registry Authentication
+
+You can use the shared http "folder" in S3 to store these (see the section on S3 access).
+Any http accessible .dockercfg archive would work.
+
+
+# Service and Configuration Discovery 
+
+A service with named `foo-service` running in cell named `bar-cell` can be located through the cell load balancer at:
+
+```
+foo-service.gw.bar-cell.metal-cell.adobe.io
+```
+
+Optionally, if the service exposes additional **configuration** this can be retrieved from
+
+```
+foo-service.gw.bar-cell.metal-cell.adobe.io/cellos/config
+```
+
+E.g. 
+
+```
+http://kafka.gw.c1.metal-cell.adobe.io/cellos/config
+
+{
+  brokers: [
+    "ip-10-0-0-105.us-west-1.compute.internal:31000"
+  ]
+}
+```
+
+## How service discovery works
+
+Each cell runs a distributed [Adobe.io apigateway](https://github.com/adobe-apiplatform/apigateway) service
+used to perform service discovery and load balancing.
+
+The current load balancing implementation polls the `/v2/tasks` marathon endpoint every few seconds and will use that to expose each service:
+
+* marathon app `id` will be used as service discriminator
+* marathon tasks are used to extract `host`, `ports[0]` for each task and used as endpoints to forward requests (round-robin)
+
+Any service deployed in Marathon is discoverable through the above scheme by default.
+
+## Configuring discovery for a new service
+
+You can use [Marathon labels (`"labels": {}`)](https://github.com/mesosphere/marathon/blob/master/examples/labels.json) to control the load balancer behavior: 
+
+* `lb:enabled` - enables or disables proxying functionality for this service; Default is *true*;
+* `lb:ports` - Indexes of ports to forward to;
+  * ~~all ports will be created as a load-balanced upstream configuration for Gateway~~
+  * currently only first port (`$PORT0`) is exposed.
+* `lb:module` - Optional - specifies a custom GW module to handle this application type; the configuration and proxying microservice for this specific application;
 
 # HTTP access to S3 folder
 
-Applications that need remote configuration, can upload files to `s3://cell-os--CELLNAME/cell-os--CELLNAME/shared/http`. The folder can be accessed from inside cell's VPC. 
+Each cell has an associated bucket along with "folders" that each cell subdivision will have access to, plus a `shared` "folder" which is accessible from all cell subdivisions.
+The `shared/http` "folder" can be accessed over HTTP directly form inside the VPC.
+
+Applications that need remote configuration, can upload files to `s3://cell-os--$CELL_NAME/cell-os--$CELL_NAME/shared/http`. The folder can be accessed from inside cell's VPC. 
 
 > **Note:** This folder should only contain information that is shareable between workloads.
 > 
