@@ -18,7 +18,7 @@ function _M.exec_config()
       ngx.say(cjson.encode({ error = "Application has no endpoints" }))
       return ngx.exit(ngx.HTTP_OK)
     end
-    out = {}
+    local out = {}
     local scheduler_url = "http://" .. endpoints[1].host .. ":" .. endpoints[1].ports[1] .. "/api/broker/list"
 
     local hc = http.new()
