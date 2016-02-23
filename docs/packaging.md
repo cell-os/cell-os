@@ -79,6 +79,18 @@ export cell_name=<YOUR-CELL-NAME-HERE>
 ./cell dcos ${cell_name} package update
 ```
 
+List available packages
+
+```bash
+❯ ./cell dcos c1 package list
+Running dcos package list...
+NAME                VERSION  APP                  COMMAND     DESCRIPTION
+apigateway          0.1.0    ---                  apigateway  Adobe API Gateway
+hbase-master        0.1.0    /hbase-master        ---         HBase master workload running on top of Apache Mesos
+hbase-regionserver  0.1.0    /hbase-regionserver  ---         HBase region-server workload running on top of Apache Mesos
+kafka               0.9.4.0  /kafka               kafka       Apache Kafka running on top of Apache Mesos
+```
+
 ### Kafka
 
 Using the [mesos-kafka scheduler](https://github.com/mesos/kafka). For additional operations please consult the [upstream documentation](https://github.com/mesos/kafka#starting-and-using-1-broker)
@@ -101,7 +113,6 @@ Using the [mesos-kafka scheduler](https://github.com/mesos/kafka). For additiona
    * We'll later pick this behind the scenes 
 * `--constraints` - we want peristent workloads to go only to the stateful part of the cell (stateful-body)
    * also we want to run one broker per node per cluster (nodes from multiple cluster may end up on the same node)
-
 
 ```bash
 # Start Broker !!!
