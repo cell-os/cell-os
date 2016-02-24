@@ -10,8 +10,8 @@ docker::version: 1.10.1-1.el7.centos
 java::version: 8u71
 # zookeeper exhibitor
 zookeeper::version: 3.4.6_1.5.6
-mesos::version: 0.27.0-0.2.190.centos701406
-marathon::version: v0.15.2
+mesos::version: 0.27.1-2.0.226.centos701406
+marathon::version: v0.15.3
 etcd::version: v2.2.5
 
 modules:
