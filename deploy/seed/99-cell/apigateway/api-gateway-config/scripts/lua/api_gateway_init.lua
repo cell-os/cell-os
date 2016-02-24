@@ -52,8 +52,13 @@ local function initMetricsFactory(parentObject)
     parentObject.metrics = require "metrics.factory"
 end
 
+local function initConfig(parentObject)
+    parentObject.config = require "api_gateway_config"
+end
+
 initValidationFactory(_M)
 initMetricsFactory(_M)
+initConfig(_M)
 -- TODO: test health-check with the new version of Openresty
 -- initRedisHealthCheck()
 

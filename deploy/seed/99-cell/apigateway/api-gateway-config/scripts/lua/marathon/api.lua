@@ -30,9 +30,16 @@ local mt = {__index=_M}
 
 function _M.new(o)
     local o = o or {}
+    -- ngx.apiGateway.config is defined in api_gateway_init.lua
+    if (ngx.apiGateway ~= nil and ngx.apiGateway.config ~= nil) then
+        o.marathon_endpoint = ngx.apiGateway.config.getMarathonEndpoint()
+    end
     return setmetatable(o, mt)
 end
 
+--- Returns the information about the given application from Marathon
+-- @param name the name of the Marathon app
+--
 function _M:app_for_name(name)
     local res = assert(
         get(self.marathon_endpoint .. "/v2/apps"),
