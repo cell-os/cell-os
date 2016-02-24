@@ -58,7 +58,7 @@ Slack https://adobe.slack.com/messages/metal-cell/
 
 import binascii
 import traceback
-from functools import partial
+from functools import partial, wraps
 import json
 import sys
 import os
@@ -367,6 +367,19 @@ class Cell(object):
     def gateway(self, service):
         return "http://{}.{}".format(service, self.dns_name)
 
+    def check_cell_exists(f):
+        @wraps(f)
+        def wrapped(inst, *args, **kwargs):
+            try:
+                # if the cell parameter is defined, check it
+                if inst.cell != None:
+                    inst.session.client('cloudformation').describe_stacks(StackName=inst.cell)
+            except Exception:
+                print "Cell {} does not exist or is not running !".format(inst.cell)
+                sys.exit(1)
+            return f(inst, *args, **kwargs)
+        return wrapped
+
     def run(self):
         getattr(self, 'run_%s' % self.command)()
 
@@ -495,6 +508,7 @@ class Cell(object):
         self.build_stack_files()
         self.build_seed()
 
+    @check_cell_exists
     def run_seed(self):
         self.seed()
 
@@ -600,6 +614,7 @@ class Cell(object):
         To open external SSH access see https://inside.corp.adobe.com/itech/kc/IT00792.html
         """.format(cell=self.cell, full_cell=self.full_cell, region=self.region, statuspage=self.statuspage)
 
+    @check_cell_exists
     def run_update(self):
         self.stack_action(action='update')
 
@@ -643,6 +658,7 @@ class Cell(object):
         )
         return tmp
 
+    @check_cell_exists
     def run_list(self):
         if self.cell == None:
             stacks = [stack for stack in jmespath.search(
@@ -837,6 +853,7 @@ DynamicForward {port}
         return args
 
     # we wrap the dcos command with the gateway configuration
+    @check_cell_exists
     def run_dcos(self):
         self.ensure_config()
         dcos_args = sys.argv[3:]
@@ -847,6 +864,7 @@ DynamicForward {port}
         os.environ["DCOS_CONFIG"] = self.tmp("dcos.toml")
         subprocess.call(command, shell=True)
 
+    @check_cell_exists
     def run_scale(self):
         capacity = int(self.arguments['<capacity>'])
         (group, current_capacity) = jmespath.search(
@@ -875,6 +893,7 @@ DynamicForward {port}
                 DesiredCapacity=capacity
             )
 
+    @check_cell_exists
     def run_ssh(self, command=None):
         self.ensure_config()
         ssh_options="{} -o ConnectTimeout={}".format(self.ssh_options, self.ssh_timeout)
@@ -901,6 +920,7 @@ DynamicForward {port}
                 ssh_options, self.ssh_user, ip, self.key_file
             ), shell=True)
 
+    @check_cell_exists
     def run_cmd(self):
         self.run_ssh(self.arguments['<command>'])
 
@@ -947,6 +967,7 @@ DynamicForward {port}
         else:
             self.run_ssh("tail -f -n 20 /var/log/cloud-init-output.log")
 
+    @check_cell_exists
     def run_i2cssh(self):
         if not sh.which('i2cssh'):
             print "You need i2cssh for this subcommand. Install it with gem install i2cssh"
@@ -964,6 +985,7 @@ DynamicForward {port}
         if self.key_file:
             sh.i2cssh("-d", "row", "-l", self.ssh_user, "-m", machines, "-Xi={}".format(self.key_file))
 
+    @check_cell_exists
     def run_mux(self):
         self.ensure_config()
         if not sh.which('tmux'):
@@ -1016,6 +1038,7 @@ windows:
 
         subprocess.call('mux {}'.format(self.full_cell), shell=True)
 
+    @check_cell_exists
     def run_proxy(self):
         self.ensure_config()
         ssh_cmd = str(sh.ssh)
