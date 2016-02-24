@@ -82,13 +82,39 @@ export cell_name=<YOUR-CELL-NAME-HERE>
 List available packages
 
 ```bash
-❯ ./cell dcos c1 package list
-Running dcos package list...
-NAME                VERSION  APP                  COMMAND     DESCRIPTION
-apigateway          0.1.0    ---                  apigateway  Adobe API Gateway
-hbase-master        0.1.0    /hbase-master        ---         HBase master workload running on top of Apache Mesos
-hbase-regionserver  0.1.0    /hbase-regionserver  ---         HBase region-server workload running on top of Apache Mesos
-kafka               0.9.4.0  /kafka               kafka       Apache Kafka running on top of Apache Mesos
+❯ ./cell dcos $cell_name package search
+Running dcos package search...
+NAME                VERSION  FRAMEWORK  SOURCE                                                                            DESCRIPTION
+hbase-master        0.1.0    False      https://s3.amazonaws.com/saasbase-repo/cell-os/cell-os-universe-1.2-SNAPSHOT.zip  HBase master workload running on top of Apache Mesos
+hbase-regionserver  0.1.0    False      https://s3.amazonaws.com/saasbase-repo/cell-os/cell-os-universe-1.2-SNAPSHOT.zip  HBase region-server workload running on top of Apache Mesos
+kafka               0.9.4.0  True       https://s3.amazonaws.com/saasbase-repo/cell-os/cell-os-universe-1.2-SNAPSHOT.zip  Apache Kafka running on top of Apache Mesos
+```
+
+### HBase
+HBase is currently deployed as two workloads master and regionserver
+```bash
+./cell dcos ${cell_name} package install hbase-master
+./cell dcos ${cell_name} package install hbase-regionserver
+```
+
+> **NOTE**  
+This will install using defaults.  
+See `dcos package` help on how to set additional configuration.  
+Run `./cell dcos ${cell_name} package describe --config hbase-master` 
+to see all possible configurations
+
+Check the config endpoint
+```
+curl http://hbase-master.gw.$cell_name.metal-cell.adobe.io/cellos/config
+HTTP/1.1 200 OK
+```
+
+```json
+{
+    "hbase.rootdir": "hdfs://saasbase//hbase-1",
+    "hbase.zookeeper.quorum": "10.0.0.77:2181,10.0.0.78:2181,10.0.0.76:2181",
+    "zookeeper.znode.parent": "/hbase-1"
+}
 ```
 
 ### Kafka
