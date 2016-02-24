@@ -9,9 +9,7 @@ function _M.exec_default()
 end
 
 function _M.exec_config()
-    local m = mapi.new({
-        marathon_endpoint="http://marathon.gw." .. ngx.var.domain
-    })
+    local m = mapi.new()
     local endpoints = m:endpoints_for_app(ngx.var.marathon_app_name)
     -- we should have only 1 Kafka scheduler instance
     if #endpoints < 1 then

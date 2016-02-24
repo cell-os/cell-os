@@ -1,11 +1,7 @@
 local http = require "resty.http"
 local mapi = require "marathon.api"
 local cjson = require "cjson"
-
 local table = require "table"
-local m = mapi.new({
-    marathon_endpoint="http://marathon.gw." .. ngx.var.domain
-})
 
 local _M = {}
 
@@ -34,6 +30,7 @@ end
 -- this is used both for redirects and to get the config from it
 function _M.find_master(app_name)
     -- get all running hbase masters
+    local m = mapi.new()
     local endpoints = m:endpoints_for_app(app_name)
     local active_master = nil
     for _, hp in ipairs(endpoints) do
