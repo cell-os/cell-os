@@ -2,7 +2,6 @@ local http = require "resty.http"
 local mapi = require "marathon.api"
 local cjson = require "cjson"
 
-local inspect = require "inspect"
 local table = require "table"
 local m = mapi.new({
     marathon_endpoint="http://marathon.gw." .. ngx.var.domain
