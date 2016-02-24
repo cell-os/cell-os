@@ -170,6 +170,13 @@ You can use [Marathon labels (`"labels": {}`)](https://github.com/mesosphere/mar
   * currently only first port (`$PORT0`) is exposed.
 * `lb:module` - Optional - specifies a custom GW module to handle this application type; the configuration and proxying microservice for this specific application;
 
+## Service discovery and load balancing != api management
+
+There's a full set of features enabled by the Adobe.io api-gateway api management layer.  
+While there may be a subset of overlapping functionality there, we should strive to keep the separation of concerns, so learn how that works before trying to do something related to that with this.
+
+
+
 # HTTP access to S3 folder
 
 Each cell has an associated bucket along with "folders" that each cell subdivision will have access to, plus a `shared` "folder" which is accessible from all cell subdivisions.
