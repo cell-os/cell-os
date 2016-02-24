@@ -9,6 +9,24 @@ local m = mapi.new({
 
 local _M = {}
 
+-- hbase has multiple running masters. 
+-- the master processes coordinate among them using Zookeeper
+-- and one is elected to actually serve as master
+
+function _M.is_active(json)
+    -- master with regionservers has empty json
+    if next(json) == nil then
+        return true
+    end
+    local tmp = json[1]
+    -- if the status string contains "Another master", this isn't it
+    if tmp.status and string.find(tmp.status, "Another master") then
+        return false
+    end
+    -- else, this is a master, but no regionservers, or other state
+    return true
+end
+
 -- find active HBase master
 -- there are multiple masters running, we find the active one
 -- by checking the /master-status?format=json endpoint on each one
@@ -35,7 +53,7 @@ function _M.find_master(app_name)
             local ok, res_json = pcall(cjson.decode, res.body)
             if ok then
                 -- this checks if an object is empty ({})
-                if next(res_json) == nil then
+                if _M.is_active(res_json) then
                     active_master = possible_master_url
                     break
                 end
