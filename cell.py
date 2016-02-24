@@ -780,7 +780,7 @@ DynamicForward {port}
         self.ensure_ssh_config()
 
     def prepare_dcos_package_install(self, args):
-        is_install = args[0] == 'package' and args[1] == 'install'
+        is_install = len(args) >= 2 and (args[0] == 'package' and args[1] == 'install')
         if not is_install:
             return args
 
