@@ -131,6 +131,11 @@ Using the [mesos-kafka scheduler](https://github.com/mesos/kafka). For additiona
 ./cell dcos ${cell_name} package install --app --app-id=kafka kafka
 ```
 
+> NOTE  
+It takes a few seconds after installing the packange until the Kafka scheduler becomes available in the load balancer.
+Running the following (`broker add`) too early may yield an HTTP 502 error.
+This is a known issue, but a harmless one. You can just retry or check the status of the kafka scheduler (see the dcos-cli documentation on how to query marathon from the CLI)
+
 ```bash
 # Add a broker
 ./cell dcos ${cell_name} kafka broker add 0 --cpus 2 --mem 1024 --options "log.dirs=/mnt/data_1/kafka_data/broker0" --constraints "role=like:stateful.*,hostname=unique"
