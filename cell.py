@@ -894,9 +894,11 @@ DynamicForward {port}
             )
 
     @check_cell_exists
-    def run_ssh(self, command=None):
+    def run_ssh(self, command=None, interactive=False):
         self.ensure_config()
-        ssh_options="{} -o ConnectTimeout={}".format(self.ssh_options, self.ssh_timeout)
+        ssh_options = "{} -o ConnectTimeout={}".format(self.ssh_options, self.ssh_timeout)
+        if interactive:
+            ssh_options = "-t {}".format(ssh_options)
 
         instances = flatten(self.instances(self.arguments["<role>"], format="PublicIpAddress"))
         index = int(self.arguments["<index>"])
@@ -922,7 +924,7 @@ DynamicForward {port}
 
     @check_cell_exists
     def run_cmd(self):
-        self.run_ssh(self.arguments['<command>'])
+        self.run_ssh(command=self.arguments['<command>'], interactive=True)
 
     def get_stack_log(self, max_items=30):
         """
