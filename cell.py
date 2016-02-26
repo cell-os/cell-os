@@ -874,24 +874,16 @@ DynamicForward {port}
             ),
             self.asg.describe_auto_scaling_groups()
         )[0]
-        if current_capacity > capacity:
-            print "Scaling down {}.{} ({}) to {} IS NOT IMPLEMENTED".format(
-                self.cell,
-                self.arguments["<role>"],
-                group,
-                capacity
-            )
-        else:
-            print "Scaling {}.{} ({}) to {}".format(
-                self.cell,
-                self.arguments["<role>"],
-                group,
-                capacity
-            )
-            self.asg.update_auto_scaling_group(
-                AutoScalingGroupName=group,
-                DesiredCapacity=capacity
-            )
+        print "Scaling {}.{} ({}) to {}".format(
+            self.cell,
+            self.arguments["<role>"],
+            group,
+            capacity
+        )
+        self.asg.update_auto_scaling_group(
+            AutoScalingGroupName=group,
+            DesiredCapacity=capacity
+        )
 
     @check_cell_exists
     def run_ssh(self, command=None, interactive=False):
