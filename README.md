@@ -42,6 +42,10 @@ The cell cli tool is using a bunch of Python packages, that talk to AWS:
 
     aws configure
 
+> NOTE  
+You'll need an [acccess key id and secret access key](http://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSGettingStartedGuide/AWSCredentials.html) for this. 
+Contact you'r account manager if you don't have one.
+
 We recommend using [virtualenv](http://virtualenv.readthedocs.org/en/latest/)
 
 #### Running from source
