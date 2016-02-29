@@ -102,13 +102,10 @@ The cell geteway and load balancing services will run in the membrane.
 
 # Troubleshooting
 
-## "Launch Stack" button ![](https://s3.amazonaws.com/cloudformation-examples/cloudformation-launch-stack.png)
-
-### Can't find SaasBase access key id / secret access key
+### Can't find SaasBase access key id / secret access key (when using "Launch Stack" button ![](https://s3.amazonaws.com/cloudformation-examples/cloudformation-launch-stack.png))
 Look for the keys in [http://saasbase.corp.adobe.com/ops/operations/deployment.html](http://saasbase.corp.adobe.com/ops/operations/deployment.html)
 The keys are also available in the Secret Server - main dl-saasbase-eng@adobe.com if you
 have any issues.
-
 
 ### Stack gets rolled back 
 
@@ -123,6 +120,29 @@ have any issues.
 
 In the Cloud Formation form, try selecting an existing KeyName from the dropdown or 
 otherwise create a keypair for that region, download it and retry.
+
+### Stack already exists and / or can't delete it
+E.g.
+```Error creating cell:  An error occurred (AlreadyExistsException) when calling the CreateStack operation: Stack [my-awesome-cell] already exists```
+
+This means that the CloudFormation stack still already exists.  
+
+If you already delete the cell, it's possible that the stack hasn't been successfully deleted by CloudFormation.  
+You can try deleting the stack again (it's possible that CF failed for no good reason).
+
+If that doesn't work you should know that this can happen if you created other resources (e.g. policies, subnets, etc.) that depend on resources in this stack. You'll have to manually delete any manually addded resource and then retry deleting the stack.
+
+List your stacks
+
+    aws cloudformation describe-stacks
+    
+See detailed stack events for `$cell_name`
+
+    aws cloudformation describe-stack-events --stack-name $cell_name
+
+To delete the stack 
+
+    aws cloudformation delete-stack --stack-name $cell_name
 
 ## Using the CLI to troubleshoot
 
