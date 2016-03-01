@@ -9,3 +9,56 @@ To customize this behavior, we can:
     * For example, for HBase Master this always goes to the active master, instead of doing round-robin between active and backup masters
 * `exec_config` - handler for `http://X.gw.metal-cell.adobe.io/config`
     * i.e. for Kafka we go to the scheduler, and then make a call to get the list of brokers which we then send out as a JSON service
+
+# Releasing
+
+## Builds and Artifacts 
+
+All cell-os builds are available in 
+[Jenkins](http://bucasit-build.corp.adobe.com:8080/jenkins/view/cell-os/)
+
+* cell-os
+  * cell-os version bundle(s)
+  * cli
+  * CloudFormation templates
+* cell-universe
+  * contains cell-os packages
+* puppet-X
+* docker-X
+
+Puppet modules (used in seeds) and docker containers are released independently and
+referenced in version bundles
+ 
+## Release process
+
+CellOS follows the [HSTACK guidelines on release management](https://git.corp.adobe.com/pages/hstack/opendev/hstack_release_mgmt.html)
+
+We don't have a regular cadence yet, but there's typically a convened scope for
+every release, so there should be a shared understanding on when that's exepcted.
+The designated release engineer should ensure that her actions won't surprise
+the maintainers.
+
+1. Send out a heads up email in advance of the actual RC to have maintainers 
+think what they'd want in and out.
+1. Create next major and optionally minor versions. 
+  * If releasing 1.0.0, next major is 1.1.0, optionally next minor is 1.0.1.
+1. Discuss remaining issues and move them to next versions.
+1. Review and update all documentation (take special care to remove dead sections)
+1. Review all issues and commits and create a summary for the release notes.
+  * Write an overview of the release, containing major features, changes from 
+  the previous version
+  * Don't rush this. Take your time and write a good quality piece. Get feedback 
+  from maintainers.
+1. Lock any versions that need locking (e.g. "SNAPSHOT", "latest", ">=" in requirements.txt.
+1. Update version fron SNAPSHOT to RC1 
+  * [`VERSION`](https://git.corp.adobe.com/metal-cell/cell-os/blob/master/VERSIO://git.corp.adobe.com/metal-cell/cell-os/blob/master/VERSION)
+  * also grep for the development version and verify any documents that have the 
+  version hardcoded (e.g. README.md URLs) 
+1. Push the release and anounce it in a "[VOTE]" email that contains:
+  * links to the released artefacts
+  * links to JIRA
+  * the actual release notes 
+1. If the vote passes, rinse and repeat (the last 2 steps) and release without the RC
+suffix
+
+
