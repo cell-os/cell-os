@@ -149,3 +149,35 @@ This is a known issue, but a harmless one. You can just retry or check the statu
 # Start Broker !!!
 ./cell dcos ${cell_name} kafka broker start 0
 ```
+
+### OpenTSDB
+
+OpenTSDB requires a running instance of HBase.  
+It will attempt to create its tables at container startup.  
+By default it uses the HBase installation rooted in ZK in `/hbase-1`.
+
+See the HBase package documentation for help on how to set it up.
+
+```bash
+./cell dcos ${cell_name} package install opentsdb
+```
+
+Once provisioned you should be able to access OpenTSDB UI at 
+`http://opentsdb.gw.<cell>.metal-cell.adobe.io`
+
+```bash
+curl http://opentsdb.gw.${cell_name}.metal-cell.adobe.io/api/version
+
+{"short_revision":"","repo":"/opentsdb-2.2.0","host":"1c7d9aa5eff8","version":"2.2.0","full_revision":"","repo_status":"MODIFIED","user":"root","timestamp":"1456487791"}
+```
+
+Navigating to http://hbase-master.gw.YOUR_CELL_NAME.metal-cell.adobe.io/ should show a few `tsdb*` tables. 
+
+> NOTE  
+You should now be able to point tcollectors to `opentsdb.gw.${cell_name}.metal-cell.adobe.io` to push data.
+Note that this will route all that traffic through the gateway, though. 
+We'll likely provide a `/config` endpoint to retrieve the list of tsdb nodes, alternatively you can retrieve them through Marathon. However, note that these may change at runtime.
+
+
+
+
