@@ -9,22 +9,20 @@
 ╚██████╗███████╗███████╗██████╗        ╚██████╔╝ ███████║     ██║█╗ ███████╗
  ╚═════╝╚══════╝╚══════╝╚═════╝         ╚═════╝  ╚══════╝     ╚═╝═╝ ╚══════╝
 
-cell-os cli ${VERSION}
-
 Usage:
-  cell build <cell-name> [--template-url <substack-template-url>]
   cell create <cell-name>
+  cell list [<cell-name>]
   cell update <cell-name>
   cell delete <cell-name>
-  cell list [<cell-name>]
   cell scale <cell-name> <role> <capacity>
+  cell log <cell-name> [<role> <index>]
+  cell dcos <cell-name>
   cell ssh <cell-name> <role> <index>
   cell i2cssh <cell-name> [<role>]
   cell mux <cell-name> [<role>]
-  cell log <cell-name> [<role> <index>]
-  cell cmd <cell-name> <role> <index> <command>
   cell proxy <cell-name>
-  cell dcos <cell-name>
+  cell cmd <cell-name> <role> <index> <command>
+  cell build <cell-name> [--template-url <substack-template-url>]
   cell (-h | --help)
   cell --version
 
