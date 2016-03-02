@@ -1,4 +1,6 @@
 # CLI
+
+## Installation
 The CLI is a convenience wrapper around the [AWS CLI](http://aws.amazon.com/cli/)
 
     pip install awscli
@@ -6,57 +8,20 @@ The CLI is a convenience wrapper around the [AWS CLI](http://aws.amazon.com/cli/
 
 ## Environment
 
-The AWS region is picked from the AWS CLI configuration / environment.  
-Run `./cell help` to see how to customize your EC2 keypair, and all other options.  
+The AWS region is picked from the AWS CLI configuration / environment
+(`DEFAULT_AWS_REGION`)
 
 ## Usage
 
-$ ./cell help
+    ./cell --help
 
 ```
-cell-os cli 1.2
-
 Usage:
-  cell build <cell-name> [--template-url <substack-template-url>]
   cell create <cell-name>
   cell update <cell-name>
   cell delete <cell-name>
   cell list [<cell-name>]
-  cell scale <cell-name> <role> <capacity>
-  cell ssh <cell-name> <role> <index>
-  cell i2cssh <cell-name> [<role>]
-  cell mux <cell-name> [<role>]
-  cell log <cell-name> [<role> <index>]
-  cell cmd <cell-name> <role> <index> <command>
-  cell proxy <cell-name>
-  cell mesos <cell-name> <method> <path> [<payload>]
-  cell marathon <cell-name> <method> <path> [<payload>]
-  cell zk <cell-name> <method> <path> [<payload>]
-  cell dcos <cell-name>
-  cell (-h | --help)
-  cell --version
-
-Options:
-  -h --help                              Show this message.
-  --version                              Show version.
-  --template-url <substack-template-url> The path of the substack template to burn in the stack [default: set path to template].
-
-Environment variables:
-
-  AWS_KEY_PAIR - EC2 ssh keypair to use (new keypair is created otherwise)
-  CELL_BUCKET - S3 bucket used  (new bucket is created otherwise)
-  KEYPATH - the local path where <keypair>.pem is found (defaults to
-    ${HOME}/.ssh). The .pem extension is required.
-  PROXY_PORT - the SOCKS5 proxy port (defaults to ${PROXY_PORT})
-  SSH_USER - instances ssh login user (defaults to centos)
-  SSH_TIMEOUT - ssh timeout in seconds (defaults to 5)
-  SSH_OPTIONS - extra ssh options
-
-All AWS CLI environment variables (e.g. AWS_DEFAULT_REGION, AWS_ACCESS_KEY_ID,
-AWS_SECRET_ACCESS_KEY, etc.) and configs apply.
-
-This CLI is a convenience tool, not intended as an exhaustive cluster manager.
-For advanced use-cases please use the AWS CLI or the AWS web console.
+  ...
 
 For additional help use dl-metal-cell-users@adobe.com.
 For development related questions use dl-metal-cell-dev@adobe.com
@@ -64,55 +29,57 @@ Github git.corp.adobe.com/metal-cell/cell-os
 Slack https://adobe.slack.com/messages/metal-cell/
 ```
 
-**Prerequisites**
-
-    export AWS_KEY_PAIR=<the EC2 keypair that should be used. Defaults to first key on thee acount>
-    export KEYPATH=<the location of your ${AWS_KEY_PAIR}.pem (must end in .pem).defaults to ~/.ssh>
-
 **Create a new cell**
 
     ./cell create cell-1
 
-This will return the CloudFormation Stack ARN or an error.  
-You can [watch the stack form](https://console.aws.amazon.com/cloudformation/home)
+It normally takes up to 12-15 minutes to complete during which there are 3 main stages
+* infrastructure provisioning
+* cell-os-base provision pre
+* cell-os-base provision post
 
-It can take up to a few minutes once the stack is complete as it takes a while for
-Exhibitor to do the discovery through S3 and the body nodes will wait until they have
-a working Zookeeper before deploying the cell-os-base software
-
-Once it's done the [load balancers](https://us-west-2.console.aws.amazon.com/ec2/v2/home?region=us-west-2#LoadBalancers:)
-should be reaching the instances
-
+The last two stages are separated by a "barrier" that ensures Zookeeper is ready before 
+deploying the rest of the cell-os base.
 
 **List all -cells- stacks**
 
     ./cell list
-    -----------------------------------------------
-    |                 ListStacks                  |
-    +-----------------+-------------------+-------+
-    |  cell-1         |  CREATE_COMPLETE  |  None |
-    +-----------------+-------------------+-------+
 
-**Watch the progress of your cell's creation**
+```  
+--------------------------------------------------------------------------------------------
+|                                           list                                           |
++----+------------+------------------+---------------+-------------------------------------+
+|  c1|  us-west-1 |  CREATE_COMPLETE |  1.2-SNAPSHOT |  2016-03-01 22:17:15.013000+00:00   |
+|  c3|  us-west-1 |  CREATE_COMPLETE |  1.2-SNAPSHOT |  2016-02-25 21:05:31.530000+00:00   |
++----+------------+------------------+---------------+-------------------------------------+
+```
+
+**Watch the progress of your cell's infrastructure provisioning**
 
     ./cell log cell-1
 
 ```
-+---------------------------+-----------------------------------------------------------+---------------------+
-|  2015-08-13T20:34:44.565Z |  us-east-1-cell-1                                         |  CREATE_COMPLETE    |
-|  2015-08-13T20:34:41.465Z |  Nucleus                                                  |  CREATE_COMPLETE    |
-|  2015-08-13T20:33:22.194Z |  Nucleus                                                  |  CREATE_IN_PROGRESS |
-|  2015-08-13T20:33:21.280Z |  Nucleus                                                  |  CREATE_IN_PROGRESS |
-|  2015-08-13T20:33:19.120Z |  NucleusLaunchConfig                                      |  CREATE_COMPLETE    |
-|  2015-08-13T20:33:18.755Z |  NucleusLaunchConfig                                      |  CREATE_IN_PROGRESS |
-|  2015-08-13T20:33:17.977Z |  NucleusLaunchConfig                                      |  CREATE_IN_PROGRESS |
-|  2015-08-13T20:33:16.154Z |  NucleusInstanceProfile                                   |  CREATE_COMPLETE    |
-|  2015-08-13T20:33:01.718Z |  StatelessBody                                            |  CREATE_COMPLETE    |
-|  2015-08-13T20:32:21.592Z |  NucleusToNucleusSecurityGroupIngressToAvoidCircularDeps  |  CREATE_COMPLETE    |
-+---------------------------+-----------------------------------------------------------+---------------------+
++---------------------------+--------------------------------+---------------------+
+|  2015-08-13T20:34:44.565Z |  us-east-1-cell-1              |  CREATE_COMPLETE    |
+|  2015-08-13T20:34:41.465Z |  Nucleus                       |  CREATE_COMPLETE    |
+|  2015-08-13T20:33:22.194Z |  Nucleus                       |  CREATE_IN_PROGRESS |
+|  2015-08-13T20:33:21.280Z |  Nucleus                       |  CREATE_IN_PROGRESS |
+|  2015-08-13T20:33:19.120Z |  NucleusLaunchConfig           |  CREATE_COMPLETE    |
+|  2015-08-13T20:33:18.755Z |  NucleusLaunchConfig           |  CREATE_IN_PROGRESS |
+|  2015-08-13T20:33:17.977Z |  NucleusLaunchConfig           |  CREATE_IN_PROGRESS |
+|  2015-08-13T20:33:16.154Z |  NucleusInstanceProfile        |  CREATE_COMPLETE    |
+|  2015-08-13T20:33:01.718Z |  StatelessBody                 |  CREATE_COMPLETE    |
++---------------------------+--------------------------------+---------------------+
 ```
 
-**Tail the provisioning logs of your cell's nucleus / body**
+Once the provisioning of the infrastructure is done the first stage (pre) begins.
+You can watch the progress across all nodes with detailed timings in the cell provisioning status page:
+`http://cell-os--<CELL>.s3-us-west-1.amazonaws.com/cell-os--<CELL>/shared/status/status.html`
+
+> **NOTE**: the actual status page link is displayed after cell creation and in the cell `list` results.
+
+
+**Tail the provisioning logs of individual nodes:**
 
     ./cell log cell-1 nucleus 1
 
@@ -121,40 +88,119 @@ Aug 13 20:36:10 ip-172-31-15-216 cloud-init: CloudFormation signaled successfull
 Aug 13 20:36:10 ip-172-31-15-216 cloud-init: Cloud-init v. 0.7.5 finished at Thu, 13 Aug 2015 20:36:10 +0000. Datasource DataSourceEc2.  Up 89.60 seconds
 ```
 
-**List VMs in your cell**
+**Listing your cell**
 
-    # note that that's not the cell id so doesn't have the region
-    $ ./cell list cell-1
-    nucleus
-    127.127.189.82  i-5aa897ac  ami-c7d092f7  us-west-2-cell-1
-    body
-    127.127.84.3  i-97a89761  ami-c7d092f7  us-west-2-cell-1
+    ./cell list cell-1
+
+```
+-------------------------------------------------------------
+|                          nucleus                          |
++-----------------+-------------+----------------+----------+
+|  127.127.41.163  |  10.0.0.140 |  ami-59addb39  |  running |
+|  127.127.157.213 |  10.0.0.141 |  ami-59addb39  |  running |
+|  127.127.174.120 |  10.0.0.139 |  ami-59addb39  |  running |
++-----------------+-------------+----------------+----------+
+
+----------------------------------------------------------
+|                     stateless-body                     |
++----------------+-----------+----------------+----------+
+|  127.127.41.127 |  10.0.0.9 |  ami-59addb39  |  running |
++----------------+-----------+----------------+----------+
+
+----------------------------------------------------------
+|                      stateful-body                     |
++---------------+------------+----------------+----------+
+|  127.127.36.53 |  10.0.0.35 |  ami-59addb39  |  running |
++---------------+------------+----------------+----------+
+
+-----------------------------------------------------------
+|                        membrane                         |
++---------------+-------------+----------------+----------+
+|  127.127.41.42 |  10.0.0.213 |  ami-59addb39  |  running |
++---------------+-------------+----------------+----------+
+
+--------------------------------------------------------------------------------------------------------
+|                                              Status Page                                             |
++-------------+----------------------------------------------------------------------------------------+
+|  status_page|  http://cell-os--c1.s3-us-west-1.amazonaws.com/cell-os--c1/shared/status/status.html   |
++-------------+----------------------------------------------------------------------------------------+
+
+----------------------------------------------------------------------------------
+|                                      ELBs                                      |
++--------------+-----------------------------------------------------------------+
+|  c1-membrane |  c1-membrane-401796130.us-west-1.elb.amazonaws.com              |
+|  c1-mesos    |  internal-c1-mesos-1528395697.us-west-1.elb.amazonaws.com       |
+|  c1-zookeeper|  internal-c1-zookeeper-1743906954.us-west-1.elb.amazonaws.com   |
+|  c1-marathon |  internal-c1-marathon-1356260519.us-west-1.elb.amazonaws.com    |
++--------------+-----------------------------------------------------------------+
+
+-------------------------------------------------------------
+|                          Gateway                          |
++-----------+-----------------------------------------------+
+|  zookeeper|  http://zookeeper.gw.c1.metal-cell.adobe.io   |
+|  mesos    |  http://mesos.gw.c1.metal-cell.adobe.io       |
+|  marathon |  http://marathon.gw.c1.metal-cell.adobe.io    |
+|  hdfs     |  http://hdfs.gw.c1.metal-cell.adobe.io        |
++-----------+-----------------------------------------------+
+```
+
+The cell listing shows each node in each cell subdivision (nucleus, bodies and membrane)
+
+The `Status` listing has a link to the cell-os-base provisioning status page.
+This is only useful during initial provisioning.
+
+`ELBs` section lists all (ELB) load balancers. 
+Only the membrane ELB is available externally. For all others you'll need to first `proxy` into
+the cell and access them through an SSH tunnel, or through VPN (not provisioned with the cell, yet).
+
+The last part, `Gateway` is the most important. This shows the cell endpoints for the base
+services.
+
+
+> **NOTE**  
+Access to these endpoints is restricted to certain whitelisted networks.  
+You can share links of the gateway endpoints.
+
 
 **SSH into your first nucleus VM**
 
-    ./cell ssh <cell-name> nucleus
-    # IMMV check your keys..
+    ./cell ssh <cell-name> nucleus 1
 
 **SSH into all the instances in your cell using `mux`**
 
-Install the `tmux`/`tmuxinator` combo on your machime:
+Install the `tmux`/`tmuxinator` combo on your machine:
 
     brew install tmux
-    gem install tmuxinator
+    sudo gem install tmuxinator
 
 Once all that is in place, you can SSH into all your cell instances:
 
     ./cell mux <cell-name>
 
-This will launch a `tmux` session with a separate window for each role. In each window, multiple SSH sessions are started in tiled mode (one for each instance in the corresponding role).
+This will launch a `tmux` session with a separate window for each role. In each window,
+multiple SSH sessions are started in tiled mode (one for each instance in the corresponding role).
+
+
+**SSH into all the instances in your cell using `i2cssh` and iTerm2**
+
+    brew cask install iterm2
+    sudo gem install i2cssh
+
+    ./cell i2cssh <cell-name> [role]
 
 **Run commands on the cell nodes**
 
     ./cell cmd us-east-1-cell-1 nucleus 1 "sudo -u root docker logs -f zk_zk-1"
 
+> **NOTE:** Only one node can be targeted at a time. 
+
+> **NOTE**  
+While we don't recommend this approach, if you feel like you need to manually manage your cell, 
+consider using something like Ansible or Salt.
+
 **Scale up / down the cell**
 
-Both the nucleus and the body can be scaled
+Both the nucleus, the bodies and the membrane can be scaled
 
     ./cell scale cell-1 stateless-body 5
     Scaling group cell-1-StatelessBody-1OSD7WF08DJYE
@@ -175,8 +221,60 @@ Both the nucleus and the body can be scaled
 
     ./cell scale cell-1 stateless-body 1
 
+> **NOTE:**  
+Scaling the Nucleus down may cause Zookeeper and HDFS unavailability and, as a result, 
+a wider failure for dependent services.
 
-## Accessing the cell's internal services over HTTP
+## dcos-cli integration
+
+The CellOS CLI integrates with the [dcos-cli](https://github.com/mesosphere/dcos-cli). 
+For convenience we wrap the dcos-cli and automatically configure it to work across all your cells.
+
+instead of `dcos command` you need to run `./cell dcos <cell-name> command`
+
+```
+./cell dcos c1 help
+Running dcos help...
+Command line utility for the Mesosphere Datacenter Operating
+System (DCOS). The Mesosphere DCOS is a distributed operating
+system built around Apache Mesos. This utility provides tools
+for easy management of a DCOS installation.
+
+Available DCOS commands:
+
+	config         	Get and set DCOS CLI configuration properties
+	help           	Display command line usage information
+	marathon       	Deploy and manage applications on the DCOS
+	node           	Manage DCOS nodes
+	package        	Install and manage DCOS packages
+	service        	Manage DCOS services
+	task           	Manage DCOS tasks
+
+Get detailed command description with 'dcos <command> --help'.
+```
+
+> **NOTE**  
+You can still use the dcos-cli directly.  
+The actual configuration resides in `<cellos-home>/.generated/<cell-name>`
+```
+cat .generated/c1/dcos.toml
+[core]
+mesos_master_url = "http://mesos.gw.c1.metal-cell.adobe.io"
+reporting = false
+email = "cell@metal-cell.adobe.io"
+cell_url = "http://{service}.gw.c1.metal-cell.adobe.io"
+[marathon]
+url = "http://marathon.gw.c1.metal-cell.adobe.io"
+[package]
+sources = [ "https://s3.amazonaws.com/saasbase-repo/cell-os/cell-os-universe-1.2-SNAPSHOT.zip"]
+cache = "/Users/clehene/metal-cell/cell-os/.generated/c1//dcos_tmp"
+```
+The universe repositories caches are in `<cell-home>/.generated/<cell-name>/dcos_tmp`
+
+For more information on how to use the dcos-cli use the help or see the 
+[dcos-cli official documentation](https://docs.mesosphere.com/administration/introcli/cli/).
+
+## Advanced: Accessing the cell's internal services over HTTP
 
 By default cell services and load balancers are internal, hence can't be accessed
 directly over internet. 
@@ -211,6 +309,7 @@ Bad value for --query Stacks[? (Tags[? Key=='name']      && Tags[?Key=='version'
 ```
 
 This is likely caused by an outdated version of [jmespath](http://jmespath.org/), a dependency of awscli.  
+** We recommend setting a Python virtualenv in order to isolate (chroot) cell dependencies to avoid conflicts**
 Please check that you run the latest awscli with a good version of jmespath  
 
     $ python -c "import jmespath; print jmespath.__version__"
