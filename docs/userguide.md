@@ -90,6 +90,14 @@ brew install httpie
 `http http://marathon.gw.$CELL_NAME.metal-cell.adobe.io/v2/tasks Accept:text/plain`
 ```
 
+
+#### Port Ranges
+In cell's body workloads may use any port between `8081-32000`. It is recommended to work with dynamic ports 
+which are auto-assigned by Mesos or its frameworks and let the api-gateway / load balancer to automatically discover and expose them. 
+
+> For more information on Marathon ports [read this page](https://mesosphere.github.io/marathon/docs/ports.html).
+
+
 ## DCOS Packages
 
 See the [packaging](packaging.md) documentation for more details.
