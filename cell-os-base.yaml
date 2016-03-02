@@ -6,8 +6,8 @@
 # The order is defined by the level of dependency. 
 # For example Docker is low level running directly on the OS and other modules depend on it
 
-docker::version: 1.10.1-1.el7.centos
-java::version: 8u71
+docker::version: 1.10.2-1.el7.centos
+java::version: 8u74
 # zookeeper exhibitor
 zookeeper::version: 3.4.6_1.5.6
 mesos::version: 0.27.1-2.0.226.centos701406
