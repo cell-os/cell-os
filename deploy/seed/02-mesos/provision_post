@@ -20,6 +20,11 @@ provision_with_retry() {
   done
 }
 
+mesos_port_range="[31000-32000]" # default port range in Mesos
+if [[ -f /opt/cell/etc/roles/stateful-body || -f /opt/cell/etc/roles/stateless-body ]]; then
+    mesos_port_range="[4369-4369,8081-32000]"
+fi
+
 export zk=$(zk-list-nodes)
 cat >>/opt/cell/cluster/cluster.yaml <<-EOT
 mesos::zookeeper:   zk://$zk/mesos
@@ -30,6 +35,7 @@ mesos::master::env_var:
 mesos::slave::env_var:
   MESOS_work_dir: /var/lib/mesos/slave
   MESOS_attributes: "role:${cell_role}"
+  MESOS_resources: "ports(*):${mesos_port_range}"
   MESOS_gc_delay: 1days
   MESOS_slave_subsystems: cpu,memory
   MESOS_ip_discovery_command: /usr/local/bin/get_ip
