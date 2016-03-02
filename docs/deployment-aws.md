@@ -1,8 +1,7 @@
 # cell-os-base on EC2
 
-An initial working prototype for the Amazon EC2-based elastic cell.  
-
-It consists of a CloudFormation template to stand a cell running cell-os-base.  
+The Amazon EC2-based elastic cell consists of a CloudFormation template to provision the
+necessary AWS infrastructure for the cell-os base.
 
 # cell-os infrastructure diagram
 ```
@@ -29,13 +28,16 @@ It consists of a CloudFormation template to stand a cell running cell-os-base.
        us-west-2-cell-1 VPC   vpc-62c65107 (10.0.0.0/16)
 ```
 
-The default cell size is a 1-node nucleus and 1-node stateless body, 0-node stateful body,
+The default cell size is a 3-node nucleus and 1-node stateless body, 1-node stateful body,
 1 - node membrane, each in separate scaling groups (i.e. can be scaled up independently).  
 
-The cell-os-base consists of Zookeeper / Exhibitor, Mesos and Marathon.
-cel-os 1.1 extended the base with HDFS consisting of QJM, NN running in Nucleus and 
-DN running in Stateful Body.  
+The cell-os-base consists of Zookeeper / Exhibitor, Mesos, Marathon.
+cell-os-1.1 extended the base with HDFS (consisting of QJM, NN running in Nucleus and 
+DN running in stateful-body).  
 All other services typically run on top of the base using one of the cell schedulers.  
+
+> **NOTE:**  
+The base module deployment is decoupled from the infrastructure provisioning (AWS specific)
 
 ## Internals: How it's made
 With cell-os 1.1 we started using [Troposphere](https://github.com/cloudtools/troposphere)
@@ -58,29 +60,32 @@ configurations to the nested stack.
 
 Roles and tags are used to identify the EC2 instances and to set attributes.
 
+Each cell has an associated S3 bucket which is divided into directories for each cell 
+subdivision (e.g. `s3://<cell-bucket>/<cell-name>/nucleus`). Access is restricted to 
+just the corresponding subdivision and is typically read-only. 
+
+In addition there's a shared directory (`/shared`) which can be accessed from all
+cell sections. This contains a subdirectory `/shared/http` which can be accessed from
+all nodes over HTTP through a 
+[VPC Endpoint](http://docs.aws.amazon.com/AmazonVPC/latest/UserGuide/vpc-endpoints.html).
+
+
 ### Cell modules provisioning
 
-Each CF nested stack receives a list of cell modules to deploy on the node when it boots up. 
+Each CF nested stack receives a list of cell modules (called "seeds") to deploy on the 
+node when it boots up. 
 
-When starting, all the machines download a "seed" .tar.gz file that contains the list of cell modules in the following format: 
-
-    /opt/cell/seed
-      00-docker/xx
-      00-docker/provision
-      10-another-module/provision_post
-
-The list of cell modules is matched against this list of directories, and in each of the directories for a machine, we: 
-
-* check for a `provision` file. This is executed before Zookeeper is available
-* check for a `provision_post` file, executed after the Exhibitor / Zookeeper ensemble converges to a final, active state (using the `zk-barrier` script which will block polling for zk).
+Read more in [deployment-implementation/modules](../../docs/deployment-implementation.md#Modules-Provisioning)
 
 ### Nested Stacks: nucleus, stateless-body, stateful-body, membrane scaling groups
 
 #### Nucleus
 The critical part of the cell is the nucleus, which runs Zookeeper and HDFS namenodes.
 
-The Zookeeper ensemble can be discovered through an ELB over the Zookeeper Exhibitor REST API.
-Two helper scripts `zk-list-nodes` and `zk-barrier` can be used to respectively: get the list of Zookeeper nodes and block for the zk enesemble. 
+The Zookeeper ensemble can be discovered through an ELB over the Zookeeper Exhibitor 
+REST API.
+Two helper scripts `zk-list-nodes` and `zk-barrier` can be used to respectively: get the 
+list of Zookeeper nodes and block for the zk ensemble. 
 
 #### Stateless Body
 
@@ -98,7 +103,29 @@ datanodes or Kafka brokers)
 
 The membrane is publicly exposed (all other groups should be private) and hence may have
 special security requirements. 
-The cell geteway and load balancing services will run in the membrane. 
+The cell gateway and load balancing services will run in the membrane. 
+
+## AMI
+
+The default IAM is CentOS-7.2 based, but any compatible AMI should work.
+
+The current AMI has 
+[Enhanced Networking](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/enhanced-networking.html) 
+enabled.  
+As of cell-os-1.2.0 the AMI has:
+
+```json
+"Kernel": 3.10.0-327.4.5.el7.x86_64
+"ethtool / driver": ixgbevf  
+"ixgbevf": 2.16.1
+"SriovNetSupport": "simple"
+"DeleteOnTermination": true
+"VolumeSize": 200
+```
+
+The base provisioning depends on `yum` so it will work on RedHat-compatible OS-es.
+This said, it should be fairly simple to adapt to other distributions as most modules are
+deployed via Puppet modules that support other distros.
 
 # Troubleshooting
 
@@ -123,14 +150,20 @@ otherwise create a keypair for that region, download it and retry.
 
 ### Stack already exists and / or can't delete it
 E.g.
-```Error creating cell:  An error occurred (AlreadyExistsException) when calling the CreateStack operation: Stack [my-awesome-cell] already exists```
+```
+Error creating cell:  An error occurred (AlreadyExistsException) when calling the 
+CreateStack operation: Stack [my-awesome-cell] already exists
+```
 
 This means that the CloudFormation stack still already exists.  
 
-If you already delete the cell, it's possible that the stack hasn't been successfully deleted by CloudFormation.  
+If you already delete the cell, it's possible that the stack hasn't been successfully 
+deleted by CloudFormation.  
 You can try deleting the stack again (it's possible that CF failed for no good reason).
 
-If that doesn't work you should know that this can happen if you created other resources (e.g. policies, subnets, etc.) that depend on resources in this stack. You'll have to manually delete any manually addded resource and then retry deleting the stack.
+If that doesn't work you should know that this can happen if you created other resources
+(e.g. policies, subnets, etc.) that depend on resources in this stack. You'll have to 
+manually delete any manually added resource and then retry deleting the stack.
 
 List your stacks
 
@@ -171,15 +204,18 @@ Check if Exhibitor is running:
 
 If it doesn't work check if the Zookeeper container is running:
 
-    docker ps
-    CONTAINER ID        IMAGE                                  COMMAND                CREATED             STATUS              PORTS                                                                                            NAMES
-    6b17f546e911        mbabineau/zookeeper-exhibitor:latest   "bash -ex /opt/exhib   9 minutes ago       Up 9 minutes        0.0.0.0:2181->2181/tcp, 0.0.0.0:2888->2888/tcp, 0.0.0.0:3888->3888/tcp, 0.0.0.0:8181->8181/tcp   zk_zk-1
+```bash
+docker ps
+CONTAINER ID        IMAGE                                  COMMAND                CREATED             STATUS              PORTS                                                                                            NAMES
+6b17f546e911        mbabineau/zookeeper-exhibitor:latest   "bash -ex /opt/exhib   9 minutes ago       Up 9 minutes        0.0.0.0:2181->2181/tcp, 0.0.0.0:2888->2888/tcp, 0.0.0.0:3888->3888/tcp, 0.0.0.0:8181->8181/tcp   zookeeper
+```
 
 You should see it there. Look at the logs:
 
     docker logs -f zk_zk-1
 
-If it complains about the S3 URL, the bucket may be in a separate region. 
+If it complains about the S3 URL, the bucket may be misconfigured
+(e.g. in a different region).
 
 
 On body
@@ -235,11 +271,11 @@ The mesos configurations are in
 
 ## Caveats
 
-### You need a SOCKS proxy to connect to the load balancers.
+### You need a SOCKS proxy to connect to the internal load balancers.
 
     ./cell proxy cell-1 nucleus
 
-This opens a SOCKS proxy on localhost:1234 (configurable throuh `PROXY_PORT` env var)
+This opens a SOCKS proxy on localhost:1234 (configurable through `PROXY_PORT` env var)
 
 Then use a browser plugin like foxy proxy
 
@@ -263,7 +299,7 @@ creating a bucket in the right place as
 - [x] Switch to official saasbase-installer (1.26 RC2 should be ready soon)
 - [x] Add architecture diagram
 - [x] Provision everything including the VPC with networks, etc. (see related work)
-- [ ] Revisit Exhibitor S3 bucket region settings (bucket needs to be in the same region now)
+- [x] Revisit Exhibitor S3 bucket region settings (bucket needs to be in the same region now)
 - [ ] [Confd](https://github.com/kelseyhightower/confd) support to automatically handle nucleus 
       size changes. 
 - [x] \[CELL-61\] - Add IAM role instead of using keys stored in configuration
@@ -272,8 +308,8 @@ creating a bucket in the right place as
       vs stateful workloads.
 - [x] Simplify user data scripts. If we'll not use cached AMIs we can get rid of cleanup steps
 - [ ] Create an AWS cluster manifest instead of writing it inline (only need to pass ZK as fact)
-- [ ] Reconcile with existing implementation if possible (see Related Work below)
-- [ ] Pick key id, secret from awscli configuration
+- [x] Reconcile with existing implementation if possible (see Related Work below)
+- [x] Pick key id, secret from awscli configuration
 
 Speed
 
@@ -303,7 +339,7 @@ programmatically.
 
 Behance has some nice work similar to this using Troposphere and CoreOS instead of CentOS.
 Github repo here https://github.com/behance/mesos-cluster (note that it requires explicit
-access - talk to fortier@adobe.com).  
+access).  
 It would be worthwhile evaluating if we shouldn't try to have a common base which we can reuse.  
 The overall infrastructure (VPCs, scaling groups, load balancers, security groups, etc.) should
 look the same and could have some specifics layered on top.  
@@ -311,14 +347,14 @@ look the same and could have some specifics layered on top.
 
 ## Current node layout
 This setup currently places only Zookeeper in the Nucleus and Mesos master and Marathon are part
-of the body. 
+of the `stateless-body`. 
 While this may seem weird, the reason is that neither Mesos master, nor Marathon are
 stateful nor do they require special care (they can be stopped and restarted anytime
 without a big impact.  
 On the other hand Zookeeper is stateful and latency sensitive and also critical to the functioning
-of the rest of the cell, so requires special attention.  
+of the rest of the cell, so requires isolation.  
 
-We may not want to run either Mesos master or Marathon on every slave, however so perhaps we may
+We may not want to run either Mesos master or Marathon on every slave, so  we may
 end up having a separate scaling group or even scheduling them on top of Mesos and only bootstrap
 them at the initial cell provisioning.  
 
