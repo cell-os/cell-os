@@ -1,4 +1,6 @@
-# Writing Service specific gateway endpoints
+# Hacking
+
+## Writing Service specific gateway endpoints
 
 By default, Gateway service-specific endpoints (`http://X.gw.metal-cell.adobe.io`) forward traffic to any ports configured in the `lb:ports` Marathon label
 
@@ -9,6 +11,61 @@ To customize this behavior, we can:
     * For example, for HBase Master this always goes to the active master, instead of doing round-robin between active and backup masters
 * `exec_config` - handler for `http://X.gw.metal-cell.adobe.io/config`
     * i.e. for Kafka we go to the scheduler, and then make a call to get the list of brokers which we then send out as a JSON service
+
+## Hacking cell-os base provisioning
+
+If you're modifying or writing a new module, it's much faster (and cheaper) to test your 
+changes on an existing cell, than to provision a new cell. 
+
+The relevant part in CLI is the 
+[`run_create` method](https://git.corp.adobe.com/metal-cell/cell-os/blob/master/cell.py#L580)
+which creates the resources (bucket, cf stack, key) and copies the deployment modules inside
+the S3 bucket (`seed` method).
+
+When the machine boots up it will execute `/var/lib/cloud/instance/scripts/part-001` which is 
+generated from the `UserData` script 
+([source](https://git.corp.adobe.com/metal-cell/cell-os/blob/master/deploy/aws/elastic-cell-scaling-group.py))
+
+The relevant parts in part-001 are:
+
+* provisions `cfn-init` dependencies:
+* executes `cfn-init` 
+* downloads, unpacks and runs cell modules
+
+    cfn-init -s c1-MembraneStack-Q4TR7ORCOQ9P -r BodyLaunchConfig  --region us-west-1
+
+This will trigger a refresh of all the resources from `InitConfig`.
+
+Note that you can update the cell metadata (CF stack update) along with the cell modules:
+
+    ./cell update $cell_name
+    
+Then, you can re-run the whole `part-001` script or just the parts that you care about:
+
+> **NOTE:**
+You need to source `cellos.sh` in order to get all env variables.  
+You need to run as root and `export PATH=$PATH:/usr/local/bin`  
+    
+    export PATH=$PATH:/usr/local/bin
+    source /etc/profile.d/cellos.sh
+
+Downloading cell modules (seed):
+
+    aws s3 cp s3://$cell_bucket_name/${full_cell_name}/shared/cell-os/seed.tar.gz /opt/cell
+
+Once the seeds are retrieved, they are unpacked (`/opt/cell/seed/*`) and then run in two 
+stages (for each seed) based on the seed priority (based on seed name e.g. `00-docker`)  
+
+1. `<seed>/provision` (stage 1)
+2. `zk-barrier`
+3. `<seed>/provision_post` (stage 2)
+
+The `zk-barrier` utility will block until it can find a fully functional Zookeeper 
+ensemble reported by Exhibitor endpoint (accessed through ELB).  
+
+> **NOTE:** The only requirement is that the `provision` scripts are executable
+Make sure that they have the right [sha-bang](http://www.tldp.org/LDP/abs/html/sha-bang.html)
+E.g. `#!/bin/bash`
 
 # Releasing
 
