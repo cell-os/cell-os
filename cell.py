@@ -616,6 +616,7 @@ class Cell(object):
 
     @check_cell_exists
     def run_update(self):
+        self.seed()
         self.stack_action(action='update')
 
     def run_delete(self):
