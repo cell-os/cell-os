@@ -860,8 +860,12 @@ DynamicForward {port}
 
         command = " ".join(["dcos"] + dcos_args)
         print "Running {}...".format(command)
+
         os.environ["DCOS_CONFIG"] = self.tmp("dcos.toml")
-        subprocess.call(command, shell=True)
+        # FIXME - because of some weird interactions (passing through the shell
+        # twice), we can't use the subprocess.call([list]) form, it doesn't
+        # work, and we have to quote the args for complex params
+        subprocess.call(" ".join(["dcos"] + ['"' + arg + '"' for arg in dcos_args]), shell=True)
 
     @check_cell_exists
     def run_scale(self):
