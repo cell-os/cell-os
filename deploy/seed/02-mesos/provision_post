@@ -1,25 +1,6 @@
 #!/bin/bash
 
 module_name="02-mesos"
-provision_with_retry() {
-  attempt=0
-  max_attempts=5
-  status=-1
-  until [ $status == 0 ] ; do
-    /usr/local/bin/provision puppet "${1}"
-    status=$?
-    attempt=$(($attempt + 1))
-    if [[ $attempt -gt $max_attempts ]]; then
-      exit 1
-    fi
-    if [[ $status != 0 ]]; then
-      echo "Retry ${1} provisioning step: exit code $status, attempt $attempt / $max_attempts"
-      report_status "${module_name} retry"
-      sleep 5
-    fi
-  done
-}
-
 mesos_port_range="[31000-32000]" # default port range in Mesos
 if [[ -f /opt/cell/etc/roles/stateful-body || -f /opt/cell/etc/roles/stateless-body ]]; then
     mesos_port_range="[4369-4369,8081-32000]"
@@ -45,11 +26,11 @@ mkdir -p /var/lib/mesos
 
 if [[ -f /opt/cell/etc/roles/stateless-body ]]; then
   report_status "${module_name} start"
-  provision_with_retry "base::tuning,mesos,mesos::slave,mesos::master"
+  provision puppet "base::tuning,mesos,mesos::slave,mesos::master"
   report_status "${module_name} end"
 elif [[ -f /opt/cell/etc/roles/stateful-body || -f /opt/cell/etc/roles/membrane ]]; then
   report_status "${module_name} start"
-  provision_with_retry "base::tuning,mesos,mesos::slave"
+  provision puppet "base::tuning,mesos,mesos::slave"
   report_status "${module_name} end"
 else
   report_status "${module_name} skipped"
