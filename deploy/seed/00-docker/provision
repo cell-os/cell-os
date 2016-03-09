@@ -10,29 +10,7 @@ docker::storage_driver: devicemapper
 docker::dm_fs: xfs
 EOT
 
-# THIS A HACK
-# We are getting errors when executing the docker provisioning step, due to yum throwing unknown host exception
-# for yum.dockerproject.org
-# For now, we are simply retrying the execution 5 times
-# Please see https://jira.corp.adobe.com/browse/CELL-166
-attempt=0
-max_attempts=5
-status=-1
-
 module_name="00-docker"
 report_status "${module_name} start"
-until [ $status == 0 ] ; do
-  /usr/local/bin/provision puppet docker
-  status=$?
-  attempt=$(($attempt + 1))
-  if [[ $attempt -gt $max_attempts ]]; then
-    exit 1
-  fi
-  if [[ $status != 0 ]]; then
-    echo "Retry Docker provisioning step: exit code $status, attempt $attempt / $max_attempts"
-    report_status "${module_name} retry"
-    sleep 5
-  fi
-done
-
+/usr/local/bin/provision puppet docker 00-docker 5
 report_status "${module_name} end"
