@@ -1,5 +1,11 @@
 ## Release 1.2.1-SNAPSHOT -
 
+### Breaking changes
+
+* SSH keys are no longer used from the environment. Each cell creates its own SSH key
+* SSH keys are now kept in the .generated directory for each cell, a migration step takes this from *default* old style and moves them here
+    * `~/.ssh/cell-os-XXX.pem` > `.generated/XXX/cell-os-XXX.pem`
+
 ## Release 1.2.0 - 2016-03-08
 
 ### Summary
