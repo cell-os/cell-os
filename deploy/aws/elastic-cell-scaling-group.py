@@ -183,12 +183,6 @@ cell_modules = t.add_parameter(Parameter(
     Description="Comma separated list of modules",
 ))
 
-saasbase_deployment_version = t.add_parameter(Parameter(
-    "SaasBaseDeploymentVersion",
-    Type="String",
-    Description="saasbase-deployment version",
-))
-
 saasbase_access_key_id = t.add_parameter(Parameter(
     "SaasBaseAccessKeyId",
     Type="String",
@@ -242,12 +236,6 @@ BodyLaunchConfig = t.add_resource(asn.LaunchConfiguration(
                     group="root",
                     mode="000755"
                 ),
-                "/usr/local/bin/saasbase_installer": cfn.InitFile(
-                    source=Join("", ["https://s3.amazonaws.com/saasbase-repo/saasbase_installer", Ref("SaasBaseDeploymentVersion")]),
-                    owner="root",
-                    group="root",
-                    mode="000755"
-                ),
                 "/etc/profile.d/cellos.sh": cfn.InitFile(
                     content=make_content("""\
 #!/bin/bash
@@ -260,7 +248,6 @@ export aws_access_key_id="{{aws_access_key_id}}"
 export aws_secret_access_key="{{aws_secret_access_key}}"
 export SAASBASE_ACCESS_KEY_ID="{{saasbase_access_key_id}}"
 export SAASBASE_SECRET_ACCESS_KEY="{{saasbase_secret_access_key}}"
-export saasbase_version="{{saasbase_version}}"
 export cellos_version="{{cellos_version}}"
 export cell_bucket_name="{{cell_bucket_name}}"
 export cell_name="{{cell_name}}"
@@ -289,7 +276,6 @@ export aws_region=`wget -qO- http://169.254.169.254/latest/meta-data/placement/a
                         "aws_region": Ref("AWS::Region"),
                         "saasbase_access_key_id": Ref("SaasBaseAccessKeyId"),
                         "saasbase_secret_access_key": Ref("SaasBaseSecretAccessKey"),
-                        "saasbase_version": Ref("SaasBaseDeploymentVersion"),
                         "cellos_version": Ref("CellOsVersionBundle"),
                         "cell_bucket_name": Ref("BucketName"),
                         "cell_name": Ref("CellName"),
@@ -485,6 +471,17 @@ aws s3 cp $status_file s3://${cell_bucket_name}/${full_cell_name}/shared/status/
                     group="root",
                     mode="000755"
                 ),
+                "/usr/local/bin/yaml2json": cfn.InitFile(
+                    content=make_content("""\
+#!/bin/bash
+set -o pipefail
+
+python -c 'import sys, yaml, json; json.dump(yaml.load(sys.stdin), sys.stdout, indent=4)' | cat "$@"
+"""),
+                    owner="root",
+                    group="root",
+                    mode="000755"
+                ),
             })
         )
     }),
@@ -576,25 +573,37 @@ EOT
 
 python ./awslogs-agent-setup.py -r ${aws_region} -n -c awslogs.conf
 
-
 export search_instance_cmd="aws --region ${aws_region} ec2 describe-instances --query 'Reservations[*].Instances[*].[PrivateIpAddress, PrivateDnsName]' --filters Name=instance-state-code,Values=16 Name=tag:cell,Values=${cell_name}"
 
 # prepare roles
 mkdir -p /opt/cell/etc/roles/
 touch /opt/cell/etc/roles/${cell_role}
 
-# prepare provisioning
+# prepare provisioning - cell specific
+download_cell_profile() {
+    mkdir -p /opt/cell/cluster/puppet/modules
+    mkdir -p /opt/cell/puppet/profiles
+    AWS_ACCESS_KEY_ID="${SAASBASE_ACCESS_KEY_ID}" AWS_SECRET_ACCESS_KEY="${SAASBASE_SECRET_ACCESS_KEY}" aws s3 cp s3://saasbase-repo/cell-os/${cellos_version}.yaml /opt/cell/puppet/profiles
+    # attempt to override the profile from the local bucket
+    aws s3 cp s3://${cell_bucket_name}/${full_cell_name}/shared/cell-os/${cellos_version}.yaml /opt/cell/puppet/profiles/
+    echo ${cellos_version} > /opt/cell/cluster/profile
+    touch /opt/cell/cluster/cluster.yaml
+}
+
+# download cell profile so we can get the saasbase installer version
+download_cell_profile
+# download saasbase_installer
+saasbase_version=$(cat /opt/cell/puppet/profiles/${cellos_version}.yaml | yaml2json | jq -r '.["saasbase_deployment::version"]')
+echo "saasbase_version=${saasbase_version}" >> /etc/profile.d/cellos.sh
+
+curl -o /usr/local/bin/saasbase_installer https://s3.amazonaws.com/saasbase-repo/saasbase_installer${saasbase_version}
+chmod +x /usr/local/bin/saasbase_installer
+
 AWS_ACCESS_KEY_ID="${SAASBASE_ACCESS_KEY_ID}" AWS_SECRET_ACCESS_KEY="${SAASBASE_SECRET_ACCESS_KEY}" bash /usr/local/bin/saasbase_installer -d /opt/cell fetch ${saasbase_version}
-mkdir -p /opt/cell/cluster/puppet/modules
-mkdir -p /opt/cell/puppet/profiles
-AWS_ACCESS_KEY_ID="${SAASBASE_ACCESS_KEY_ID}" AWS_SECRET_ACCESS_KEY="${SAASBASE_SECRET_ACCESS_KEY}" aws s3 cp s3://saasbase-repo/cell-os/${cellos_version}.yaml /opt/cell/puppet/profiles
-
-# attempt to download profile from local bucket as well
-aws s3 cp s3://${cell_bucket_name}/${full_cell_name}/shared/cell-os/${cellos_version}.yaml /opt/cell/puppet/profiles/
-echo ${cellos_version} > /opt/cell/cluster/profile
-touch /opt/cell/cluster/cluster.yaml
-
 # provision seed
+# we need to download the cell profile again, because saasbase_installer fetch
+# overwrites all the files in /opt/cell/puppet/profiles
+download_cell_profile
 AWS_ACCESS_KEY_ID="${SAASBASE_ACCESS_KEY_ID}" AWS_SECRET_ACCESS_KEY="${SAASBASE_SECRET_ACCESS_KEY}" aws s3 cp s3://saasbase-repo/cell-os/seed-${cellos_version}.tar.gz /opt/cell
 
 # attempt to download seed from local bucket as well

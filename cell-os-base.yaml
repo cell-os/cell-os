@@ -6,6 +6,7 @@
 # The order is defined by the level of dependency. 
 # For example Docker is low level running directly on the OS and other modules depend on it
 
+saasbase_deployment::version: 1.27
 docker::version: 1.10.2-1.el7.centos
 java::version: 8u74
 # zookeeper exhibitor
