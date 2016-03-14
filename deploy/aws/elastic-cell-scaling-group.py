@@ -253,6 +253,8 @@ export cell_bucket_name="{{cell_bucket_name}}"
 export cell_name="{{cell_name}}"
 export full_cell_name="cell-os--{{cell_name}}"
 export cell_role="{{cell_role}}"
+export cell_modules="{{cell_modules}}"
+export machine_tags="{{machine_tags}}"
 export zk_elb="{{zk_elb}}"
 export marathon_elb="{{marathon_elb}}"
 export mesos_elb="{{mesos_elb}}"
@@ -260,6 +262,7 @@ export membrane_elb="{{membrane_elb}}"
 export internal_membrane_elb="{{internal_membrane_elb}}"
 export instance_id=`wget -qO- http://169.254.169.254/latest/meta-data/instance-id`
 export aws_region=`wget -qO- http://169.254.169.254/latest/meta-data/placement/availability-zone | sed 's/.$//'`
+export aws_wait_handle="{{aws_wait_handle}}"
 """),
                     owner="root",
                     group="root",
@@ -280,7 +283,9 @@ export aws_region=`wget -qO- http://169.254.169.254/latest/meta-data/placement/a
                         "cell_bucket_name": Ref("BucketName"),
                         "cell_name": Ref("CellName"),
                         "cell_role": Ref("Role"),
-                        "cell_tags": Ref("Tags")
+                        "cell_modules": Ref("CellModules"),
+                        "machine_tags": Ref("Tags"),
+                        "aws_wait_handle": Ref("WaitHandle"),
                     })
                 ),
                 "/usr/local/bin/aws_wait": cfn.InitFile(
@@ -546,8 +551,6 @@ cfn-init -s Ref(AWS::StackName) -r BodyLaunchConfig  --region Ref(AWS::Region) |
 # export vars
 echo "export number_of_disks=$(/usr/local/bin/detect-and-mount-disks)" >> /etc/profile.d/cellos.sh
 source /etc/profile.d/cellos.sh
-export wait_handle='Ref(WaitHandle)'
-export cell_modules='Ref(CellModules)'
 
 report_status "role ${cell_role}"
 report_status "seeds ${cell_modules},zk_barrier"
@@ -638,7 +641,7 @@ done
 report_status "${cell_role} end"
 
 # All is well so signal success
-cfn-signal -e 0 -r "Stack setup complete" "${wait_handle}"
+cfn-signal -e 0 -r "Stack setup complete" "${aws_wait_handle}"
 
 #EOF
 """)
