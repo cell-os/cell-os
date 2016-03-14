@@ -1,0 +1,14 @@
+# restricts access only to IPs from the zone bellow
+# source: https://inside.corp.adobe.com/itech/kc/IT01374.html
+geo $http_x_forwarded_for $is_admin_zone_ip {
+    default 0;
+    # IETF private ip ranges
+    10.0.0.0/8 1;
+    172.16.0.0/12 1;
+    127.127.0.0/16 1;
+    127.0.0.1 1;
+
+    {{#.}}
+    {{addr}}/{{mask}} 1;
+    {{/.}}
+}

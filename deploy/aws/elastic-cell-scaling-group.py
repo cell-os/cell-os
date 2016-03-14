@@ -540,6 +540,9 @@ ln -sf /usr/share/zoneinfo/UTC /etc/localtime
 # kpartx and parted for detect and mount partition
 yum install -y wget ruby ruby-devel kpartx parted
 
+# Install mustache gem for easy templating
+gem install mustache
+
 # Pip
 curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py
 python get-pip.py

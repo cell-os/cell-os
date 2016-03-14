@@ -1,6 +1,9 @@
+import json
 import sys
 import os
 import string
+import pystache
+import requests
 
 import awacs
 import awacs.ec2
@@ -28,6 +31,18 @@ from troposphere import Base64, Select, FindInMap, GetAtt, GetAZs, Join, Output
 from troposphere import Parameter, Ref, Tags, Template
 from troposphere.s3 import BucketPolicy
 from troposphere.ec2 import VPCEndpoint
+
+from optparse import OptionParser
+
+parser = OptionParser()
+parser.add_option('--template-url', dest='template_url', help='CFN template URL')
+parser.add_option('--net-whitelist', dest='net_whitelist',
+                   help='Location to network whitelist config file')
+(options, args) = parser.parse_args()
+if not options.net_whitelist:
+    parser.error('Missing location to network whitelist config file')
+
+net_whitelist = json.loads(open(options.net_whitelist, "rb+").read())
 
 t = Template()
 
@@ -412,17 +427,8 @@ VpcEndpointS3 = VPCEndpoint(
 )
 t.add_resource(VpcEndpointS3)
 
-# TODO: move this to config, have only one place (also separate list below for
-# ssh
-egress_ips = ["127.127.16.0/23", "127.127.128.10/32", "127.127.9.200/32", "127.127.9.201/32", "127.127.9.253/32",
-              "127.127.5.2/32", "127.127.10.200/32", "127.127.10.201/32", "127.127.10.202/32", "127.127.10.203/32",
-              "127.127.10.204/32", "127.127.10.205/32", "127.127.10.206/32", "127.127.10.207/32", "127.127.10.208/32",
-              "127.127.10.209/32", "127.127.10.210/32", "127.127.11.4/32", "127.127.19.4/32", "127.127.22.5/32",
-              "127.127.22.150/32", "127.127.118.2/32", "127.127.118.6/32", "127.127.118.254/32", "127.127.114.129/32",
-              "127.127.112.97/32", "127.127.112.98/32", "127.127.117.11/32", "127.127.62.150/32", "127.127.62.180/32",
-              "127.127.140.131/32", "127.127.215.11/32", "127.127.215.4/32", "127.127.139.131/32", "127.127.58.150/32",
-              "127.127.58.180/32", "127.127.65.2/32", "127.127.98.227/32", "127.127.24.4/32", "127.127.113.4/32",
-              "127.127.121.82/32", "127.127.58.150/32", "127.127.58.180/32", "127.127.93.230/32"]
+egress_nets = ["{}/{}".format(entry['addr'], entry['mask'])
+                for entry in net_whitelist]
 
 SharedBucketPolicy = BucketPolicy(
     "SharedBucketPolicy",
@@ -460,7 +466,7 @@ SharedBucketPolicy = BucketPolicy(
                         "s3:prefix": [Join("", ["cell-os--", Ref("CellName"), "/shared/status/*"])],
                     },
                     "IpAddress": {
-                        "aws:SourceIp": egress_ips
+                        "aws:SourceIp": egress_nets
                     }
                 }
             },
@@ -476,7 +482,7 @@ SharedBucketPolicy = BucketPolicy(
                 ],
                 "Condition": {
                     "IpAddress": {
-                        "aws:SourceIp": egress_ips
+                        "aws:SourceIp": egress_nets
                     }
                 }
             }
@@ -664,89 +670,11 @@ ingress BodySecurityGroup tcp 50000:50100
 
 ExternalWhitelistSecurityGroup = t.add_resource(security_group(
     'ExternalWhitelistSecurityGroup',
-    """
-# Basel
-ingress 127.127.117.11/32  tcp  0:65535
-ingress 127.127.62.150/32  tcp  0:65535
-ingress 127.127.62.180/32  tcp  0:65535
-
-# Bucharest
-ingress 127.127.140.131/32  tcp  0:65535
-
-# Dublin
-ingress 127.127.215.11/32  tcp  0:65535
-ingress 127.127.215.4/32  tcp  0:65535
-
-# Hamburg
-ingress 127.127.139.131/32  tcp  0:65535
-ingress 127.127.58.150/32  tcp  0:65535
-ingress 127.127.58.180/32  tcp  0:65535
-
-# London
-ingress 127.127.65.2/32  tcp  0:65535
-
-# Paris
-ingress 127.127.98.227/32  tcp  0:65535
-
-# Beijing, Singapore, Seoul
-ingress 127.127.24.4/32  tcp  0:65535
-ingress 127.127.113.4/32  tcp  0:65535
-
-# Sydney
-ingress 127.127.121.82/32  tcp  0:65535
-ingress 127.127.58.150/32  tcp  0:65535
-ingress 127.127.58.180/32  tcp  0:65535
-
-# Tokyo
-ingress 127.127.93.230/32  tcp  0:65535
-
-# Bangalore
-ingress 127.127.114.129/32  tcp  0:65535
-
-# Noida
-ingress 127.127.112.97/32  tcp  0:65535
-ingress 127.127.112.98/32  tcp  0:65535
-
-# Dallas
-ingress 127.127.16.0/23  tcp  0:65535
-
-# Hillsboro
-ingress 127.127.128.10/32  tcp  0:65535
-
-# Lehi
-ingress 127.127.9.200/32  tcp  0:65535
-ingress 127.127.9.201/32  tcp  0:65535
-ingress 127.127.9.253/32  tcp  0:65535
-
-# San Francisco (none)
-
-# San Jose
-ingress 127.127.10.200/32  tcp  0:65535
-ingress 127.127.10.201/32  tcp  0:65535
-ingress 127.127.10.202/32  tcp  0:65535
-ingress 127.127.10.203/32  tcp  0:65535
-ingress 127.127.10.204/32  tcp  0:65535
-ingress 127.127.10.205/32  tcp  0:65535
-ingress 127.127.10.206/32  tcp  0:65535
-ingress 127.127.10.207/32  tcp  0:65535
-ingress 127.127.10.208/32  tcp  0:65535
-ingress 127.127.10.209/32  tcp  0:65535
-ingress 127.127.10.210/32  tcp  0:65535
-ingress 127.127.11.4/32  tcp  0:65535
-ingress 127.127.19.4/32  tcp  0:65535
-
-# Seattle
-ingress 127.127.22.150/32  tcp  0:65535
-ingress 127.127.22.5/32  tcp  0:65535
-
-# Virgina
-ingress 127.127.118.2/32  tcp  0:65535
-ingress 127.127.118.6/32  tcp  0:65535
-ingress 127.127.118.254/32  tcp  0:65535
-
-# Ottawa
-ingress 127.127.5.2/32  tcp  0:65535
-    """,
+    pystache.render("""
+{{#entries}}
+ingress {{addr}}/{{mask}} tcp 0:65535
+{{/entries}}
+""", {'entries': net_whitelist }),
     VPC,
     description="All nodes are part of it. Grants access to some Adobe CIDRs. Email to metal-cell@adobe.com"
 ))
@@ -883,8 +811,8 @@ def create_cellos_substack(t, name=None, role=None, cell_modules=None, tags=[], 
 
     substack_template_url = Join("", ["https://s3.amazonaws.com/", Ref("BucketName"), "/", "cell-os--", Ref("CellName"), "/", Ref("BodyStackTemplate")])
     # check if the template url is overridden (e.g. with a release one)
-    if len(sys.argv) > 1 and len(sys.argv[1]) > 7 :
-        substack_template_url = sys.argv[1]
+    if options.template_url:
+        substack_template_url = options.template_url
 
     t.add_resource(cfn.Stack(
         name + "Stack",
