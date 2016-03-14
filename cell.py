@@ -421,6 +421,15 @@ class Cell(object):
             for f in delete_response[0]['Deleted']:
                 print "DELETE s3://{}".format(f['Key'])
 
+    def delete_temp_dir(self):
+        cell_temp_dir = self.tmp("")
+        print "DELETE {} temporary directory".format(cell_temp_dir)
+        if cell_temp_dir != "" \
+            and os.path.exists(os.path.join(cell_temp_dir, "seed.tar.gz")):
+            shutil.rmtree(cell_temp_dir)
+        else:
+            print "Refusing to delete directory {}. Please check contents.".format(cell_temp_dir)
+
     def create_key(self):
         # check key
         check_result = self.ec2.describe_key_pairs()
@@ -593,8 +602,9 @@ class Cell(object):
             )
             self.delete_key()
             self.delete_bucket()
-            else:
-            print "Aborted deleting stack"
+            self.delete_temp_dir()
+        else:
+            print "Aborted deleting cell"
 
     def instances(self, role=None, format="PublicIpAddress, PrivateIpAddress, ImageId, State.Name"):
         filters = [
