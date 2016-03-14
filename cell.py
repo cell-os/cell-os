@@ -67,6 +67,7 @@ import time
 import ConfigParser
 import curses
 import datetime
+import textwrap
 
 if os.name == 'posix' and sys.version_info[0] < 3:
     import subprocess32 as subprocess
@@ -877,6 +878,16 @@ DynamicForward {port}
             ),
             self.asg.describe_auto_scaling_groups()
         )[0]
+        if self.arguments['<role>'] in ['nucleus', 'stateful-body'] and capacity < current_capacity:
+            print textwrap.dedent("""\
+                WARNING: THIS WILL SCALE DOWN THE {} GROUP FROM {} TO {} !
+                Please check your current capacity / data usage to avoid data loss !
+            """).format(self.arguments["<role>"], current_capacity, capacity)
+            print "Are you sure ? (y/N)"
+            confirmation = raw_input(">")
+            if confirmation.lower() not in ['y', 'yes']:
+                print "Aborting scale down operation"
+                sys.exit(1)
         print "Scaling {}.{} ({}) to {}".format(
             self.cell,
             self.arguments["<role>"],
