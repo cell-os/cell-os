@@ -33,10 +33,7 @@ Options:
 
 Environment variables:
 
-  AWS_KEY_PAIR - EC2 ssh keypair to use (new keypair is created otherwise)
   CELL_BUCKET - S3 bucket used  (new bucket is created otherwise)
-  KEYPATH - the local path where <keypair>.pem is found (defaults to
-    ${HOME}/.ssh). The .pem extension is required.
   PROXY_PORT - the SOCKS5 proxy port (defaults to ${PROXY_PORT})
   SSH_USER - instances ssh login user (defaults to centos)
   SSH_TIMEOUT - ssh timeout in seconds (defaults to 5)
@@ -249,31 +246,8 @@ class Cell(object):
         )
 
     @property
-    def existing_key_pair(self):
-        return first(
-            os.getenv('AWS_KEY_PAIR'),
-            self.conf('key_pair'),
-        )
-
-    @property
-    def key_path(self):
-        return first(
-            os.getenv("KEYPATH"),
-            self.conf("keypath"),
-            os.path.expanduser("~/.ssh")
-        )
-
-    @property
-    def key_pair(self):
-        return first(
-            os.getenv('AWS_KEY_PAIR'),
-            self.conf('key_pair'),
-            self.full_cell
-        )
-
-    @property
     def key_file(self):
-        return "{}/{}.pem".format(self.key_path, self.key_pair)
+        return self.tmp("{}.pem".format(self.full_cell))
 
     @property
     def full_cell(self):
@@ -448,40 +422,30 @@ class Cell(object):
                 print "DELETE s3://{}".format(f['Key'])
 
     def create_key(self):
-        if not self.existing_key_pair:
-            # check key
-            check_result = self.ec2.describe_key_pairs()
-            key_exists = len([k['KeyName'] for k in check_result['KeyPairs'] if k['KeyName'] == self.key_pair]) > 0
-            if key_exists:
-                print """\
-                Keypair conflict.
-                Trying to create {} in {}, but it already exists.
-                Please:
-                    - delete it (aws ec2 delete-key-pair --key-name {})
-                    - try another cell name
-                    - or use this key instead by setting throught AWS_KEY_PAIR
-                    or in the config file
-                """.format(self.key_pair, self.key_file, self.full_cell)
-                raise KeyException()
-            if os.path.exists(self.key_file):
-                print "Local key file {} already exists".format(self.key_file)
-                raise KeyException()
-            print "CREATE key pair {} -> {}".format(self.key_pair, self.key_file)
-            result = self.ec2.create_key_pair(
-                KeyName=self.key_pair
-            )
-            with open(self.key_file, "wb+") as f:
-                f.write(result['KeyMaterial'])
-                f.flush()
-            os.chmod(self.key_file, 0600)
+        # check key
+        check_result = self.ec2.describe_key_pairs()
+        key_exists = len([k['KeyName'] for k in check_result['KeyPairs'] if k['KeyName'] == self.full_cell]) > 0
+        if key_exists:
+            print """\
+            Keypair conflict.
+            Trying to create {} in {}, but it already exists.
+            Please:
+                - delete it (aws ec2 delete-key-pair --key-name {})
+                - try another cell name
+            """.format(self.full_cell, self.key_file, self.full_cell)
+            raise KeyException()
+        print "CREATE key pair {} -> {}".format(self.full_cell, self.key_file)
+        result = self.ec2.create_key_pair(
+            KeyName=self.full_cell
+        )
+        with open(self.key_file, "wb+") as f:
+            f.write(result['KeyMaterial'])
+            f.flush()
+        os.chmod(self.key_file, 0600)
 
     def delete_key(self):
-        if not self.existing_key_pair:
-            print "DELETE keypair {}".format(self.key_pair)
-            self.ec2.delete_key_pair(KeyName=self.key_pair)
-            print "DELETE key file {}".format(self.key_file)
-            if os.path.isfile(self.key_file):
-                os.remove(self.key_file)
+        print "DELETE keypair {}".format(self.full_cell)
+        self.ec2.delete_key_pair(KeyName=self.full_cell)
 
     def upload(self, path, key, extra_args={}):
         """
@@ -526,7 +490,7 @@ class Cell(object):
                 },
                 {
                     'ParameterKey': 'KeyName',
-                    'ParameterValue': self.key_pair,
+                    'ParameterValue': self.full_cell,
                 },
                 {
                     'ParameterKey': 'BucketName',
@@ -629,7 +593,7 @@ class Cell(object):
             )
             self.delete_key()
             self.delete_bucket()
-        else:
+            else:
             print "Aborted deleting stack"
 
     def instances(self, role=None, format="PublicIpAddress, PrivateIpAddress, ImageId, State.Name"):
@@ -785,15 +749,33 @@ DynamicForward {port}
             """.format(
                 cell=self.cell,
                 host=stateless_instances[0],
-                key=self.key_file,
+                key=self.tmp(self.key_file),
                 port=self.proxy_port)
             )
             f.flush()
+
+    def ensure_migrated(self):
+        """
+        1.2.0 to 1.2.1 breaking ssh key change
+        FIXME: delete this in 1.3.0 timeframe, after ensuring clients migrate
+        """
+        for key_dir in [os.path.expanduser("~/.ssh/"), os.getenv("KEYPATH")]:
+            if key_dir != None:
+                old_key_file = os.path.join(key_dir, "{}.pem".format(self.full_cell))
+                new_key_file = self.tmp("{}.pem".format(self.full_cell))
+                if os.path.exists(old_key_file) and not os.path.exists(new_key_file):
+                    print "WARN: Migrating key file from {} to {}".format(
+                        old_key_file,
+                        new_key_file
+                    )
+                    shutil.move(old_key_file, new_key_file)
+                    os.chmod(new_key_file, 0400)
 
     def ensure_config(self):
         self.ensure_cell_config()
         self.ensure_dcos_config()
         self.ensure_ssh_config()
+        self.ensure_migrated()
 
     def prepare_dcos_package_install(self, args):
         is_install = len(args) >= 2 and (args[0] == 'package' and args[1] == 'install')
@@ -921,11 +903,11 @@ DynamicForward {port}
         ip = instances[index - 1]
         if command:
             subprocess.call("ssh {} {}@{} -i {} {}".format(
-                ssh_options, self.ssh_user, ip, self.key_file, command
+                ssh_options, self.ssh_user, ip, self.tmp(self.key_file), command
             ), shell=True)
         else:
             subprocess.call("ssh {} {}@{} -i {}".format(
-                ssh_options, self.ssh_user, ip, self.key_file
+                ssh_options, self.ssh_user, ip, self.tmp(self.key_file)
             ), shell=True)
 
     @check_cell_exists
@@ -991,7 +973,7 @@ DynamicForward {port}
         instances = flatten(instances)
         machines = ",".join([d for d in instances])
         if self.key_file:
-            sh.i2cssh("-d", "row", "-l", self.ssh_user, "-m", machines, "-Xi={}".format(self.key_file))
+            sh.i2cssh("-d", "row", "-l", self.ssh_user, "-m", machines, "-Xi={}".format(self.tmp(self.key_file)))
 
     @check_cell_exists
     def run_mux(self):
