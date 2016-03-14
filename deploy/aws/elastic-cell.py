@@ -50,13 +50,6 @@ CellOsVersionBundle = t.add_parameter(Parameter(
     Description="cell-os bundle version",
 ))
 
-SaasBaseDeploymentVersion = t.add_parameter(Parameter(
-    "SaasBaseDeploymentVersion",
-    Default="1.27",
-    Type="String",
-    Description="saasbase-deployment version",
-))
-
 KeyName = t.add_parameter(Parameter(
     "KeyName",
     Type="AWS::EC2::KeyPair::KeyName",
@@ -880,7 +873,6 @@ def create_cellos_substack(t, name=None, role=None, cell_modules=None, tags=[], 
         "InstanceType": instance_type,
         "Subnet": Ref("Subnet"),
         "KeyName": Ref("KeyName"),
-        "SaasBaseDeploymentVersion": Ref("SaasBaseDeploymentVersion"),
         "SaasBaseSecretAccessKey": Ref("SaasBaseSecretAccessKey"),
         "SaasBaseAccessKeyId": Ref("SaasBaseAccessKeyId"),
         "ParentStackName": Ref("AWS::StackName"),
