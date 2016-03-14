@@ -519,9 +519,6 @@ pip install "pip==8.1.0"
 
 # aws-cli
 pip install --upgrade "awscli==1.9.21"
-# TODO ec2-utils and ec2-net-utils - why??
-rpm -ivh http://s3.amazonaws.com/saasbase-repo/yumrepo/ec2-utils-0.6-2.el7.centos.noarch.rpm
-rpm -ivh http://s3.amazonaws.com/saasbase-repo/yumrepo/ec2-net-utils-0.6-2.el7.centos.noarch.rpm
 
 # pip install awscli installs certify - that deprecates some crypto shit and things don't work well
 # TODO check if upgrading this fixes it
