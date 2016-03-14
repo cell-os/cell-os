@@ -515,7 +515,7 @@ yum install -y wget ruby ruby-devel kpartx parted
 curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py
 python get-pip.py
 # Downgrade pip to avoid https://github.com/pypa/pip/issues/3384
-pip install "pip==7.1.2"
+pip install "pip==8.1.0"
 
 # aws-cli
 pip install --upgrade "awscli==1.9.21"
