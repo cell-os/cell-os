@@ -44,6 +44,10 @@ cat >${marathon_workload_path} <<-EOT
 }
 EOT
 
+mustache \
+  "/opt/cell/seed/config/net-whitelist.json" \
+  "${gateway_config_path}/conf.d/commons/whitelist.conf.mustache" \
+  > "${gateway_config_path}/conf.d/commons/whitelist.conf"
 aws s3 sync --delete  "${gateway_config_path}" "${gateway_s3_uri}"
 
 # This is where we finish with cell-os-base and cell-os clustered starts

@@ -13,6 +13,7 @@ Usage:
   cell create <cell-name>
   cell list [<cell-name>]
   cell update <cell-name>
+  cell seed <cell-name>
   cell delete <cell-name>
   cell scale <cell-name> <role> <capacity>
   cell log <cell-name> [<role> <index>]
@@ -291,6 +292,14 @@ class Cell(object):
         )
 
     @property
+    def net_whitelist_url(self):
+        return first(
+            os.getenv('NET_WHITELIST_URL'),
+            self.conf('net_whitelist_url'),
+            'https://s3.amazonaws.com/cell-os/config/whitelist.json'
+        )
+
+    @property
     def ssh_user(self):
         return first(
             os.getenv('SSH_USER'),
@@ -358,19 +367,50 @@ class Cell(object):
         getattr(self, 'run_%s' % self.command)()
 
     def build_stack_files(self):
-        mkdir_p(DIR + "/deploy/aws/build")
+
+        mkdir_p(DIR + "/deploy/aws/build/config")
+
         args = [DIR + "/deploy/aws/elastic-cell.py"]
         if self.arguments['--template-url']:
-            args.append(self.arguments['--template-url'])
+            args += ["--template-url", self.arguments["--template-url"]]
+        args += ["--net-whitelist", self.tmp("net-whitelist.json")]
         print "Building stack ..."
         sh.python(args, _out=self.tmp("elastic-cell.json"))
         print "Building sub-stack ..."
         sh.python([DIR + "/deploy/aws/elastic-cell-scaling-group.py"], _out=self.tmp("elastic-cell-scaling-group.json"))
 
+    def build_seed_config(self):
+        default_net_whitelist = [{"addr": "0.0.0.0", "mask": "0"}]
+        def download_net_whitelist(url):
+            entries = default_net_whitelist
+            print "DOWNLOAD net whitelist configuration"
+            try:
+                r = requests.get(url)
+                if r.status_code != 200:
+                    raise Exception("ERROR: downloading config file from {} ({})".format(url, r.status_code))
+                tmp = json.loads(r.text)
+                entries = [
+                    { "addr": entry["net_address"], "mask": entry["net_mask"], }
+                    for entry in json.loads(r.text)["networks"]
+                ]
+                return entries
+            except Exception as e:
+                raise e
+        entries = download_net_whitelist(self.net_whitelist_url)
+        with open(self.tmp("net-whitelist.json"), "wb+") as f:
+            f.write(json.dumps(entries, indent=4))
+        shutil.copyfile(
+            self.tmp("net-whitelist.json"),
+            self.tmp("seed/config/net-whitelist.json")
+        )
+
     def build_seed(self):
-        with sh.pushd(DIR + "/deploy"):
+        shutil.rmtree(self.tmp("seed"), ignore_errors=True)
+        shutil.copytree(DIR + "/deploy/seed", self.tmp("seed"))
+        self.build_seed_config()
+        with sh.pushd(self.tmp("")):
             tar_zcf(["seed.tar.gz", "seed"])
-            shutil.move(DIR + "/deploy/seed.tar.gz", self.tmp("seed.tar.gz"))
+        shutil.rmtree(self.tmp("seed"))
 
     def seed(self):
         self.build_seed()
@@ -478,8 +518,8 @@ class Cell(object):
         print "UPLOADED {} to s3://{}/{}".format(path, self.bucket, remote_path)
 
     def run_build(self):
-        self.build_stack_files()
         self.build_seed()
+        self.build_stack_files()
 
     @check_cell_exists
     def run_seed(self):
