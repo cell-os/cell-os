@@ -239,29 +239,30 @@ BodyLaunchConfig = t.add_resource(asn.LaunchConfiguration(
                 "/etc/profile.d/cellos.sh": cfn.InitFile(
                     content=make_content("""\
 #!/bin/bash
+export cell_backend="aws"
+export cell_name="{{cell_name}}"
+export full_cell_name="cell-os--{{cell_name}}"
+export zk_elb="{{zk_elb}}"
 export zk_base_url="{{zk_base_url}}"
 export zk_cluster_list="{{zk_base_url}}/cluster/list"
+export marathon_elb="{{marathon_elb}}"
+export mesos_elb="{{mesos_elb}}"
+export membrane_elb="{{membrane_elb}}"
+export internal_membrane_elb="{{internal_membrane_elb}}"
+export SAASBASE_ACCESS_KEY_ID="{{saasbase_access_key_id}}"
+export SAASBASE_SECRET_ACCESS_KEY="{{saasbase_secret_access_key}}"
+export cellos_version="{{cellos_version}}"
+export cell_bucket_name="{{cell_bucket_name}}"
+export cell_role="{{cell_role}}"
+export cell_modules="{{cell_modules}}"
+
+export machine_tags="{{machine_tags}}"
+export instance_id=`wget -qO- http://169.254.169.254/latest/meta-data/instance-id`
 export aws_stack_name="{{aws_stack_name}}"
 export aws_parent_stack_name="{{aws_parent_stack_name}}"
 export aws_region="{{aws_region}}"
 export aws_access_key_id="{{aws_access_key_id}}"
 export aws_secret_access_key="{{aws_secret_access_key}}"
-export SAASBASE_ACCESS_KEY_ID="{{saasbase_access_key_id}}"
-export SAASBASE_SECRET_ACCESS_KEY="{{saasbase_secret_access_key}}"
-export cellos_version="{{cellos_version}}"
-export cell_bucket_name="{{cell_bucket_name}}"
-export cell_name="{{cell_name}}"
-export full_cell_name="cell-os--{{cell_name}}"
-export cell_role="{{cell_role}}"
-export cell_modules="{{cell_modules}}"
-export machine_tags="{{machine_tags}}"
-export zk_elb="{{zk_elb}}"
-export marathon_elb="{{marathon_elb}}"
-export mesos_elb="{{mesos_elb}}"
-export membrane_elb="{{membrane_elb}}"
-export internal_membrane_elb="{{internal_membrane_elb}}"
-export instance_id=`wget -qO- http://169.254.169.254/latest/meta-data/instance-id`
-export aws_region=`wget -qO- http://169.254.169.254/latest/meta-data/placement/availability-zone | sed 's/.$//'`
 export aws_wait_handle="{{aws_wait_handle}}"
 """),
                     owner="root",
