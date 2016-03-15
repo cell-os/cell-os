@@ -54,6 +54,7 @@ Slack https://adobe.slack.com/messages/metal-cell/
 import binascii
 import traceback
 from functools import partial, wraps
+import hashlib
 import json
 import sys
 import os
@@ -809,8 +810,38 @@ DynamicForward {port}
         # for each DCOS package we install
         # this file is rendered into
         # .generated/<cell-name>/<package>_dcos_options.json
-        opts_template = DIR + "/deploy/dcos/{}.json.template".format(package)
-        if not os.path.exists(opts_template):
+
+        # DCOS can describe a package configuration schema, with default values
+        # Take it and recreate an actual configuration out of it
+        pkg_config = json.loads(
+            subprocess.check_output(
+                "dcos package describe --config {}".format(package), shell=True
+            )
+        )
+        def config_remapper(src):
+            """
+            Parses a DCOS configuration specification (config.json) and outputs a
+            tree with the templated configuration pieces
+            Example: https://github.com/mesosphere/universe/blob/version-2.x/repo/packages/K/kafka/3/config.json
+            """
+            dest = {}
+            for k, v in src["properties"].iteritems():
+                if v["type"] == "object":
+                    tmp = config_remapper(v)
+                    if len(tmp) > 0:
+                        dest[k] = tmp
+                elif v["type"] == "string" and "default" in v:
+                    dest[k] = v["default"]
+            return dest
+
+        opts_template = None
+        template = config_remapper(pkg_config)
+        if len(template) > 0:
+            opts_template = self.tmp("{}.json.template".format(package))
+            with open(opts_template, "wb+") as tf:
+                tf.write(json.dumps(template, indent=4))
+
+        if opts_template == None or not os.path.exists(opts_template):
             print "Unsupported package or bad command: {}".format(str(package))
             return args
 
@@ -849,12 +880,11 @@ DynamicForward {port}
     def run_dcos(self):
         self.ensure_config()
         dcos_args = sys.argv[3:]
+        os.environ["DCOS_CONFIG"] = self.tmp("dcos.toml")
         dcos_args = self.prepare_dcos_package_install(dcos_args)
 
         command = " ".join(["dcos"] + dcos_args)
         print "Running {}...".format(command)
-
-        os.environ["DCOS_CONFIG"] = self.tmp("dcos.toml")
         # FIXME - because of some weird interactions (passing through the shell
         # twice), we can't use the subprocess.call([list]) form, it doesn't
         # work, and we have to quote the args for complex params
