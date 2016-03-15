@@ -676,6 +676,13 @@ class Cell(object):
                 ["marathon", self.gateway("marathon")],
                 ["hdfs", self.gateway("hdfs")],
             ])
+            print tabulate("Local configuration files", [
+                ["SSH key", self.tmp("{}.pem".format(self.full_cell))],
+                ["SSH config", self.tmp("ssh_config")],
+                ["YAML config", self.tmp("config.yaml")],
+                ["DCOS config", self.tmp("dcos.toml")],
+                ["DCOS cache", self.tmp("dcos_tmp")],
+            ])
 
     def is_fresh_file(self, path):
         """ Checks if a file has been touched in the last X seconds """
