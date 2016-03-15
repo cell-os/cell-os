@@ -488,6 +488,29 @@ python -c 'import sys, yaml, json; json.dump(yaml.load(sys.stdin), sys.stdout, i
                     group="root",
                     mode="000755"
                 ),
+                "/usr/local/bin/machine_for_role": cfn.InitFile(
+                    content=make_content("""\
+#!/bin/bash
+# This script returns either the ip or the host for a cell machine in a certain
+# role
+# Usage: machine_for_role <role> <index> <host|ip>
+# - role: nucleus, stateful-body, stateless-body, membrane
+# - index: starting from 1
+# - host|ip
+# FIXME: we assume describe instances always returns the instances in the ASG
+#        order; this might not be the case (when instances break, for example)
+source /etc/profile.d/cellos.sh
+role=$1
+index=$(( $2 - 1 ))
+[[ "$3" == "ip" ]] && ret=0
+[[ "$3" == "host" ]] && ret=1
+machine=$(aws --region ${aws_region} ec2 describe-instances --query 'Reservations[*].Instances[*].[PrivateIpAddress, PrivateDnsName]' --filters Name=instance-state-code,Values=16 Name=tag:cell,Values=${cell_name} Name=tag:role,Values=${role} | jq -r ".[0][${index}][${ret}]")
+echo $machine
+"""),
+                    owner="root",
+                    group="root",
+                    mode="000755"
+                ),
             })
         )
     }),
@@ -573,8 +596,6 @@ log_group_name = /var/log/cloud-init-output.log
 EOT
 
 python ./awslogs-agent-setup.py -r ${aws_region} -n -c awslogs.conf
-
-export search_instance_cmd="aws --region ${aws_region} ec2 describe-instances --query 'Reservations[*].Instances[*].[PrivateIpAddress, PrivateDnsName]' --filters Name=instance-state-code,Values=16 Name=tag:cell,Values=${cell_name}"
 
 # prepare roles
 mkdir -p /opt/cell/etc/roles/
