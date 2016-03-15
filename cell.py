@@ -762,6 +762,7 @@ Host proxy-cell-{cell}
 Hostname {host}
 StrictHostKeyChecking no
 IdentityFile {key}
+IdentitiesOnly yes
 User centos
 DynamicForward {port}
             """.format(
@@ -931,7 +932,7 @@ DynamicForward {port}
     @check_cell_exists
     def run_ssh(self, command=None, interactive=False):
         self.ensure_config()
-        ssh_options = "{} -o ConnectTimeout={}".format(self.ssh_options, self.ssh_timeout)
+        ssh_options = "{} -o IdentitiesOnly=yes -o ConnectTimeout={}".format(self.ssh_options, self.ssh_timeout)
         if interactive:
             ssh_options = "-t {}".format(ssh_options)
 
@@ -1020,7 +1021,7 @@ DynamicForward {port}
         instances = flatten(instances)
         machines = ",".join([d for d in instances])
         if self.key_file:
-            sh.i2cssh("-d", "row", "-l", self.ssh_user, "-m", machines, "-Xi={}".format(self.tmp(self.key_file)))
+            sh.i2cssh("-d", "row", "-l", self.ssh_user, "-m", machines, "-Xi={}".format(self.tmp(self.key_file)), "-Xo=\"IdentitiesOnly yes\"")
 
     @check_cell_exists
     def run_mux(self):
@@ -1047,7 +1048,7 @@ windows:
       panes:
         {{#instances}}
         - {{priv_ip_addr}}:
-          - ssh -i {{ssh_key}} -o ConnectTimeout={{ssh_timeout}} {{ssh_options}} {{ssh_user}}@{{pub_ip_addr}}
+          - ssh -i {{ssh_key}} -o IdentitiesOnly=yes -o ConnectTimeout={{ssh_timeout}} {{ssh_options}} {{ssh_user}}@{{pub_ip_addr}}
           - clear
         {{/instances}}
   {{/roles}}
