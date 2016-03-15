@@ -1,9 +1,0 @@
-{
-    "hbase-master": {
-        "hdfs-namenode-endpoint": "hdfs.gw.{{cell}}.metal-cell.adobe.io",
-        "hdfs-namespace-id": "saasbase", 
-        "hdfs-rootdir": "/hbase-1", 
-        "zk-quorum": "{{zk}}", 
-        "hbase-znode-parent": "/hbase-1"
-    }
-}

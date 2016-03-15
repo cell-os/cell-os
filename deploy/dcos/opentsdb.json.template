@@ -1,6 +1,0 @@
-{
-    "opentsdb": {
-        "zk-quorum": "{{zk}}", 
-        "zk-basedir": "/hbase-1"
-    }
-}

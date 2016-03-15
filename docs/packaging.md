@@ -39,23 +39,19 @@ Cell-OS can use DCOS packages.
 * We provide our [own package repository](http://git.corp.adobe.com/metal-cell/cell-universe) (the tool can use more than one)
 
 Some DCOS packages rely on some magic parameters being set by the DCOS environment (this part will get better as the open-source version will get fleshed out).  
-Because of this, we need to have a customization layer for DCOS packages where we inject Cell-OS parameters (Basically, Zookeeper quorum, Mesos and Marathon URLs)
+
+Because of this, we need to have a customization layer for DCOS packages where we inject Cell-OS parameters (Basically, Zookeeper quorum, Mesos and Marathon URLs).
+
+This customization layer is embedded in the default values in the `config.json`. The cell-os DCOS wrapper takes these values and generates a template file which we then render json options of.
 
 ```json
-{
-    "mesos": {
-        "master": "zk://{{zk}}/mesos"
-    }, 
-    "kafka": {
-        "app": {
-            "cpus": 2, 
-            "mem": 512, 
-            "heap-mb": 512,
-            "instances": 1
-        }, 
-        "zk": "{{zk}}"
-    }
-}
+...
+"hdfs-namenode-endpoint": {
+    "type": "string",
+    "description": "HDFS namenode host URL",
+    "default": "hdfs.gw.{{cell}}.metal-cell.adobe.io"
+},
+...
 ```
 
 When running the Cell-OS DCOS wrapper( `./cell dcos...`), we:
