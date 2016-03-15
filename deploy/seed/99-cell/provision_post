@@ -8,13 +8,8 @@ fi
 
 report_status "${module_name} start"
 # The following HDFS logic is copied (duplicated from) the HDFS provision seeed
-export search_instance_cmd="aws --region ${aws_region} ec2 describe-instances \
-  --query 'Reservations[*].Instances[*].[PrivateIpAddress, PrivateDnsName]' \
-  --filters Name=instance-state-code,Values=16 Name=tag:cell,Values=${cell_name}"
-export nn1_host=$(eval $search_instance_cmd Name=tag:role,Values=nucleus \
-  | jq -r '.[][][1]' | head -n 1)
-export nn2_host=$(eval $search_instance_cmd Name=tag:role,Values=nucleus \
-  | jq -r '.[][][1]' | head -2 | tail -1)
+export nn1_host=$(machine_for_role nucleus 1 host)
+export nn2_host=$(machine_for_role nucleus 2 host)
 
 gateway_config_dir="apigateway/api-gateway-config"
 gateway_config_path="/opt/cell/seed/99-cell/${gateway_config_dir}"
