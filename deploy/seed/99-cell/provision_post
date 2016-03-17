@@ -6,7 +6,6 @@ if [[ "${cell_role}" != "nucleus" ]]; then
   exit 0
 fi
 
-report_status "${module_name} start"
 # The following HDFS logic is copied (duplicated from) the HDFS provision seeed
 export nn1_host=$(machine_for_role nucleus 1 host)
 export nn2_host=$(machine_for_role nucleus 2 host)
@@ -75,4 +74,3 @@ curl -i -k -X POST \
   "https://dns.metal-cell.adobe.io/gateway?api_key=7f7513685fcb4af1be40814ac2c199fa" \
   --data '{"cell_name": "'${cell_name}'","values": ["'${membrane_elb}'"]}'
 
-report_status "${module_name} end"

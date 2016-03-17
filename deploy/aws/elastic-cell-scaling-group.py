@@ -665,12 +665,24 @@ rm -rf seed
 rm -rf seed*.tar.gz
 popd
 
+function do_provision {
+    local provision_script="${1}"
+    for module_path in /opt/cell/seed/*; do
+        local module="$(basename $module_path)"
+        if [[ "$cell_modules" == *"${module}"* ]]; then
+            if [[ -x "${module_path}/${provision_script}" ]]; then
+                report_status "${module} start"
+                "${module_path}/${provision_script}" || {
+                    report_status "${module} failed"
+                }
+                report_status "${module} end"
+            fi
+        fi
+    done
+}
+
 # execute pre
-for s in /opt/cell/seed/*; do
-    if [[ $cell_modules == *"$(basename $s)"* ]]; then
-        [[ -x $s/provision ]] && $s/provision
-    fi
-done
+do_provision provision
 
 # wait for zk
 report_status "zk_barrier start"
@@ -679,11 +691,7 @@ export zk=`zk-list-nodes 2>/dev/null`
 report_status "zk_barrier end"
 
 # execute post
-for s in /opt/cell/seed/*; do
-    if [[ $cell_modules == *"$(basename $s)"* ]]; then
-        [[ -x $s/provision_post ]] && $s/provision_post
-    fi
-done
+do_provision provision_post
 
 report_status "${cell_role} end"
 

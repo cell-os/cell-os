@@ -22,16 +22,13 @@ mesos::slave::env_var:
   MESOS_ip_discovery_command: /usr/local/bin/get_ip
 EOT
 
+# TODO remove after CELL-368
 mkdir -p /var/lib/mesos
 
 if [[ -f /opt/cell/etc/roles/stateless-body ]]; then
-  report_status "${module_name} start"
   provision puppet "base::tuning,mesos,mesos::slave,mesos::master"
-  report_status "${module_name} end"
 elif [[ -f /opt/cell/etc/roles/stateful-body || -f /opt/cell/etc/roles/membrane ]]; then
-  report_status "${module_name} start"
   provision puppet "base::tuning,mesos,mesos::slave"
-  report_status "${module_name} end"
 else
   report_status "${module_name} skipped"
 fi

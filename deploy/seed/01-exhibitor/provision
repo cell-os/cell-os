@@ -8,9 +8,7 @@ zookeeper::aws_s3_bucket: ${cell_bucket_name}
 zookeeper::aws_s3_prefix: ${full_cell_name}/nucleus/exhibitor
 EOT
 
-  report_status "${module_name} start"
   /usr/local/bin/provision puppet zookeeper
-  report_status "${module_name} end"
 else
   report_status "${module_name} skipped"
 fi

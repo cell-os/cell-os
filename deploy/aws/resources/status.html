@@ -268,13 +268,17 @@ $(document).ready(function() {
             state = "skipped"
         }
         if (span.end > 0) {
-            if (state != 'skipped') {
+            if (state != 'skipped' && state != 'failed') {
                 state = "complete"
             }
             time = "(took " + timeDelta(moment.unix(span.end), moment.unix(span.start)) + ")"
         } else {
-            state = "started"
-            time = timeSinceNow(moment.unix(span.start), 'hh:mm:ss') + " ago"
+            if (_.has(span, "failed")) {
+              state = "failed"
+            } else {
+              state = "started"
+              time = timeSinceNow(moment.unix(span.start), 'hh:mm:ss') + " ago"
+            }
         }
 
         return { state: state, time: time }
@@ -371,6 +375,9 @@ $(document).ready(function() {
       text-decoration: line-through;
       color: #A7A7A7;
       background-color: #DCEFC3;
+  }
+  .failed {
+      background-color: #B90000;
   }
   .complete {
       background-color: #DCEFC3;
