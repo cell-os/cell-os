@@ -58,7 +58,7 @@ until [[ "${response}" =~ ^20[0-9]$ || "${response}" == "409" ]]; do
 response=$(curl -X POST -H "Content-Type: application/json" \
   http://${marathon_elb}/v2/apps\?force\=true \
   -d@"${marathon_workload_path}" \
-  --fail --silent --write-out '%{response_code}' -so /dev/null)
+  --fail --silent --write-out '%{response_code}' -so /opt/cell/gw.log)
   count=$(($count + 1))
   echo -e ".\c"
   if ! (( ${count} % 10 )); then
@@ -70,7 +70,22 @@ done
 
 # Push the membrane ELB host (CNAME, because ELB IP can change)
 # into Metal Cell public DNS (Route 53)
-curl -i -k -X POST \
+response=-1
+count=0
+until [[ "${response}" == "200" ]]; do
+response=$(curl -i -k -X POST \
   "https://dns.metal-cell.adobe.io/gateway?api_key=7f7513685fcb4af1be40814ac2c199fa" \
-  --data '{"cell_name": "'${cell_name}'","values": ["'${membrane_elb}'"]}'
+  --data '{"cell_name": "'${cell_name}'","values": ["'${membrane_elb}'"]}' \
+  --fail --silent --write-out '%{response_code}' -so /opt/cell/dns.log)
+  count=$(($count + 1))
+  echo -e ".\c"
+  if ! (( ${count} % 10 )); then
+    echo "Trying to register DNS for gateway and getting ${response}"
+    report_status "${module_name} retry"
+  fi
+  sleep 1
+done
+
+
+
 
