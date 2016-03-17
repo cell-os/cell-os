@@ -10,7 +10,4 @@ docker::storage_driver: devicemapper
 docker::dm_fs: xfs
 EOT
 
-module_name="00-docker"
-report_status "${module_name} start"
 /usr/local/bin/provision puppet docker 00-docker 5
-report_status "${module_name} end"
