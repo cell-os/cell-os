@@ -647,7 +647,7 @@ class Cell(object):
         else:
             print "Aborted deleting cell"
 
-    def instances(self, role=None, format="PublicIpAddress, PrivateIpAddress, ImageId, State.Name"):
+    def instances(self, role=None, format="PublicIpAddress, PrivateIpAddress, InstanceId, ImageId, State.Name"):
         filters = [
             {
                 'Name': 'tag:cell',
@@ -710,18 +710,18 @@ class Cell(object):
 
             print tabulate("ELBs", elbs)
 
-            print tabulate("Gateway", [
-                ["zookeeper", self.gateway("zookeeper")],
-                ["mesos", self.gateway("mesos")],
-                ["marathon", self.gateway("marathon")],
-                ["hdfs", self.gateway("hdfs")],
-            ])
             print tabulate("Local configuration files", [
                 ["SSH key", self.tmp("{}.pem".format(self.full_cell))],
                 ["SSH config", self.tmp("ssh_config")],
                 ["YAML config", self.tmp("config.yaml")],
                 ["DCOS config", self.tmp("dcos.toml")],
                 ["DCOS cache", self.tmp("dcos_tmp")],
+            ])
+            print tabulate("Gateway", [
+                ["zookeeper", self.gateway("zookeeper")],
+                ["mesos", self.gateway("mesos")],
+                ["marathon", self.gateway("marathon")],
+                ["hdfs", self.gateway("hdfs")],
             ])
 
     def is_fresh_file(self, path):
