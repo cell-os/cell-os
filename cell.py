@@ -419,6 +419,8 @@ class Cell(object):
             "{}/cell-os-base.yaml".format(DIR),
             "/shared/cell-os/cell-os-base-{}.yaml".format(self.version)
         )
+        self.upload(DIR + "/deploy/aws/resources/status.html", "/shared/status/",
+                    extra_args={"ContentType": "text/html"})
 
     def create_bucket(self):
         if not self.existing_bucket:
@@ -447,8 +449,6 @@ class Cell(object):
             }]
         }
         cors.put(CORSConfiguration=config)
-        self.upload(DIR + "/deploy/aws/resources/status.html", "/shared/status/",
-                    extra_args={"ContentType": "text/html"})
 
     def delete_bucket(self):
         if not self.existing_bucket:
