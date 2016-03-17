@@ -674,6 +674,7 @@ function do_provision {
                 report_status "${module} start"
                 "${module_path}/${provision_script}" || {
                     report_status "${module} failed"
+                    error_exit "Failed to deploy ${module}"
                 }
                 report_status "${module} end"
             fi
