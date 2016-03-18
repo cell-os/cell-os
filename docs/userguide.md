@@ -34,13 +34,47 @@ Not started automatically (yet) but deployable through the cell cli as [DCOS pac
 
 ## S3 Bucket
 Each cell has an associated bucket with several subdirectories.  
-By default this will be:
+By default the cli will create the bucket, but an existing bucket can be used as well.
+Everything is namespaced under a cell-level directory for this purpose.
 
     s3://cell-os--$CELL_NAME/cell-os--$CELL_NAME
 
+Under the cell directory each cell body has a corresponding directory to which it has 
+exclusive `r/w` access:
+
+* `/nucleus`
+* `/stateless-body`
+* `/stateful-body`
+* `/membrane
+
+In addition there's a shared directory to which all bodies have access to
+* `/shared`
+
 For more info see [HTTP access to S3 folder](#HTTP-access-to-S3-folder)
 
-**The endpoints described are available only from a restricted set of egress IPS**
+> **NOTE:**  
+The endpoints described are available only from a restricted set of egress IPS**
+
+### HTTP access to S3 folder
+The `shared/http` "folder" can be accessed over HTTP directly form inside the VPC.
+
+Applications that need remote configuration, can upload files to 
+`s3://cell-os--$CELL_NAME/cell-os--$CELL_NAME/shared/http`.  
+The folder can be accessed from inside cell's VPC. 
+
+> **NOTE:** 
+This folder should only contain information that is shareable between workloads.
+E.g. a `.dockercfg` might be needed in order to get docker images from private 
+registries. This file could be uploaded in this folder and accessed using HTTP.
+
+### Namespacing user-level workloads in S3
+We don't currently enforce finer grained accees to S3 resources.
+However, we recommend that user-level workloads namespace their S3 resources under
+
+    /users/<tenant>/<subnamespaces>`
+
+This will allow us to further isolate access between tenants of the same cell and 
+within namespaces of the same tenant.
 
 # Running Workloads
 
@@ -187,11 +221,5 @@ While there may be a subset of overlapping functionality there, we should strive
 
 # HTTP access to S3 folder
 
-Each cell has an associated bucket along with "folders" that each cell subdivision will have access to, plus a `shared` "folder" which is accessible from all cell subdivisions.
-The `shared/http` "folder" can be accessed over HTTP directly form inside the VPC.
 
-Applications that need remote configuration, can upload files to `s3://cell-os--$CELL_NAME/cell-os--$CELL_NAME/shared/http`. The folder can be accessed from inside cell's VPC. 
 
-> **Note:** This folder should only contain information that is shareable between workloads.
-> 
-> **Example:** A `.dockercfg` might be needed in order to get docker images from private registries. This file could be uploaded in this folder and accessed using HTTP.
