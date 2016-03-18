@@ -18,7 +18,7 @@ cat >> /opt/cell/cluster/cluster.yaml <<-EOT
 hadoop.dfs.nameservice_id: "${cell_name}"
 hadoop_data_nodes: []
 hadoop_number_of_disks: $(/usr/local/bin/detect-and-mount-disks)
-hadoop::historyserver_host: $nn1_host
+hadoop::historyserver_host: "${nn1_host}"
 hadoop::proxyusers: {}
 hadoop_data_nodes: []
 EOT
