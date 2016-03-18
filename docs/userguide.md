@@ -2,7 +2,9 @@
 
 This userguide assumes you have a working cell.
 
-To create a cell see the [cli instalation](https://git.corp.adobe.com/metal-cell/cell-os#install) the [cli documentation](https://git.corp.adobe.com/metal-cell/cell-os/blob/master/docs/cli.md)
+To create a cell see the 
+[cli instalation](https://git.corp.adobe.com/metal-cell/cell-os#install) 
+and the [cli documentation](https://git.corp.adobe.com/metal-cell/cell-os/blob/master/docs/cli.md)
 
 TLDR: 
 
@@ -20,13 +22,15 @@ For convenience
 
 Started automatically with the cell:
 
-*  api-gateway / load balancer (available under `*.gw.$CELL_NAME.metal-cell.adobe.io` DNS)
+*  api-gateway / load balancer (available under 
+`*.gw.$CELL_NAME.metal-cell.adobe.io` DNS)
 * `http://zookeeper.gw.$CELL_NAME.metal-cell.adobe.io`
 * `http://mesos.gw.$CELL_NAME.metal-cell.adobe.io`
 * `http://marathon.gw.$CELL_NAME.metal-cell.adobe.io`
 * `http://hdfs.gw.$CELL_NAME.metal-cell.adobe.io`
 
-Not started automatically (yet) but deployable through the cell cli as [DCOS packages](https://git.corp.adobe.com/metal-cell/cell-universe)
+Not started automatically (yet) but deployable through the cell cli as 
+[DCOS packages](https://git.corp.adobe.com/metal-cell/cell-universe)
 
 * Kafka
 * HBase 
@@ -34,13 +38,14 @@ Not started automatically (yet) but deployable through the cell cli as [DCOS pac
 
 ## S3 Bucket
 Each cell has an associated bucket with several subdirectories.  
-By default the cli will create the bucket, but an existing bucket can be used as well.
+By default the cli will create the bucket, but an existing bucket can be used 
+as well.
 Everything is namespaced under a cell-level directory for this purpose.
 
     s3://cell-os--$CELL_NAME/cell-os--$CELL_NAME
 
-Under the cell directory each cell body has a corresponding directory to which it has 
-exclusive `r/w` access:
+Under the cell directory each cell body has a corresponding directory to which 
+it has exclusive `r/w` access:
 
 * `/nucleus`
 * `/stateless-body`
@@ -80,16 +85,19 @@ within namespaces of the same tenant.
 
 ## CellOS Services
 
-CellOS comes with a [DCOS repository](https://git.corp.adobe.com/metal-cell/cell-universe) that you can use 
+CellOS comes with a 
+[DCOS repository](https://git.corp.adobe.com/metal-cell/cell-universe) that you
+can use:
 
     $ ./cell dcos $CELL_NAME package update
     
     $ ./cell dcos $CELL_NAME package list
     Running dcos package list...
     NAME        VERSION  APP     COMMAND     DESCRIPTION
-    kafka       0.9.4.0  /kafka  kafka       Apache Kafka running on top of Apache Mesos
+    kafka       0.9.4.0  /kafka  kafka       Apache Kafka running
 
-To run an existing service [packaging/services section](packaging.md#core-cellos-services).
+To run an existing service 
+[packaging/services section](packaging.md#core-cellos-services).
 
 TLDR - it's typically something like:
 
@@ -112,10 +120,12 @@ $ curl -X POST -H "Content-Type: application/json" \
 http://marathon.gw.$CELL_NAME.metal-cell.adobe.io/v2/apps
 ```
 
-Now if you open `http://hello-cellos.gw.$CELL_NAME.metal-cell.adobe.io` in a browser you should see the server running.
+Now if you open `http://hello-cellos.gw.$CELL_NAME.metal-cell.adobe.io` 
+in a browser you should see the server running.
 
 > **Pro tip**
-> install [httpie](https://github.com/jkbrzt/httpie) using your package manager (brew, apt, yum, pip):
+> install [httpie](https://github.com/jkbrzt/httpie) using your package 
+manager (brew, apt, yum, pip):
 ```    
 brew install httpie
 ```
@@ -126,31 +136,43 @@ brew install httpie
 
 
 #### Port Ranges
-In cell's body workloads may use any port between `8081-32000`. It is recommended to work with dynamic ports 
-which are auto-assigned by Mesos or its frameworks and let the api-gateway / load balancer to automatically discover and expose them. 
+In cell's body workloads may use any port between `8081-32000`. 
+It is recommended to work with dynamic ports which are auto-assigned by Mesos 
+or its frameworks and let the api-gateway / load balancer to automatically 
+discover and expose them. 
 
-> For more information on Marathon ports [read this page](https://mesosphere.github.io/marathon/docs/ports.html).
+> **NOTE**:  
+For more information on Marathon ports 
+[read this page](https://mesosphere.github.io/marathon/docs/ports.html).
 
 
 ## DCOS Packages
 
 See the [packaging](packaging.md) documentation for more details.
 
-It's easy to run applications with Marathon, however most times your service will depend on other services (like Kafka) as well as expose its own configuration handles.
+It's easy to run applications with Marathon, however most times your service 
+will depend on other services (like Kafka) as well as expose its own 
+configuration handles.
 
-You can do this by generating Marathon templates, versioning them and making them available in a repo.
+You can do this by generating Marathon templates, versioning them and making 
+them available in a repo.
 
-DCOS packages are a convenient way (simply JSON) to package and distribute your service. 
-They simply specify a Marathon JSON template together with some metadata that allows you to configure a service. 
+DCOS packages are a convenient way (simply JSON) to package and distribute your
+service. 
+They simply specify a Marathon JSON template together with some metadata that 
+allows you to configure a service. 
 
-See [cell universe](https://git.corp.adobe.com/metal-cell/cell-universe) for existing CellOS DCOS packages.  
+See [cell universe](https://git.corp.adobe.com/metal-cell/cell-universe) for 
+existing CellOS DCOS packages.  
 
-Marathon documentation: [Application Basics](https://mesosphere.github.io/marathon/docs/application-basics.html)
+Marathon documentation: 
+[Application Basics](https://mesosphere.github.io/marathon/docs/application-basics.html)
 
 ## Scheduling to specific cell subdivisions
 
-If you want your workload to run only on `stateful-body` or only on `membrane` you can restrict it
-trough [marathon constraints](https://github.com/mesosphere/marathon/blob/master/docs/docs/constraints.md).
+If you want your workload to run only on `stateful-body` or only on `membrane`
+you can restrict it trough 
+[marathon constraints](https://github.com/mesosphere/marathon/blob/master/docs/docs/constraints.md).
 
 Each subdivision's role is available through the Mesos `role` attribute:
 
@@ -160,19 +182,20 @@ To run in the stateless body you can:
 
 # Private Docker Registry Authentication
 
-You can use the shared http "folder" in S3 to store these (see the section on S3 access).
-Any http accessible .dockercfg archive would work.
-
+You can use the shared http "folder" in S3 to store these (see the section on 
+S3 access). Any http accessible .dockercfg archive would work.
 
 # Service and Configuration Discovery 
 
-A service with named `foo-service` running in cell named `bar-cell` can be located through the cell load balancer at:
+A service with named `foo-service` running in cell named `bar-cell` can be 
+located through the cell load balancer at:
 
 ```
 foo-service.gw.bar-cell.metal-cell.adobe.io
 ```
 
-Optionally, if the service exposes additional **configuration** this can be retrieved from
+Optionally, if the service exposes additional **configuration** this can be 
+retrieved from
 
 ```
 foo-service.gw.bar-cell.metal-cell.adobe.io/cellos/config
@@ -192,30 +215,41 @@ http://kafka.gw.c1.metal-cell.adobe.io/cellos/config
 
 ## How service discovery works
 
-Each cell runs a distributed [Adobe.io apigateway](https://github.com/adobe-apiplatform/apigateway) service
+Each cell runs a distributed 
+[Adobe.io apigateway](https://github.com/adobe-apiplatform/apigateway) service
 used to perform service discovery and load balancing.
 
-The current load balancing implementation polls the `/v2/tasks` marathon endpoint every few seconds and will use that to expose each service:
+The current load balancing implementation polls the `/v2/tasks` marathon 
+endpoint every few seconds and will use that to expose each service:
 
 * marathon app `id` will be used as service discriminator
-* marathon tasks are used to extract `host`, `ports[0]` for each task and used as endpoints to forward requests (round-robin)
+* marathon tasks are used to extract `host`, `ports[0]` for each task and used
+as endpoints to forward requests (round-robin)
 
-Any service deployed in Marathon is discoverable through the above scheme by default.
+Any service deployed in Marathon is discoverable through the above scheme by 
+default.
 
 ## Configuring discovery for a new service
 
-You can use [Marathon labels (`"labels": {}`)](https://github.com/mesosphere/marathon/blob/master/examples/labels.json) to control the load balancer behavior: 
+You can use 
+[Marathon labels (`"labels": {}`)](https://github.com/mesosphere/marathon/blob/master/examples/labels.json)
+to control the load balancer behavior: 
 
-* `lb:enabled` - enables or disables proxying functionality for this service; Default is *true*;
-* `lb:ports` - Indexes of ports to forward to;
-  * ~~all ports will be created as a load-balanced upstream configuration for Gateway~~
+* `lb:enabled` - enables or disables proxying functionality for this service; 
+Default is *true*;
+* `lb:ports` - Indexes of ports to forward to
   * currently only first port (`$PORT0`) is exposed.
-* `lb:module` - Optional - specifies a custom GW module to handle this application type; the configuration and proxying microservice for this specific application;
+* `lb:module` - Optional - specifies a custom GW module to handle this 
+application type; the configuration and proxying microservice for this 
+specific application;
 
 ## Service discovery and load balancing != api management
 
-There's a full set of features enabled by the Adobe.io api-gateway api management layer.  
-While there may be a subset of overlapping functionality there, we should strive to keep the separation of concerns, so learn how that works before trying to do something related to that with this.
+There's a full set of features enabled by the Adobe.io api-gateway api 
+management layer. 
+While there may be a subset of overlapping functionality there, we should 
+strive to keep the separation of concerns, so learn how that works before 
+trying to do something related to that with this.
 
 # Access
 
