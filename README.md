@@ -32,20 +32,20 @@ It currently consists of Zookeeper, Docker, Mesos and Marathon.
     ./cell scale cell-1 body 200
     ./cell ssh cell-1 body
 
-Details, caveats, TODOs in the [aws deployment section](deploy/aws/README.md)
+Details, caveats, TODOs in the [aws deployment section](deploy/aws/README.md).
 Currently only AWS is supported by the CLI.
 
 
 ## Install
 
 #### Configure [AWS CLI](http://aws.amazon.com/cli/)
-The cell cli tool is using a bunch of Python packages, that talk to AWS:
+The cell CLI tool is using a bunch of Python packages, that talk to AWS:
 
     aws configure
 
 > NOTE  
-You'll need an [acccess key id and secret access key](http://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSGettingStartedGuide/AWSCredentials.html) for this. 
-Contact you'r account manager if you don't have one.
+You will need an [acccess key id and secret access key](http://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSGettingStartedGuide/AWSCredentials.html) for this. 
+Contact your account manager if you don't have one.
 
 We recommend using [virtualenv](http://virtualenv.readthedocs.org/en/latest/)
 
@@ -57,7 +57,7 @@ Install `requirements.txt` dependencies
     pip install -r requirements.txt
     ./cell
 
-#### pip pacakge (new feature*)
+#### pip package (new feature*)
 
     virtualenv env
     source env/bin/activate
@@ -84,15 +84,15 @@ Delete an existing cell
 # CellOS version bundle
 
 The cell-os version bundle captures the necessary module versions that are developed,
-tested and certified to work together.
+tested, and certified to work together.
 
 [cell-os-base](cell-os-base.yaml)
 
 # Documentation
 
 * [Command Line Interface](docs/cli.md)
-* [cell-os deployment implementation](docs/deployment-implementation.md)
-** [AWS deployment](docs/deployment-aws.md)
+* [Cell-OS Deployment Implementation](docs/deployment-implementation.md)
+* [AWS Deployment](docs/deployment-aws.md)
 * [Builds and Packaging](docs/packaging.md)
 * [User Guide](docs/userguide.md)
-* [Developer's guide](docs/hacking.md)
+* [Developer's Guide](docs/development.md)

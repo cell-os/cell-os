@@ -2,9 +2,8 @@
 
 This userguide assumes you have a working cell.
 
-To create a cell see the 
-[cli instalation](https://git.corp.adobe.com/metal-cell/cell-os#install) 
-and the [cli documentation](https://git.corp.adobe.com/metal-cell/cell-os/blob/master/docs/cli.md)
+To create a cell see the [CLI installation](https://git.corp.adobe.com/metal-cell/cell-os#install)
+and the [CLI documentation](https://git.corp.adobe.com/metal-cell/cell-os/blob/master/docs/cli.md)
 
 TLDR: 
 
@@ -29,8 +28,8 @@ Started automatically with the cell:
 * `http://marathon.gw.$CELL_NAME.metal-cell.adobe.io`
 * `http://hdfs.gw.$CELL_NAME.metal-cell.adobe.io`
 
-Not started automatically (yet) but deployable through the cell cli as 
-[DCOS packages](https://git.corp.adobe.com/metal-cell/cell-universe)
+Not started automatically (yet), but deployable through the cell CLI as
+[DCOS packages](https://git.corp.adobe.com/metal-cell/cell-universe).
 
 * Kafka
 * HBase 
@@ -38,8 +37,9 @@ Not started automatically (yet) but deployable through the cell cli as
 
 ## S3 Bucket
 Each cell has an associated bucket with several subdirectories.  
-By default the cli will create the bucket, but an existing bucket can be used 
-as well.
+By default, the CLI will create the bucket, but pre-existing bucket
+can be used as well.
+
 Everything is namespaced under a cell-level directory for this purpose.
 
     s3://cell-os--$CELL_NAME/cell-os--$CELL_NAME
@@ -55,7 +55,7 @@ it has exclusive `r/w` access:
 In addition there's a shared directory to which all bodies have access to
 * `/shared`
 
-For more info see [HTTP access to S3 folder](#HTTP-access-to-S3-folder)
+For more info see [HTTP access to S3 folder](#http-access-to-S3-folder)
 
 > **NOTE:**  
 The endpoints described are available only from a restricted set of egress IPS**
@@ -281,7 +281,8 @@ generated. The private key is placed in:
 
     .generated/<cell-name>/cell-os--<cell-name>.pem
 
-Existing or new keys can be used (imported) by placing them in this location.
+Existing or new keys can be used (imported) by placing them in this location. You
+cannot access a cell without first importing the creator's key in this location.
 
 > **NOTE**: 
 Before 1.2.1 keys were in the default `~/.ssh/cell-os--<cell-name>.pem` or
@@ -303,9 +304,6 @@ use a SOCKS proxy.
     ./cell proxy <cell-name>
 
 This creates a SOCKS5 proxy on `localhost:1234` (configurable) in the background.
-You can configure your browser with a proxy like 
+You can configure your browser with a proxy plug-in like 
 [Proxy SwitchyOmega](https://chrome.google.com/webstore/search/switchy%20omega)
 or FoxyProxy and route all internal IPs through the SOCKS proxy. 
-
-
-

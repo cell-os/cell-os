@@ -276,8 +276,8 @@ For more information on how to use the dcos-cli use the help or see the
 
 ## Advanced: Accessing the cell's internal services over HTTP
 
-By default cell services and load balancers are internal, hence can't be accessed
-directly over internet. 
+By default, cell services and load balancers are internal and cannot be accessed
+directly over the Internet. 
 
 To reach the cell services you need to open a tunnel / proxy 
 
@@ -287,8 +287,13 @@ To reach the cell services you need to open a tunnel / proxy
 
     ./cell proxy cell-1 nucleus
 
+The above two commands are equivalent, and open a SOCKS4/5 proxy on localhost, port 1234.
+This proxy can then be used by SOCKS-compatible clients to communicate with hosts in the cell.
+It is common to install a browser plugin like FoxyProxy to help facilitate the easy usage 
+of SOCKS proxies. With the proxy configured, you can browse to hostnames and ports that
+would otherwise be only available inside of the cell.
 
-Opens a SOCKS proxy on port 1234 locally. You can then use curl with `--proxy socks5h://localhost:1234` to access the services e.g.
+For example, you can use curl with `--proxy socks5h://localhost:1234` to access exposed HTTP services using this proxy:
 
     curl -s --proxy socks5h://localhost:1234 internal-cell-1-lb-marathon-1214246100.us-west-2.elb.amazonaws.com/v2/info | python -m json.tool
     {
