@@ -14,6 +14,7 @@ zookeeper::version: 3.4.6_1.5.6
 mesos::version: 0.27.1-2.0.226.centos701406
 marathon::version: v0.15.3
 etcd::version: v2.2.5
+api-gateway::image: "cellos/apigateway:1.9.7.3"
 
 modules:
   puppet-zookeeper: 0.1.2-adobe
