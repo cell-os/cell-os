@@ -217,9 +217,61 @@ You can use [Marathon labels (`"labels": {}`)](https://github.com/mesosphere/mar
 There's a full set of features enabled by the Adobe.io api-gateway api management layer.  
 While there may be a subset of overlapping functionality there, we should strive to keep the separation of concerns, so learn how that works before trying to do something related to that with this.
 
+# Access
 
+Each cell is isolated and access is available through:
 
-# HTTP access to S3 folder
+* cell load balancer (gateway)
+* ssh (`./cell ssh` command)
+* direct http through SOCKS5 proxy (`./cell proxy` command, browser settings)
+
+By default all access is restricted to a set of whitelisted networks which are
+provided through a JSON downloaded from `net_whitelist_url`
+
+```json
+{
+  "networks": [
+    {
+      "net_address": "127.127.16.0",
+      "net_address_type": "ipv4",
+      "net_mask": 23,
+    }
+  ]
+}
+```
+
+## SSH
+
+When creating the cell a dedicated keypair and a local private `.pem` are
+generated. The private key is placed in:
+
+    .generated/<cell-name>/cell-os--<cell-name>.pem
+
+Existing or new keys can be used (imported) by placing them in this location.
+
+> **NOTE**: 
+Before 1.2.1 keys were in the default `~/.ssh/cell-os--<cell-name>.pem` or
+provided through environment variables. There's a migration mechanism in place,
+that copies the keys from the old location to the new one.
+
+There's currently no mechanism to automatically add new keys, although if created
+and imported under the cell local config folder, they should work.
+
+## Proxy 
+
+There's no direct HTTP access to services running in the cell.
+All access happens through the load balancer.
+
+Internal hostnames such as `ip-x-y-z-t.internal` cannot typically be resolved
+through DNS. To access services that expose private hostnames in their UIs you can
+use a SOCKS proxy. 
+
+    ./cell proxy <cell-name>
+
+This creates a SOCKS5 proxy on `localhost:1234` (configurable) in the background.
+You can configure your browser with a proxy like 
+[Proxy SwitchyOmega](https://chrome.google.com/webstore/search/switchy%20omega)
+or FoxyProxy and route all internal IPs through the SOCKS proxy. 
 
 
 
