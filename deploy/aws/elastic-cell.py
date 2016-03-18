@@ -861,7 +861,7 @@ create_cellos_substack(
     t,
     name="StatelessBody",
     role="stateless-body",
-    cell_modules="00-docker,00-java,01-exhibitor,02-mesos,10-marathon,99-cell",
+    cell_modules="00-docker,01-exhibitor,02-mesos,10-marathon,99-cell",
     tags="slave,body,stateless,stateless-body",
     instance_profile="StatelessBodyInstanceProfile",
     security_groups=[
