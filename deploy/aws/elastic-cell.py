@@ -213,15 +213,15 @@ t.add_output(Output(
 ))
 
 t.add_output(Output(
-    "MembraneElbOutput",
-    Description="Address of the Membrane LB",
-    Value=Join('', ['http://', GetAtt("MembraneElb", 'DNSName')]),
+    "GatewayElbOutput",
+    Description="Address of the Gateway LB",
+    Value=Join('', ['http://', GetAtt("GatewayElb", 'DNSName')]),
 ))
 
 t.add_output(Output(
-    "InternalMembraneElbOutput",
-    Description="Address of the Internal Membrane LB",
-    Value=Join('', ['http://', GetAtt("IMembraneElb", 'DNSName')]),
+    "InternalGatewayElbOutput",
+    Description="Address of the Internal Gateway LB",
+    Value=Join('', ['http://', GetAtt("IGatewayElb", 'DNSName')]),
 ))
 
 t.add_output(Output(
@@ -752,16 +752,16 @@ MesosElb = create_load_balancer(t,
     "/health"
 )
 
-MembraneElb = create_load_balancer(t,
-    "Membrane",
+GatewayElb = create_load_balancer(t,
+    "Gateway",
     80,
     "/health-check",
     [Ref("PublicSecurityGroup")],
     False
 )
 
-InternalMembraneElb = create_load_balancer(t,
-    "IMembrane",
+InternalGatewayElb = create_load_balancer(t,
+    "IGateway",
     80,
     "/health-check",
     [Ref("PublicSecurityGroup")]
@@ -774,8 +774,8 @@ InternalMembraneDNSRecord = t.add_resource(route53.RecordSetType(
     Name=Join("", ["*", "."] + cell_domain()),
     Type="CNAME",
     TTL="900",
-    ResourceRecords=[GetAtt("IMembraneElb", "DNSName")],
-    DependsOn=["IMembraneElb", "HostedZone"]
+    ResourceRecords=[GetAtt("IGatewayElb", "DNSName")],
+    DependsOn=["IGatewayElb", "HostedZone"]
 ))
 
 WaitHandle = t.add_resource(cfn.WaitConditionHandle("WaitHandle",))
@@ -790,8 +790,8 @@ def create_cellos_substack(t, name=None, role=None, cell_modules=None, tags=[], 
         "ZookeeperElb": GetAtt("ZookeeperElb", "DNSName"),
         "MarathonElb": GetAtt("MarathonElb", "DNSName"),
         "MesosElb": GetAtt("MesosElb", "DNSName"),
-        "MembraneElb": GetAtt("MembraneElb", "DNSName"),
-        "InternalMembraneElb": GetAtt("IMembraneElb", "DNSName"),
+        "GatewayElb": GetAtt("GatewayElb", "DNSName"),
+        "InternalGatewayElb": GetAtt("IGatewayElb", "DNSName"),
         "AssociatePublicIpAddress": "true",
         "GroupSize": Ref(name + "Size"),
         "ImageId": FindInMap("RegionMap", Ref("AWS::Region"), "AMI"),
@@ -851,8 +851,8 @@ create_cellos_substack(
         Ref(ExternalWhitelistSecurityGroup)
     ],
     load_balancers=[
-        Ref("MembraneElb"),
-        Ref("IMembraneElb")
+        Ref("GatewayElb"),
+        Ref("IGatewayElb")
     ],
     instance_type=Ref("MembraneInstanceType")
 )
