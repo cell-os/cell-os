@@ -315,14 +315,6 @@ class Cell(object):
             '5'
         )
 
-    @property
-    def ssh_options(self):
-        return first(
-            os.getenv('SSH_OPTIONS'),
-            self.conf('ssh_options'),
-            ''
-        )
-
     def tmp(self, path):
         path = os.path.join(TMPDIR, self.cell, path)
         mkdir_p(os.path.dirname(path))
@@ -795,22 +787,27 @@ cache = "{tmp}/dcos_tmp"
         ssh_config = self.tmp("ssh_config")
         if self.is_fresh_file(ssh_config):
             return
+
         stateless_instances = flatten(self.instances(role='stateless-body', format="PublicIpAddress"))
+
         with open(ssh_config, "wb+") as f:
             f.write("""\
+IdentitiesOnly yes
+ConnectTimeout {timeout}
+IdentityFile {key}
+
 Host proxy-cell-{cell}
 Hostname {host}
 StrictHostKeyChecking no
-IdentityFile {key}
-IdentitiesOnly yes
 User centos
 DynamicForward {port}
             """.format(
+                timeout=self.ssh_timeout,
                 cell=self.cell,
                 host=stateless_instances[0],
                 key=self.tmp(self.key_file),
-                port=self.proxy_port)
-            )
+                port=self.proxy_port
+            ))
             f.flush()
 
     def ensure_migrated(self):
@@ -969,12 +966,25 @@ DynamicForward {port}
             DesiredCapacity=capacity
         )
 
+    def ssh_cmd(self, ip, ssh_executable="ssh", extra_opts="", command=""):
+        ssh_options = first(
+            os.getenv('SSH_OPTIONS'),
+            self.conf('ssh_options'),
+            ''
+        )
+
+        return "{executable} -F {ssh_config} {opts} {user}@{host} {extra}".format(
+            executable=ssh_executable,
+            ssh_config=self.tmp("ssh_config"),
+            opts=ssh_options + " " + extra_opts,
+            user=self.ssh_user,
+            host=ip,
+            extra=command
+        )
+
     @check_cell_exists
     def run_ssh(self, command=None, interactive=False):
         self.ensure_config()
-        ssh_options = "{} -o IdentitiesOnly=yes -o ConnectTimeout={}".format(self.ssh_options, self.ssh_timeout)
-        if interactive:
-            ssh_options = "-t {}".format(ssh_options)
 
         instances = flatten(self.instances(self.arguments["<role>"], format="PublicIpAddress"))
         index = int(self.arguments["<index>"])
@@ -990,13 +1000,9 @@ DynamicForward {port}
             return
         ip = instances[index - 1]
         if command:
-            subprocess.call("ssh {} {}@{} -i {} {}".format(
-                ssh_options, self.ssh_user, ip, self.tmp(self.key_file), command
-            ), shell=True)
+            subprocess.call(self.ssh_cmd(ip, extra_opts="-t", command=command), shell=True)
         else:
-            subprocess.call("ssh {} {}@{} -i {}".format(
-                ssh_options, self.ssh_user, ip, self.tmp(self.key_file)
-            ), shell=True)
+            subprocess.call(self.ssh_cmd(ip), shell=True)
 
     @check_cell_exists
     def run_cmd(self):
@@ -1061,7 +1067,8 @@ DynamicForward {port}
         instances = flatten(instances)
         machines = ",".join([d for d in instances])
         if self.key_file:
-            sh.i2cssh("-d", "row", "-l", self.ssh_user, "-m", machines, "-Xi={}".format(self.tmp(self.key_file)), "-Xo=\"IdentitiesOnly yes\"")
+            sh.i2cssh("-d", "row", "-l", self.ssh_user, "-m", machines,
+                    "-XF={}".format(self.tmp('ssh_config')))
 
     @check_cell_exists
     def run_mux(self):
@@ -1088,25 +1095,26 @@ windows:
       panes:
         {{#instances}}
         - {{priv_ip_addr}}:
-          - ssh -i {{ssh_key}} -o IdentitiesOnly=yes -o ConnectTimeout={{ssh_timeout}} {{ssh_options}} {{ssh_user}}@{{pub_ip_addr}}
+          - {{ssh_cmd}}
           - clear
         {{/instances}}
   {{/roles}}
 '''
         cfg = {
             'cell_name': self.full_cell,
-            'ssh_key': self.key_file,
-            'ssh_user': self.ssh_user,
-            'ssh_timeout': self.ssh_timeout,
-            'ssh_options': self.ssh_options,
             'roles': [],
         }
 
         for role in sorted(roles):
             cfg['roles'].append({
                 'name': role,
-                'instances': [{'priv_ip_addr': instance[0], 'pub_ip_addr': instance[1]}
-                              for instance in self.instances(role=role, format="PrivateIpAddress, PublicIpAddress")[0]]
+                'instances': [
+                    {'priv_ip_addr': instance[0],
+                     'pub_ip_addr': instance[1],
+                     'ssh_cmd': self.ssh_cmd(instance[1])
+                    }
+                    for instance in self.instances(role=role, format="PrivateIpAddress, PublicIpAddress")[0]
+                ]
             })
 
         with open(os.path.join(os.path.expanduser('~/.tmuxinator'),
@@ -1125,7 +1133,9 @@ windows:
         except Exception:
             pass
 
-        subprocess.call("{} -f -F {} -N proxy-cell-{} &>/dev/null".format(ssh_cmd, self.tmp("ssh_config"), self.cell), shell=True)
+        cmd = self.ssh_cmd("proxy-cell-{}".format(self.cell), extra_opts="-f -N",
+                           command = "&>{}".format(self.tmp("proxy.log")))
+        subprocess.call(cmd, shell=True)
 
     def output(self, filter):
         return jmespath.search(
