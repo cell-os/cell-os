@@ -30,8 +30,8 @@
 #       so it looks for the $MARATHON_HOST environment variable.
 #
 
-TMP_FILE=/tmp/api-gateway-upstreams.http.conf
-UPSTREAM_FILE=/etc/api-gateway/environment.conf.d/api-gateway-upstreams.http.conf
+TMP_DIR=/tmp/
+CONFIG_DIR=/etc/api-gateway/environment.conf.d/
 marathon_host=$(echo $MARATHON_HOST)
 
 do_log() {
@@ -50,38 +50,83 @@ info_log() {
         do_log "${_MSG}"
 }
 
-# 1. create the new upstream config
-# NOTE: for the moment when tasks expose multiple ports, only the first one is exposed through nginx
-curl -s ${marathon_host}/v2/tasks -H "Accept:text/plain" | awk 'NF>2' | grep -v :0 | awk '!seen[$1]++' | awk ' {s=""; for (f=3; f<=NF; f++) s = s  "\n server " $f " fail_timeout=10s;" ; print "upstream " $1 " {"  s  "\n keepalive 16;\n}" }'  > ${TMP_FILE}
-# 1.1. check redis upstreams
-#
+# 1. create the new vars config
+VARS_FILE_NAME=api-gateway-vars.server.conf
+TMP_VARS_FILE=${TMP_DIR}/${VARS_FILE_NAME}
+VARS_FILE=${CONFIG_DIR}/${VARS_FILE_NAME}
+# jq outputs the json tree as 
+# labels /hbase-master lb:enabled true
+# labels /hbase-master lb:module hbase
+curl -s ${marathon_host}/v2/apps | jq -r '.apps[] as $app | $app.labels|to_entries as $labels | $labels[] | [$app.id, .key, .value] | join("\t")' | gawk '
+{
+  if ($2 !~ /DCOS_/) { # ignore DCOS variables
+    # add to a map because I do not want to depend on order
+    # the output from Marathon / Jq might have the values in a different order
+    labels[$1 "_" $2]=$3
+  }
+}
+END {
+  for (key in labels) {
+    # start from 2 so that we ignore the initial slash
+    # /hbase-master_lb:module -> hbase_master_lb_module
+    var_name = gensub(/[:\-|\.\/]/, "_", "G", substr(key, 2))
+    print "set $" var_name " \"" labels[key] "\";"
+  }
+}
+' > ${TMP_VARS_FILE}
+
+# 2. create the new upstream config
+UPSTREAM_FILE_NAME=api-gateway-upstreams.http.conf
+TMP_UPSTREAM_FILE=${TMP_DIR}/${UPSTREAM_FILE_NAME}
+UPSTREAM_FILE=${CONFIG_DIR}/${UPSTREAM_FILE_NAME}
+curl -s ${marathon_host}/v2/tasks -H "Accept:text/plain" | gawk '
+{
+  app=$1
+  port_index[app]++
+
+  # compute the upstream servers list from this line
+  servers="";
+  for (f=3; f<=NF; f++) {
+    servers = servers "\n server " $f " fail_timeout=10s;";
+  }
+  # if this is the first port, expose it as "workload"
+  if (port_index[app] == 1) {
+    print "upstream " app " {" servers "\n keepalive 16;\n}";
+  }
+
+  # for the rest of the ports, also expose "workload_port0", "workload_port1" etc
+  print "upstream " app "_port" (port_index[app]-1) " {" servers "\n keepalive 16;\n}";
+}
+' > ${TMP_UPSTREAM_FILE}
+
+# 2.1. check redis upstreams
 # ASSUMPTION:  there is a redis app named "api-gateway-redis" deployed in marathon and optionally another app named "api-gateway-redis-replica"
 #
-redis_master=$(cat ${TMP_FILE} | grep api-gateway-redis | wc -l)
-redis_replica=$(cat ${TMP_FILE} | grep api-gateway-redis-replica | wc -l)
+redis_master=$(cat ${TMP_UPSTREAM_FILE} | grep api-gateway-redis | wc -l)
+redis_replica=$(cat ${TMP_UPSTREAM_FILE} | grep api-gateway-redis-replica | wc -l)
 #      if api-gateway-redis upstream exists but api-gateway-redis-replica does not, then create the replica
 if [ ${redis_master} -gt 0 ] && [ ${redis_replica} -eq 0 ]; then
     # clone api-gateway-redis block
-    sed -e '/api-gateway-redis/,/}/!d' ${TMP_FILE} | sed 's/-redis/-redis-replica/' >> ${TMP_FILE}
+    sed -e '/api-gateway-redis/,/}/!d' ${TMP_UPSTREAM_FILE} | sed 's/-redis/-redis-replica/' >> ${TMP_UPSTREAM_FILE}
 fi
 
 if [ ${redis_master} -eq 0 ]; then
-    echo "upstream api-gateway-redis { server 127.0.0.1:6379; }" >> ${TMP_FILE}
+    echo "upstream api-gateway-redis { server 127.0.0.1:6379; }" >> ${TMP_UPSTREAM_FILE}
 fi
 
-# 2 check for changes
+# 2. check for changes
 changed_files=$(find /etc/api-gateway -type f -newer /var/run/apigateway-config-watcher.lastrun -print)
-cmp -s ${TMP_FILE} ${UPSTREAM_FILE}
+# check both the vars and upstream files
+cmp -s ${TMP_UPSTREAM_FILE} ${UPSTREAM_FILE}
 changed_upstreams=$?
-if [[ \( -n "${changed_files}" \) -o \( ${changed_upstreams} -gt 0 \) ]]; then
+cmp -s ${TMP_VARS_FILE} ${VARS_FILE}
+changed_vars=$?
+if [[ \( -n "${changed_files}" \) -o \( ${changed_upstreams} -gt 0 \) -o \( ${changed_vars} -gt 0 \) ]]; then
     info_log "discovered changed files ..."
     info_log ${changed_files}
-    cp ${TMP_FILE} ${UPSTREAM_FILE}
-    echo `date` > /var/run/apigateway-config-watcher.lastrun
+    cp ${TMP_UPSTREAM_FILE} ${UPSTREAM_FILE}
+    cp ${TMP_VARS_FILE} ${VARS_FILE}
     info_log "reloading gateway ..."
     api-gateway -t -p /usr/local/api-gateway/ -c /etc/api-gateway/api-gateway.conf && api-gateway -s reload
 fi
 echo `date` > /var/run/apigateway-config-watcher.lastrun
-
-# 2. diff with an existing one
-# cmp -b $TMP_FILE $UPSTREAM_FILE || (info_log "discovered a change..." && cp $TMP_FILE $UPSTREAM_FILE && info_log "reloading gateway ..." && api-gateway -t -p /usr/local/api-gateway/ -c /etc/api-gateway/api-gateway.conf && api-gateway -s reload)
