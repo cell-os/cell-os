@@ -108,16 +108,16 @@ mesos_load_balancer = t.add_parameter(Parameter(
     Description="Mesos ELB Endpoint",
 ))
 
-membrane_load_balancer = t.add_parameter(Parameter(
-    "MembraneElb",
+gateway_load_balancer = t.add_parameter(Parameter(
+    "GatewayElb",
     Type="String",
-    Description="Membrane ELB Endpoint",
+    Description="Gateway ELB Endpoint",
 ))
 
-internal_membrane_load_balancer = t.add_parameter(Parameter(
-    "InternalMembraneElb",
+internal_gateway_load_balancer = t.add_parameter(Parameter(
+    "InternalGatewayElb",
     Type="String",
-    Description="Internal Membrane ELB Endpoint",
+    Description="Internal Gateway ELB Endpoint",
 ))
 
 subnet = t.add_parameter(Parameter(
@@ -247,8 +247,8 @@ export zk_base_url="{{zk_base_url}}"
 export zk_cluster_list="{{zk_base_url}}/cluster/list"
 export marathon_elb="{{marathon_elb}}"
 export mesos_elb="{{mesos_elb}}"
-export membrane_elb="{{membrane_elb}}"
-export internal_membrane_elb="{{internal_membrane_elb}}"
+export gateway_elb="{{gateway_elb}}"
+export internal_gateway_elb="{{internal_gateway_elb}}"
 export SAASBASE_ACCESS_KEY_ID="{{saasbase_access_key_id}}"
 export SAASBASE_SECRET_ACCESS_KEY="{{saasbase_secret_access_key}}"
 export cellos_version="{{cellos_version}}"
@@ -273,8 +273,8 @@ export aws_wait_handle="{{aws_wait_handle}}"
                         "zk_elb": Ref("ZookeeperElb"),
                         "marathon_elb": Ref("MarathonElb"),
                         "mesos_elb": Ref("MesosElb"),
-                        "membrane_elb": Ref("MembraneElb"),
-                        "internal_membrane_elb": Ref("InternalMembraneElb"),
+                        "gateway_elb": Ref("GatewayElb"),
+                        "internal_gateway_elb": Ref("InternalGatewayElb"),
                         "aws_stack_name": Ref("AWS::StackName"),
                         "aws_parent_stack_name": Ref("ParentStackName"),
                         "aws_region": Ref("AWS::Region"),
