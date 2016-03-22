@@ -64,6 +64,13 @@ CellName = t.add_parameter(Parameter(
     Description="The name of this cell (e.g. cell-1). This will get prefixed with account id and region to get the full cell id.",
 ))
 
+Repository = t.add_parameter(Parameter(
+    "Repository",
+    Default="s3://saasbase-repo",
+    Type="String",
+    Description="Location of provisioning related artefacts",
+))
+
 CellOsVersionBundle = t.add_parameter(Parameter(
     "CellOsVersionBundle",
     Default="cell-os-base-1.2.1-SNAPSHOT",
@@ -803,6 +810,7 @@ def create_cellos_substack(t, name=None, role=None, cell_modules=None, tags=[], 
         "ImageId": FindInMap("RegionMap", Ref("AWS::Region"), "AMI"),
         "CellName": Ref("CellName"),
         "BucketName": Ref("BucketName"),
+        "Repository": Ref("Repository"),
         "CellOsVersionBundle": Ref("CellOsVersionBundle"),
         "InstanceType": instance_type,
         "Subnet": Ref("Subnet"),

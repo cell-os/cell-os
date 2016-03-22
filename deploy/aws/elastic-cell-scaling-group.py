@@ -65,6 +65,12 @@ bucket_name = t.add_parameter(Parameter(
     Description="Cell's S3 bucket name. Used for metadata and backups. Can be one per account as we prefix data with cell name inside",
 ))
 
+Repository = t.add_parameter(Parameter(
+    "Repository",
+    Type="String",
+    Description="Location of Cell-OS related artifacts",
+))
+
 cell_os_version_bundle = t.add_parameter(Parameter(
     "CellOsVersionBundle",
     Type="String",
@@ -251,6 +257,7 @@ export gateway_elb="{{gateway_elb}}"
 export internal_gateway_elb="{{internal_gateway_elb}}"
 export SAASBASE_ACCESS_KEY_ID="{{saasbase_access_key_id}}"
 export SAASBASE_SECRET_ACCESS_KEY="{{saasbase_secret_access_key}}"
+export repository="{{repository}}"
 export cellos_version="{{cellos_version}}"
 export cell_bucket_name="{{cell_bucket_name}}"
 export cell_role="{{cell_role}}"
@@ -280,6 +287,7 @@ export aws_wait_handle="{{aws_wait_handle}}"
                         "aws_region": Ref("AWS::Region"),
                         "saasbase_access_key_id": Ref("SaasBaseAccessKeyId"),
                         "saasbase_secret_access_key": Ref("SaasBaseSecretAccessKey"),
+                        "repository": Ref("Repository"),
                         "cellos_version": Ref("CellOsVersionBundle"),
                         "cell_bucket_name": Ref("BucketName"),
                         "cell_name": Ref("CellName"),
@@ -630,7 +638,7 @@ touch /opt/cell/etc/roles/${cell_role}
 download_cell_profile() {
     mkdir -p /opt/cell/cluster/puppet/modules
     mkdir -p /opt/cell/puppet/profiles
-    AWS_ACCESS_KEY_ID="${SAASBASE_ACCESS_KEY_ID}" AWS_SECRET_ACCESS_KEY="${SAASBASE_SECRET_ACCESS_KEY}" aws s3 cp s3://saasbase-repo/cell-os/${cellos_version}.yaml /opt/cell/puppet/profiles
+    AWS_ACCESS_KEY_ID="${SAASBASE_ACCESS_KEY_ID}" AWS_SECRET_ACCESS_KEY="${SAASBASE_SECRET_ACCESS_KEY}" aws s3 cp ${repository}/cell-os/${cellos_version}.yaml /opt/cell/puppet/profiles
     # attempt to override the profile from the local bucket
     aws s3 cp s3://${cell_bucket_name}/${full_cell_name}/shared/cell-os/${cellos_version}.yaml /opt/cell/puppet/profiles/
     echo ${cellos_version} > /opt/cell/cluster/profile
@@ -639,11 +647,16 @@ download_cell_profile() {
 
 # download cell profile so we can get the saasbase installer version
 download_cell_profile
-# download saasbase_installer
+
+# download saasbase_installer (for now, we are expecting S3-based storage)
+if [ ${repository:0:5} != "s3://" ]; then
+  echo "The 'repository' var must point to an S3 bucket"
+  exit 1
+fi
 saasbase_version=$(cat /opt/cell/puppet/profiles/${cellos_version}.yaml | yaml2json | jq -r '.["saasbase_deployment::version"]')
 echo "saasbase_version=${saasbase_version}" >> /etc/profile.d/cellos.sh
 
-curl -o /usr/local/bin/saasbase_installer https://s3.amazonaws.com/saasbase-repo/saasbase_installer${saasbase_version}
+curl -o /usr/local/bin/saasbase_installer https://s3.amazonaws.com/${repository:5}/saasbase_installer${saasbase_version}
 chmod +x /usr/local/bin/saasbase_installer
 
 AWS_ACCESS_KEY_ID="${SAASBASE_ACCESS_KEY_ID}" AWS_SECRET_ACCESS_KEY="${SAASBASE_SECRET_ACCESS_KEY}" bash /usr/local/bin/saasbase_installer -d /opt/cell fetch ${saasbase_version}
@@ -651,7 +664,7 @@ AWS_ACCESS_KEY_ID="${SAASBASE_ACCESS_KEY_ID}" AWS_SECRET_ACCESS_KEY="${SAASBASE_
 # we need to download the cell profile again, because saasbase_installer fetch
 # overwrites all the files in /opt/cell/puppet/profiles
 download_cell_profile
-AWS_ACCESS_KEY_ID="${SAASBASE_ACCESS_KEY_ID}" AWS_SECRET_ACCESS_KEY="${SAASBASE_SECRET_ACCESS_KEY}" aws s3 cp s3://saasbase-repo/cell-os/seed-${cellos_version}.tar.gz /opt/cell
+AWS_ACCESS_KEY_ID="${SAASBASE_ACCESS_KEY_ID}" AWS_SECRET_ACCESS_KEY="${SAASBASE_SECRET_ACCESS_KEY}" aws s3 cp ${repository}/cell-os/seed-${cellos_version}.tar.gz /opt/cell
 
 # attempt to download seed from local bucket as well
 aws s3 cp s3://$cell_bucket_name/${full_cell_name}/shared/cell-os/seed.tar.gz /opt/cell
