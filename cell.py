@@ -257,6 +257,14 @@ class Cell(object):
         )
 
     @property
+    def repository(self):
+        return first(
+            os.getenv('REPOSITORY'),
+            self.conf('repository'),
+            's3://saasbase-repo'
+        )
+
+    @property
     def key_file(self):
         return self.tmp("{}.pem".format(self.full_cell))
 
@@ -543,6 +551,10 @@ class Cell(object):
                 {
                     'ParameterKey': 'CellOsVersionBundle',
                     'ParameterValue': "cell-os-base-{}".format(self.version),
+                },
+                {
+                    'ParameterKey': 'Repository',
+                    'ParameterValue': self.repository,
                 },
                 {
                     'ParameterKey': 'KeyName',
