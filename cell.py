@@ -52,16 +52,13 @@ Github git.corp.adobe.com/metal-cell/cell-os
 Slack https://adobe.slack.com/messages/metal-cell/
 """
 
-import binascii
 import traceback
 from functools import partial, wraps
-import hashlib
 import json
 import sys
 import os
 import re
 import shutil
-import socket
 import time
 import ConfigParser
 import curses
@@ -85,7 +82,6 @@ import yaml
 from awscli.formatter import TableFormatter
 from awscli.table import MultiTable, Styler
 from awscli.compat import six
-DEFAULT_SOCKET = socket.socket
 mkdir_p = sh.mkdir.bake("-p")
 tar_zcf = sh.tar.bake("zcf")
 
@@ -359,7 +355,6 @@ class Cell(object):
         getattr(self, 'run_%s' % self.command)()
 
     def build_stack_files(self):
-
         mkdir_p(DIR + "/deploy/aws/build/config")
 
         args = [DIR + "/deploy/aws/elastic-cell.py"]
@@ -983,7 +978,7 @@ DynamicForward {port}
         )
 
     @check_cell_exists
-    def run_ssh(self, command=None, interactive=False):
+    def run_ssh(self, command=None):
         self.ensure_config()
 
         instances = flatten(self.instances(self.arguments["<role>"], format="PublicIpAddress"))
@@ -1013,7 +1008,6 @@ DynamicForward {port}
         Return stack events as recorded in cloudformation
         Return:  list of (timestamp, logical-resource-idm resource-status) tuples
         """
-        max_items = 10
         events = []
         paginator = self.cfn.meta.client.get_paginator("describe_stack_events")
         status = paginator.paginate(StackName=self.stack,
@@ -1127,7 +1121,6 @@ windows:
     @check_cell_exists
     def run_proxy(self):
         self.ensure_config()
-        ssh_cmd = str(sh.ssh)
         try:
             subprocess.call("pkill -9 -f \"ssh.*proxy-cell\"", shell=True)
         except Exception:
@@ -1136,12 +1129,6 @@ windows:
         cmd = self.ssh_cmd("proxy-cell-{}".format(self.cell), extra_opts="-f -N",
                            command = "&>{}".format(self.tmp("proxy.log")))
         subprocess.call(cmd, shell=True)
-
-    def output(self, filter):
-        return jmespath.search(
-            "Stacks[0].Outputs | [?contains(OutputValue, `{}`) == `true`]|[0]|OutputValue".format(filter),
-            self.cfn.meta.client.describe_stacks(StackName=self.stack)
-        )
 
 def main(work_dir=None):
     global DIR, TMPDIR
