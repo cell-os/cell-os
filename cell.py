@@ -1068,6 +1068,7 @@ DynamicForward {port}
 
     @check_cell_exists
     def run_i2cssh(self):
+        self.ensure_config()
         if not sh.which('i2cssh'):
             print "You need i2cssh for this subcommand. Install it with gem install i2cssh"
             return
