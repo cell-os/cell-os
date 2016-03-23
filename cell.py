@@ -10,20 +10,20 @@
  ╚═════╝╚══════╝╚══════╝╚═════╝         ╚═════╝  ╚══════╝     ╚═╝═╝ ╚══════╝
 
 Usage:
-  cell create <cell-name>
-  cell list [<cell-name>]
-  cell update <cell-name>
-  cell seed <cell-name>
-  cell delete <cell-name>
-  cell scale <cell-name> <role> <capacity>
-  cell log <cell-name> [<role> <index>]
-  cell dcos <cell-name>
-  cell ssh <cell-name> <role> <index>
-  cell i2cssh <cell-name> [<role>]
-  cell mux <cell-name> [<role>]
-  cell proxy <cell-name>
-  cell cmd <cell-name> <role> <index> <command>
-  cell build <cell-name> [--template-url <substack-template-url>]
+  cell create <cell-name> [--backend <backend>] [--cell_config <config>]
+  cell list [<cell-name>] [--backend <backend>] [--cell_config <config>]
+  cell update <cell-name> [--backend <backend>] [--cell_config <config>]
+  cell seed <cell-name> [--backend <backend>] [--cell_config <config>]
+  cell delete <cell-name> [--backend <backend>] [--cell_config <config>]
+  cell scale <cell-name> <role> <capacity> [--backend <backend>] [--cell_config <config>]
+  cell log <cell-name> [<role> <index>] [--backend <backend>] [--cell_config <config>]
+  cell dcos <cell-name> [--backend <backend>] [--cell_config <config>]
+  cell ssh <cell-name> <role> <index> [--backend <backend>] [--cell_config <config>]
+  cell i2cssh <cell-name> [<role>] [--backend <backend>] [--cell_config <config>]
+  cell mux <cell-name> [<role>] [--backend <backend>] [--cell_config <config>]
+  cell proxy <cell-name> [--backend <backend>] [--cell_config <config>]
+  cell cmd <cell-name> <role> <index> <command> [--backend <backend>] [--cell_config <config>]
+  cell build <cell-name> [--template-url <substack-template-url>] [--backend <backend>] [--cell_config <config>]
   cell (-h | --help)
   cell --version
 
@@ -31,6 +31,8 @@ Options:
   -h --help                              Show this message.
   --version                              Show version.
   --template-url <substack-template-url> The path of the substack template to burn in the stack [default: set path to template].
+  --backend <backend> The Cell backend implementation to use
+  --cell_config <config> The configuration section to read values from
 
 Environment variables:
 
@@ -52,44 +54,38 @@ Github git.corp.adobe.com/metal-cell/cell-os
 Slack https://adobe.slack.com/messages/metal-cell/
 """
 
-import traceback
-from functools import partial, wraps
-import json
-import sys
-import os
-import re
-import shutil
-import time
 import ConfigParser
 import curses
 import datetime
+import functools
+import imp
+import inspect
+import json
+import os
+import requests
+import sh
+import shutil
+import sys
 import textwrap
+import time
+import traceback
 
 if os.name == 'posix' and sys.version_info[0] < 3:
     import subprocess32 as subprocess
 else:
     import subprocess
 
-import requests
 from docopt import docopt
-import boto3
-import boto3.session
-import jmespath
-import sh
 import pystache
 import toml
 import yaml
 
-from awscli.formatter import TableFormatter
-from awscli.table import MultiTable, Styler
-from awscli.compat import six
+def arity(obj, method):
+    return getattr(obj.__class__, method).func_code.co_argcount - 1
+
 mkdir_p = sh.mkdir.bake("-p")
 tar_zcf = sh.tar.bake("zcf")
-
-# work directory
-DIR = None
-TMPDIR = None
-
+tar_zxf = sh.tar.bake("zxf")
 
 def deep_merge(a, b):
     """
@@ -156,6 +152,9 @@ def readify(path):
         out = path
     return out
 
+from awscli.formatter import TableFormatter
+from awscli.table import MultiTable, Styler
+from awscli.compat import six
 
 def tabulate(operation, data):
     """
@@ -163,6 +162,8 @@ def tabulate(operation, data):
     :param operation: the title of the table
     :param data: list or dict to print
     """
+    if data is None:
+        return ""
     table = MultiTable(initial_section=False,
                        column_separator='|', styler=Styler(),
                        auto_reformat=False)
@@ -175,12 +176,33 @@ def tabulate(operation, data):
     return stream.getvalue()
 
 
-def command(args):
-    return [
-        kv
-        for kv in args.items()
-        if not kv[0].startswith('<') and not kv[0].startswith('-') and kv[1]
-    ][0]
+def first(*args):
+    for item in args:
+        if item is not None:
+            return item
+    return None
+
+class Config(object):
+    def __init__(self, raw_config, sections=['default']):
+        self.__dict__["sections"] = sections
+        self.__dict__["raw_config"] = raw_config
+
+    def __getattr__(self, key, cls=None):
+        return Config.conf_get(self.raw_config, self.sections, key)
+
+    def __setattr__(self, key, value):
+        raise AttributeError
+
+    @staticmethod
+    def conf_get(config, profiles, key):
+        value = None
+        for profile in profiles:
+            value = None
+            try:
+                value = config.get(profile, key)
+            except:
+                pass
+        return value
 
 
 def cell_config():
@@ -189,77 +211,49 @@ def cell_config():
     return config
 
 
-def first(*args):
-    for item in args:
-        if item is not None:
-            return item
-    return None
-
-
-def conf_get(config, profiles, key):
-    for profile in profiles:
-        value = None
-        try:
-            value = config.get(profile, key)
-        except:
-            pass
-        if value is not None:
-            return value
-    return None
-
-
-class KeyException(Exception):
-    pass
-
-
-class BucketException(Exception):
-    pass
-
+class Struct(object):
+    def __init__(self, **kwargs):
+        self.__dict__.update(kwargs)
 
 ROLES = ["nucleus", "stateless-body", "stateful-body", "membrane"]
 
 
 class Cell(object):
+    def get_backend(self):
+        backend_dir = "/deploy/{}/backend.py"
+        imp.load_source("backend", DIR + backend_dir.format(self.backend_type))
+        class_name = self.backend_type.capitalize() + "Backend"
+        backend = __import__('backend', globals(), locals(), [class_name], 0)
+        return getattr(backend, class_name)
+
     def __init__(self, arguments, version):
         self.version = version
         self.arguments = arguments
-        self.config = cell_config()
-        config_sections = ['default']
-        if self.cell:
-            config_sections.insert(0, self.cell)
-        self.conf = partial(conf_get, self.config, config_sections)
-        self.session = boto3.session.Session(
-            region_name=self.region,
-            aws_access_key_id=self.conf('aws_access_key_id'),
-            aws_secret_access_key=self.conf('aws_secret_access_key'),
-        )
-        self.cfn = self.session.resource('cloudformation')
-        self.s3 = self.session.resource('s3')
-        self.ec2 = self.session.client('ec2')
-        self.elb = self.session.client('elb')
-        self.asg = self.session.client('autoscaling')
+        config_sections = [self.backend_type, "default"]
+
+        if self.arguments["--cell_config"]:
+            config_sections = self.arguments["--cell_config"].split(",")
+        self.config = Config(cell_config(), sections=config_sections)
+        self.backend_cls = self.get_backend()
+        config_args = {
+            "version": self.version,
+            "saasbase_access_key_id": self.saasbase_access_key_id,
+            "saasbase_secret_access_key": self.saasbase_secret_access_key,
+            "cell": self.cell,
+            "full_cell": self.full_cell,
+            "cell_dir": DIR,
+            "template_url": self.arguments['--template-url'],
+            "repository": self.repository
+        }
+        if self.cell is not None:
+            config_args["key_file"] = self.key_file
+            config_args["tmp_dir"] = self.tmp("")
+
+        self.backend = self.backend_cls(self.config, Struct(**config_args))
 
     @property
-    def region(self):
-        return first(
-            os.getenv('AWS_DEFAULT_REGION'),
-            self.conf('region'),
-        )
-
-    @property
-    def existing_bucket(self):
-        return first(
-            os.getenv('CELL_BUCKET'),
-            self.conf('bucket'),
-        )
-
-    @property
-    def bucket(self):
-        return first(
-            os.getenv('CELL_BUCKET'),
-            self.conf('bucket'),
-            self.full_cell
-        )
+    def backend_type(self):
+        return first(self.arguments["--backend"], "aws")
 
     @property
     def key_file(self):
@@ -274,18 +268,10 @@ class Cell(object):
         return self.arguments["<cell-name>"]
 
     @property
-    def dns_name(self):
-        return "gw.{cell}.metal-cell.adobe.io".format(cell=self.cell)
-
-    @property
-    def stack(self):
-        return self.cell
-
-    @property
     def proxy_port(self):
         return first(
             os.getenv('PROXY_PORT'),
-            self.conf('proxy_port'),
+            self.config.proxy_port,
             '1234'
         )
 
@@ -293,7 +279,7 @@ class Cell(object):
     def saasbase_access_key_id(self):
         return first(
             os.getenv('SAASBASE_ACCESS_KEY_ID'),
-            self.conf('saasbase_access_key_id'),
+            self.config.saasbase_access_key_id,
             'XXXXXXXXXXXXXXXXXXXX'
         )
 
@@ -301,7 +287,7 @@ class Cell(object):
     def saasbase_secret_access_key(self):
         return first(
             os.getenv('SAASBASE_SECRET_ACCESS_KEY'),
-            self.conf('saasbase_secret_access_key'),
+            self.config.saasbase_secret_access_key,
             'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
         )
 
@@ -309,7 +295,7 @@ class Cell(object):
     def repository(self):
         return first(
             os.getenv('REPOSITORY'),
-            self.conf('repository'),
+            self.config.repository,
             's3://saasbase-repo'
         )
 
@@ -317,7 +303,7 @@ class Cell(object):
     def net_whitelist_url(self):
         return first(
             os.getenv('NET_WHITELIST_URL'),
-            self.conf('net_whitelist_url'),
+            self.config.net_whitelist_url,
             'https://s3.amazonaws.com/cell-os/config/whitelist.json'
         )
 
@@ -325,7 +311,7 @@ class Cell(object):
     def ssh_user(self):
         return first(
             os.getenv('SSH_USER'),
-            self.conf('ssh_user'),
+            self.config.ssh_user,
             'centos'
         )
 
@@ -333,7 +319,7 @@ class Cell(object):
     def ssh_timeout(self):
         return first(
             os.getenv('SSH_TIMEOUT'),
-            self.conf('ssh_timeout'),
+            self.config.ssh_timeout,
             '5'
         )
 
@@ -344,57 +330,48 @@ class Cell(object):
 
     @property
     def command(self):
+        def command(args):
+            return [kv for kv in args.items()
+                    if not kv[0].startswith('<') and
+                    not kv[0].startswith('-') and kv[1]][0]
         return command(self.arguments)[0]
 
     @property
     def cache_expiry_seconds(self):
         return first(
             os.getenv('CACHE_EXPIRY_SECONDS'),
-            self.conf('cache_expiry_seconds'),
+            self.config.cache_expiry_seconds,
             60 * 3
         )
 
-    @property
-    def statuspage(self):
-        # s3 endpoint is not consistent across AWS regions
-        # in us-east-1 the endpoint doesn't contain the region in the url
-        s3_endpoint = "s3-{region}.amazonaws.com".format(region=self.region).replace('us-east-1', 'external-1')
-        return "http://{full_cell}.{s3_endpoint}/{full_cell}/shared/status/status.html".format(
-            full_cell=self.full_cell,
-            s3_endpoint=s3_endpoint
-        )
-
-    def gateway(self, service):
-        return "http://{}.{}".format(service, self.dns_name)
-
     def check_cell_exists(f):
-        @wraps(f)
-        def wrapped(inst, *args, **kwargs):
-            try:
-                # if the cell parameter is defined, check it
-                if inst.cell is not None:
-                    inst.session.client('cloudformation')\
-                        .describe_stacks(StackName=inst.cell)
-            except Exception:
-                raise Exception("Cell {} does not exist or is not running !"
-                                .format(inst.cell))
+        argspec = inspect.getargspec(f)
+
+        def _wrap(inst, *args, **kwargs):
+            # if the cell parameter is defined, check it
+            if inst.cell != None:
+                try:
+                    exists = inst.backend.cell_exists()
+                except Exception:
+                    exists = False
+                if not exists:
+                    raise Exception("Cell {} does not exist or is not running !"
+                                    .format(inst.cell))
+                    sys.exit(1)
             return f(inst, *args, **kwargs)
-        return wrapped
 
-    def run(self):
-        getattr(self, 'run_%s' % self.command)()
+        formatted_args = inspect.formatargspec(*argspec)
+        fndef = 'lambda %s: _wrap%s' % (
+            formatted_args.lstrip('(').rstrip(')'), formatted_args)
+        fake_fn = eval(fndef, {'_wrap': _wrap})
+        return functools.wraps(f)(fake_fn)
 
-    def build_stack_files(self):
-        mkdir_p(DIR + "/deploy/aws/build/config")
-
-        args = [DIR + "/deploy/aws/elastic-cell.py"]
-        if self.arguments['--template-url']:
-            args += ["--template-url", self.arguments["--template-url"]]
-        args += ["--net-whitelist", self.tmp("net-whitelist.json")]
-        print "Building stack ..."
-        sh.python(args, _out=self.tmp("elastic-cell.json"))
-        print "Building sub-stack ..."
-        sh.python([DIR + "/deploy/aws/elastic-cell-scaling-group.py"], _out=self.tmp("elastic-cell-scaling-group.json"))
+    def run(self, **kwargs):
+        method = getattr(self, 'run_%s' % self.command)
+        if inspect.getargspec(method).keywords is not None:
+            method(**kwargs)
+        else:
+            method()
 
     def build_seed_config(self):
         def parse_nets_json(json_text):
@@ -431,315 +408,73 @@ class Cell(object):
 
     def seed(self):
         self.build_seed()
-        self.upload(self.tmp("seed.tar.gz"), "/shared/cell-os/")
-        self.upload(
-            "{}/cell-os-base.yaml".format(DIR),
-            "/shared/cell-os/cell-os-base-{}.yaml".format(self.version)
-        )
-        self.upload(DIR + "/deploy/aws/resources/status.html", "/shared/status/",
-                    extra_args={"ContentType": "text/html"})
-        self.upload(DIR + "/deploy/machine/user-data", "/shared/cell-os/")
 
-    def create_bucket(self):
-        if not self.existing_bucket:
-            print "CREATE bucket s3://{} in region {}".format(self.bucket, self.region)
-            # See https://github.com/boto/boto3/issues/125
-            if self.region != 'us-east-1':
-                self.s3.create_bucket(
-                    Bucket=self.bucket,
-                    CreateBucketConfiguration={
-                        'LocationConstraint': self.region
-                    }
-                )
-            else:
-                self.s3.create_bucket(Bucket=self.bucket)
-
-        else:
-            print "Using existing bucket s3://{}".format(self.existing_bucket)
-
-        bucket = self.s3.Bucket(self.bucket)
-        cors = bucket.Cors()
-        config = {
-            "CORSRules": [{
-                "AllowedMethods": ["GET"],
-                "AllowedOrigins": ["*"],
-            }]
-        }
-        cors.put(CORSConfiguration=config)
-
-    def delete_bucket(self):
-        if not self.existing_bucket:
-            delete_response = self.s3.Bucket(self.bucket).objects.delete()
-            print "DELETE s3://{}".format(self.bucket)
-            self.s3.Bucket(self.bucket).delete()
-        else:
-            print "DELETE s3://{}/{}".format(self.bucket, self.full_cell)  # only delete bucket sub-folder
-            delete_response = self.s3.Bucket(self.bucket).objects.filter(Prefix=self.full_cell).delete()
-        if len(delete_response) > 0:
-            for f in delete_response[0]['Deleted']:
-                print "DELETE s3://{}".format(f['Key'])
-
-    def create_temp_dir(self):
-        mkdir_p(os.path.dirname(self.tmp("")))
-
-    def delete_temp_dir(self, force=False):
+    def delete_temp_dir(self):
         cell_temp_dir = self.tmp("")
         print "DELETE {} temporary directory".format(cell_temp_dir)
         if cell_temp_dir != "" \
-                and (os.path.exists(os.path.join(cell_temp_dir, "seed.tar.gz"))
-                     or force):
+                and os.path.exists(os.path.join(cell_temp_dir, "seed.tar.gz")):
             shutil.rmtree(cell_temp_dir)
         else:
             print "Refusing to delete directory {}. Please check contents.".format(cell_temp_dir)
 
-    def create_key(self):
-        # check key
-        check_result = self.ec2.describe_key_pairs()
-        key_exists = len([k['KeyName'] for k in check_result['KeyPairs'] if k['KeyName'] == self.full_cell]) > 0
-        if key_exists:
-            print """\
-            Keypair conflict.
-            Trying to create {} in {}, but it already exists.
-            Please:
-                - delete it (aws ec2 delete-key-pair --key-name {})
-                - try another cell name
-            """.format(self.full_cell, self.key_file, self.full_cell)
-            raise KeyException()
-        print "CREATE key pair {} -> {}".format(self.full_cell, self.key_file)
-        result = self.ec2.create_key_pair(
-            KeyName=self.full_cell
-        )
-        with open(self.key_file, "wb+") as f:
-            f.write(result['KeyMaterial'])
-            f.flush()
-        os.chmod(self.key_file, 0600)
-
-    def delete_key(self):
-        print "DELETE keypair {}".format(self.full_cell)
-        self.ec2.delete_key_pair(KeyName=self.full_cell)
-
-    def upload(self, path, key, extra_args={}):
-        """
-        Uploads a file to S3
-            - either to a subdirectory - appends the file name
-              afile -> /subdir/afile
-            - or directly to another file (a -> /subdir/b)
-              afile -> /subdir/bfile
-        Arguments:
-            path - full local file path
-            key - key to upload to s3,
-            extra_args - extra args passed through to the boto3 s3.upload_file method
-        """
-        if key.endswith("/"):
-            key += os.path.basename(path)
-        if key.startswith("/"):
-            key = key[1:]
-        remote_path = self.full_cell + "/" + key
-        self.s3.meta.client.upload_file(path, self.bucket, remote_path, ExtraArgs=extra_args)
-        print "UPLOADED {} to s3://{}/{}".format(path, self.bucket, remote_path)
-
     def run_build(self):
         self.build_seed()
-        self.build_stack_files()
+        self.backend.build()
 
     @check_cell_exists
     def run_seed(self):
         self.seed()
-
-    def stack_action(self, action="create"):
-        self.build_stack_files()
-        self.upload(self.tmp("elastic-cell.json"), "/")
-        self.upload(self.tmp("elastic-cell-scaling-group.json"), "/")
-        parameters = [
-                {
-                    'ParameterKey': 'CellName',
-                    'ParameterValue': self.cell,
-                },
-                {
-                    'ParameterKey': 'CellOsVersionBundle',
-                    'ParameterValue': "cell-os-base-{}".format(self.version),
-                },
-                {
-                    'ParameterKey': 'Repository',
-                    'ParameterValue': self.repository,
-                },
-                {
-                    'ParameterKey': 'KeyName',
-                    'ParameterValue': self.full_cell,
-                },
-                {
-                    'ParameterKey': 'BucketName',
-                    'ParameterValue': self.bucket,
-                },
-                {
-                    'ParameterKey': 'SaasBaseAccessKeyId',
-                    'ParameterValue': self.saasbase_access_key_id,
-                },
-                {
-                    'ParameterKey': 'SaasBaseSecretAccessKey',
-                    'ParameterValue': self.saasbase_secret_access_key,
-                },
-            ]
-        template_url = "https://s3.amazonaws.com/{}/{}/elastic-cell.json".format(self.bucket, self.full_cell)
-        print "{} {}".format(action.upper(), self.stack)
-        if action == "create":
-            stack = self.cfn.create_stack(
-                StackName=self.stack,
-                Parameters=parameters,
-                TemplateURL=template_url,
-                DisableRollback=True,
-                Capabilities=[
-                    'CAPABILITY_IAM',
-                ],
-                Tags=[
-                    {
-                        'Key': 'name',
-                        'Value': self.cell
-                    },
-                    {
-                        'Key': 'version',
-                        'Value': self.version
-                    },
-                ]
-            )
-            print stack.stack_id
-        elif action == "update":
-            response = self.cfn.meta.client.update_stack(
-                StackName=self.stack,
-                Parameters=parameters,
-                TemplateURL=template_url,
-                Capabilities=[
-                    'CAPABILITY_IAM',
-                ],
-            )
-            print response
-
+        self.backend.seed()
 
     def run_create(self):
-        try:
-            self.create_bucket()
-        except Exception:
-            traceback.print_exc(file=sys.stdout)
-            raise
-        try:
-            self.create_temp_dir()
-            self.create_key()
-        except Exception:
-            self.delete_bucket()
-            traceback.print_exc(file=sys.stdout)
-            raise
-        try:
-            self.seed()
-            self.stack_action()
-        except Exception as e:
-            print "Error creating cell: ", e
-            try:
-                self.delete_temp_dir(force=True)
-            except Exception as e:
-                print "Error deleting local dir {}".format(self.tmp("")), e
-            try:
-                self.delete_key()
-            except Exception as e:
-                print "Error deleting key", e
-            self.delete_bucket()
-            traceback.print_exc(file=sys.stdout)
-            raise
+        self.seed()
+        self.backend.create()
         print """
         To watch your cell infrastructure provisioning log you can
             ./cell log {cell}
         For detailed node provisioning logs
             ./cell log {cell} nucleus 1
-        For detailed debugging logs, go to CloudWatch:
-            https://{region}.console.aws.amazon.com/cloudwatch/home?region={region}#logs:
-        For detailed status (times included), navigate to
-            {statuspage}
+
+        {backend_message}
 
         To open external SSH access see https://inside.corp.adobe.com/itech/kc/IT00792.html
-        """.format(cell=self.cell, full_cell=self.full_cell, region=self.region, statuspage=self.statuspage)
+        """.format(cell=self.cell, backend_message=self.backend.create_message())
 
     @check_cell_exists
     def run_update(self):
-        self.seed()
-        self.stack_action(action='update')
+        self.backend.update()
 
     def run_delete(self):
         print "WARNING: THIS WILL DELETE ALL RESOURCES ASSOCIATED TO {}".format(self.cell)
         print "Please enter the cell name for confirmation: "
         confirmation = raw_input(">")
         if self.cell == confirmation:
-            print "Deleting stack {}".format(self.stack)
-            self.cfn.meta.client.delete_stack(
-                StackName=self.stack
-            )
-            self.delete_key()
-            self.delete_bucket()
+            self.backend.delete()
             self.delete_temp_dir()
         else:
             print "Aborted deleting cell"
 
-    def instances(self, role=None, format="PublicIpAddress, PrivateIpAddress, InstanceId, ImageId, State.Name"):
-        filters = [
-            {
-                'Name': 'tag:cell',
-                'Values': [self.cell],
-            },
-            {
-                'Name': 'instance-state-name',
-                'Values': ['*ing'],
-            },
-        ]
-        if role:
-            filters.append(
-                {
-                    'Name': 'tag:role',
-                    'Values': [role],
-                }
-            )
-        tmp = jmespath.search(
-            "Reservations[*].Instances[*].[{}]".format(format),
-            self.ec2.describe_instances(
-                Filters=filters
-            )
-        )
-        return tmp
-
     @check_cell_exists
     def run_list(self):
-        if self.cell == None:
-            stacks = [stack for stack in jmespath.search(
-                "Stacks["
-                "? (Tags[? Key=='name'] && Tags[? Key=='version'] )"
-                "][ StackId, StackName, StackStatus, Tags[? Key=='version'].Value | [0], CreationTime]",
-                self.cfn.meta.client.describe_stacks()
-            ) if not re.match(r".*(MembraneStack|NucleusStack|StatefulBodyStack|StatelessBodyStack).*", stack[0])]
-            # extract region from stack id arn:aws:cloudformation:us-west-1:482993447592:stack/c1/1af7..
-            stacks = [[stack[1], stack[0].split(":")[3]] + stack[2:] for stack in stacks]
+        if self.cell is None:
+            stacks = self.backend.list_all()
             print tabulate("list", stacks)
         else:
-            print tabulate("nucleus", self.instances("nucleus"))
-            print tabulate("stateless-body", self.instances("stateless-body"))
-            print tabulate("stateful-body", self.instances("stateful-body"))
-            print tabulate("membrane", self.instances("membrane"))
+            tmp = self.backend.list_one(self.cell)
+            print tabulate("nucleus", tmp.instances.nucleus)
+            print tabulate("stateless-body", tmp.instances.stateless)
+            print tabulate("stateful-body", tmp.instances.stateful)
+            print tabulate("membrane", tmp.instances.membrane)
 
             print "[bucket]"
             # for f in self.s3.Bucket(self.bucket).objects.filter(Prefix="{}".format(self.full_cell)):
             #     print f.key
 
-            status_page={"status_page": self.statuspage}
+            status_page={"status_page": tmp.statuspage}
             print tabulate("Status Page", status_page)
 
-            elbs = jmespath.search(
-                "LoadBalancerDescriptions[*].[LoadBalancerName, DNSName]"
-                "|[? contains([0], `{}-`) == `true`]".format(self.cell),
-                self.elb.describe_load_balancers()
-            )
-
-            # filter ELBs for only this cell (e.g.  c1-mesos and not c1-1-mesos )
-            expression = self.cell + "[-lb]*-(marathon|gateway|mesos|zookeeper)"
-            regexp = re.compile(expression)
-            elbs = filter(lambda name: regexp.match(name[0]), elbs)
-
-            print tabulate("ELBs", elbs)
+            print tabulate("Load Balancers", tmp.load_balancers)
 
             print tabulate("Local configuration files", [
                 ["SSH key", self.tmp("{}.pem".format(self.full_cell))],
@@ -749,10 +484,10 @@ class Cell(object):
                 ["DCOS cache", self.tmp("dcos_tmp")],
             ])
             print tabulate("Gateway", [
-                ["zookeeper", self.gateway("zookeeper")],
-                ["mesos", self.gateway("mesos")],
-                ["marathon", self.gateway("marathon")],
-                ["hdfs", self.gateway("hdfs")],
+                ["zookeeper", tmp.gateway.zookeeper],
+                ["mesos", tmp.gateway.mesos],
+                ["marathon", tmp.gateway.marathon],
+                ["hdfs", tmp.gateway.hdfs],
             ])
 
     def is_fresh_file(self, path):
@@ -772,71 +507,25 @@ class Cell(object):
         if self.is_fresh_file(generic_config):
             return
         # create cell variables
-        tmp = flatten(self.instances("nucleus", format="PrivateIpAddress"))
+        tmp = flatten(self.backend.instances("nucleus", format="PrivateIpAddress"))
         zk = ",".join([ip + ":2181" for ip in tmp])
 
         generic_config = self.tmp("config.yaml")
+        # FIXME: needs to be dynamic
         with open(generic_config, "wb+") as f:
             f.write("""\
 zk: {zookeeper}
 mesos: {mesos}
 marathon: {marathon}
 cell: {cell}
+backend: {backend}
             """.format(
                 zookeeper=zk,
-                mesos=self.gateway("mesos"),
-                marathon=self.gateway("marathon"),
-                cell=self.cell
+                mesos=self.backend.gateway("mesos"),
+                marathon=self.backend.gateway("marathon"),
+                cell=self.cell,
+                backend=self.backend_cls.name
             ))
-            f.flush()
-
-    def ensure_dcos_config(self):
-        """
-        Creates a DCOS cli configuration file
-        """
-        with open('cell-os-base.yaml', 'r') as bundle_stream:
-            version_bundle = yaml.load(bundle_stream)
-            universe_version =  version_bundle['cell-os-universe::version']
-
-        repo_url = self.repository.replace('s3://', 'https://s3.amazonaws.com/')
-        cell_universe_url = '{0}/cell-os/cell-os-universe-{1}.zip'\
-            .format(repo_url, universe_version)
-        dcos_config_file = self.tmp('dcos.toml')
-
-        try:
-            with open(dcos_config_file, 'r') as dcos_config_stream:
-                dcos_config = toml.loads(dcos_config_stream.read())
-                sources = dcos_config['package']['sources']
-        except Exception:
-            sources = [cell_universe_url]
-            print('generating {config_file} with default sources {default_src}'
-              .format(config_file=dcos_config_file, default_src=sources))
-
-        # Override cell-os-universe source with the bundle version
-        for index, repo in enumerate(sources):
-            if 'cell-os/cell-os-universe' in repo:
-                sources[index] = cell_universe_url
-                break
-        with open(dcos_config_file, "wb+") as f:
-            f.write("""\
-[core]
-mesos_master_url = "{mesos}"
-reporting = false
-email = "cell@metal-cell.adobe.io"
-cell_url = "http://{{service}}.{dns}"
-[marathon]
-url = "{marathon}"
-[package]
-sources = [{sources}]
-cache = "{tmp}dcos_tmp"
-                """.format(
-                    mesos=self.gateway("mesos"),
-                    marathon=self.gateway("marathon"),
-                    tmp=self.tmp(""),
-                    dns=self.dns_name,
-                    sources=",".join('"{0}"'.format(x) for x in sources)
-                )
-            )
             f.flush()
 
     def ensure_ssh_config(self):
@@ -846,9 +535,10 @@ cache = "{tmp}dcos_tmp"
         ssh_config = self.tmp("ssh_config")
         if self.is_fresh_file(ssh_config):
             return
-
-        stateless_instances = flatten(self.instances(role='stateless-body', format="PublicIpAddress"))
-
+        if self.backend.bastion() != None:
+            proxy_host = self.backend.bastion()
+        else:
+            proxy_host = flatten(self.backend.instances(role='stateless-body', format="PublicIpAddress"))[0]
         with open(ssh_config, "wb+") as f:
             f.write("""\
 IdentitiesOnly yes
@@ -858,15 +548,26 @@ StrictHostKeyChecking no
 User centos
 
 Host proxy-cell-{cell}
-Hostname {host}
-DynamicForward {port}
+  Hostname {host}
+  DynamicForward {port}
             """.format(
                 timeout=self.ssh_timeout,
                 cell=self.cell,
-                host=stateless_instances[0],
+                host=proxy_host,
                 key=self.tmp(self.key_file),
                 port=self.proxy_port
             ))
+            bastion = self.backend.bastion()
+            if bastion:
+                f.write("""
+Host 10.*
+  IdentityFile {key}
+  User centos
+  ProxyCommand ssh -i {key} centos@{bastion} -W %h:%p
+            """.format(
+                key=self.tmp(self.key_file),
+                bastion=bastion
+                ))
             f.flush()
 
     def ensure_migrated(self):
@@ -892,8 +593,38 @@ DynamicForward {port}
         self.ensure_ssh_config()
         self.ensure_migrated()
 
+    def ensure_dcos_config(self):
+        """
+        Creates a DCOS cli configuration file
+        """
+        dcos_config = self.tmp("dcos.toml")
+        if os.path.exists(dcos_config):
+            return
+        with open(dcos_config, "wb+") as f:
+            f.write("""\
+    [core]
+    mesos_master_url = "{mesos}"
+    reporting = false
+    email = "cell@metal-cell.adobe.io"
+    cell_url = "http://{{service}}.{dns}"
+    [marathon]
+    url = "{marathon}"
+    [package]
+    sources = [ "https://s3.amazonaws.com/saasbase-repo/cell-os/cell-os-universe-{version}.zip"]
+    cache = "{tmp}/dcos_tmp"
+                """.format(
+                    mesos=self.backend.gateway("mesos"),
+                    marathon=self.backend.gateway("marathon"),
+                    version=self.version,
+                    tmp=self.tmp(""),
+                    dns=self.backend.dns_name
+                )
+            )
+            f.flush()
+
     def prepare_dcos_package_install(self, args):
-        is_install = len(args) >= 2 and (args[0] == 'package' and args[1] == 'install')
+        is_install = len(args) >= 2 and (
+        args[0] == 'package' and args[1] == 'install')
         if not is_install:
             return args
 
@@ -937,16 +668,11 @@ DynamicForward {port}
                         dest[k] = tmp
                 elif v["type"] == "string" and "default" in v:
                     dest[k] = v["default"]
-                    # monkey-patch to enable general DCOS universe repo
-                    # replace DCOS specific host:port service discriminators
-                    # with the cell-os specific endpoints
-                    # note that this works for 90% of the packages, as some
-                    # may have these values hardcoded somewhere else
                     dest[k] = dest[k].replace("master.mesos:2181", "{{zk}}")
                     dest[k] = dest[k].replace("master.mesos:5050", "{{mesos}}")
-                    dest[k] = dest[k].replace("master.mesos:8080",
-                                              "{{marathon}}")
-                    dest[k] = dest[k].replace(".marathon.mesos", self.dns_name)
+                    dest[k] = dest[k].replace("master.mesos:8080", "{{marathon}}")
+                    dest[k] = dest[k].replace(".marathon.mesos",
+                                            ".gw.{{cell}}.metal-cell.adobe.io")
             return dest
 
         opts_template = None
@@ -991,16 +717,19 @@ DynamicForward {port}
 
         return args
 
+
     # we wrap the dcos command with the gateway configuration
     @check_cell_exists
-    def run_dcos(self):
+    def run_dcos(self, **kwargs):
         self.ensure_config()
-        dcos_args = sys.argv[3:]
+        dcos_args = kwargs["dcos"]
+        print dcos_args
         os.environ["DCOS_CONFIG"] = self.tmp("dcos.toml")
         dcos_args = self.prepare_dcos_package_install(dcos_args)
 
         command = " ".join(["dcos"] + dcos_args)
         print "Running {}...".format(command)
+
         # FIXME - because of some weird interactions (passing through the shell
         # twice), we can't use the subprocess.call([list]) form, it doesn't
         # work, and we have to quote the args for complex params
@@ -1009,13 +738,9 @@ DynamicForward {port}
     @check_cell_exists
     def run_scale(self):
         capacity = int(self.arguments['<capacity>'])
-        (group, current_capacity) = jmespath.search(
-            "AutoScalingGroups[? (Tags[? Key=='role' && Value=='{}'] && Tags[?Key=='cell' && Value=='{}'])].[AutoScalingGroupName, DesiredCapacity]".format(
-                self.arguments['<role>'],
-                self.cell
-            ),
-            self.asg.describe_auto_scaling_groups()
-        )[0]
+        (group, current_capacity) = self.backend.get_role_capacity(
+            self.arguments['<role>']
+        )
         if self.arguments['<role>'] in ['nucleus', 'stateful-body'] and capacity < current_capacity:
             print textwrap.dedent("""\
                 WARNING: THIS WILL SCALE DOWN THE {} GROUP FROM {} TO {} !
@@ -1032,15 +757,12 @@ DynamicForward {port}
             group,
             capacity
         )
-        self.asg.update_auto_scaling_group(
-            AutoScalingGroupName=group,
-            DesiredCapacity=capacity
-        )
+        self.backend.scale(self.arguments["<role>"], group, capacity)
 
     def ssh_cmd(self, ip, ssh_executable="ssh", extra_opts="", command=""):
         ssh_options = first(
             os.getenv('SSH_OPTIONS'),
-            self.conf('ssh_options'),
+            self.config.ssh_options,
             ''
         )
 
@@ -1056,7 +778,7 @@ DynamicForward {port}
     def run_ssh(self, command=None):
         self.ensure_config()
 
-        instances = flatten(self.instances(self.arguments["<role>"], format="PublicIpAddress"))
+        instances = flatten(self.backend.instances(self.arguments["<role>"], format="PublicIpAddress"))
         index = int(self.arguments["<index>"])
         if index is None or index == "":
             index = 1
@@ -1078,21 +800,6 @@ DynamicForward {port}
     def run_cmd(self):
         self.run_ssh(command=self.arguments['<command>'])
 
-    def get_stack_log(self, max_items=30):
-        """
-        Return stack events as recorded in cloudformation
-        Return:  list of (timestamp, logical-resource-idm resource-status) tuples
-        """
-        events = []
-        paginator = self.cfn.meta.client.get_paginator("describe_stack_events")
-        status = paginator.paginate(StackName=self.stack,
-                                    PaginationConfig={
-                                        'MaxItems': max_items
-                                    })
-        for event in status.search("StackEvents[*].[Timestamp, LogicalResourceId, ResourceStatus]"):
-            events.append([str(e) for e in event])
-        return events
-
     def run_log(self):
         if not self.arguments["<role>"]:
             refresh_interval = 2
@@ -1103,7 +810,7 @@ DynamicForward {port}
                         stdscr.clear()
                         stdscr.addstr("Refreshing every {}s: {}\n"
                                 .format(refresh_interval, datetime.datetime.now()))
-                        status = tabulate("Stack Events", self.get_stack_log())
+                        status = tabulate("Stack Events", self.backend.get_infra_log())
                         for line in status.split("\n"):
                             try:
                                 stdscr.addstr("%s\n" % line)
@@ -1132,9 +839,11 @@ DynamicForward {port}
             roles = [self.arguments["<role>"]]
         instances = []
         for role in roles:
-            instances.extend(
-                self.instances(role=role, format="PublicIpAddress")
-            )
+            instances_for_role = self.backend.instances(role=role, format="PublicIpAddress")
+            if instances_for_role is not None:
+                instances.extend(
+                    instances_for_role
+                )
         instances = flatten(instances)
         machines = ",".join([d for d in instances])
         if self.key_file:
@@ -1184,7 +893,7 @@ windows:
                      'pub_ip_addr': instance[1],
                      'ssh_cmd': self.ssh_cmd(instance[1])
                     }
-                    for instance in self.instances(role=role, format="PrivateIpAddress, PublicIpAddress")[0]
+                    for instance in self.backend.instances(role=role, format="PrivateIpAddress, PublicIpAddress")[0]
                 ]
             })
 
@@ -1213,6 +922,7 @@ windows:
             print "Failed to create proxy"
             print err.output
 
+
 def main(work_dir=None):
     global DIR, TMPDIR
     DIR = os.path.dirname(os.path.realpath(__file__))
@@ -1228,25 +938,34 @@ def main(work_dir=None):
     # docopt hack to allow arbitrary arguments to docopt
     # necessary to call dcos subcommand
     if len(sys.argv) > 1 and sys.argv[1] == 'dcos':
-        arguments = docopt(__doc__, argv=sys.argv[1:3], version=version)
+        args_to_pass = sys.argv[1:3]
+        rest_args = sys.argv[3:]
+        idx = 0
+        while idx < len(rest_args):
+            arg = rest_args[idx]
+            if arg == "--backend" or arg == "--cell_config":
+                args_to_pass.append(rest_args.pop(idx))
+                args_to_pass.append(rest_args.pop(idx))
+            else:
+                idx = idx + 1
+        arguments = docopt(__doc__, argv=args_to_pass, version=version)
     else:
+        rest_args = []
         arguments = docopt(__doc__, version=version)
 
     if arguments["<cell-name>"] and len(arguments["<cell-name>"]) >= 22:
         print """\
 <cell-name> argument must be < 22 chars long, exiting...
-
-It is used to build an ELB name which is 32 chars max:
-    http://docs.aws.amazon.com/ElasticLoadBalancing/latest/APIReference/API_CreateLoadBalancer.html
+It is used to build other resource names (e.g. ELB name is 32 chars max)
 """
         sys.exit(1)
     cell = Cell(arguments, version)
     try:
-        cell.run()
+        cell.run(dcos=rest_args)
     except Exception as e:
         print "{}: {}".format(cell.command, e)
+        traceback.print_exc(file=sys.stdout)
         sys.exit(1)
-
 
 if __name__ == '__main__':
     # running in dev mode,
