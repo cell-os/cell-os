@@ -260,7 +260,12 @@ Each cell is isolated and access is available through:
 * direct http through SOCKS5 proxy (`./cell proxy` command, browser settings)
 
 By default all access is restricted to a set of whitelisted networks which are
-provided through a JSON downloaded from `net_whitelist_url`
+provided through:
+
+* a JSON downloaded from `net_whitelist_url`
+* a local configuration file in the code `deploy/config/net-whitelist.json`
+
+The *first* of these 2 locations which exists will yield the list of accepted networks which can access a cell.
 
 ```json
 {
@@ -268,11 +273,13 @@ provided through a JSON downloaded from `net_whitelist_url`
     {
       "net_address": "127.127.16.0",
       "net_address_type": "ipv4",
-      "net_mask": 23,
+      "net_mask": 23
     }
   ]
 }
 ```
+
+
 
 ## SSH
 
