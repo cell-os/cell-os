@@ -333,8 +333,11 @@ class Cell(object):
         # s3 endpoint is not consistent across AWS regions
         # in us-east-1 the endpoint doesn't contain the region in the url
         s3_endpoint = "s3-{region}.amazonaws.com".format(region=self.region).replace('us-east-1', 'external-1')
-        return "http://{full_cell}.{s3_endpoint}/{full_cell}/shared/status/status.html".format(full_cell=self.full_cell,
-                                                                                               s3_endpoint=s3_endpoint)
+        return "http://{full_cell}.{s3_endpoint}/{full_cell}/shared/status/status.html".format(
+            full_cell=self.full_cell,
+            s3_endpoint=s3_endpoint
+        )
+
     def gateway(self, service):
         return "http://{}.{}".format(service, self.dns_name)
 
@@ -453,7 +456,7 @@ class Cell(object):
         cell_temp_dir = self.tmp("")
         print "DELETE {} temporary directory".format(cell_temp_dir)
         if cell_temp_dir != "" \
-            and os.path.exists(os.path.join(cell_temp_dir, "seed.tar.gz")):
+                and os.path.exists(os.path.join(cell_temp_dir, "seed.tar.gz")):
             shutil.rmtree(cell_temp_dir)
         else:
             print "Refusing to delete directory {}. Please check contents.".format(cell_temp_dir)
@@ -686,7 +689,9 @@ class Cell(object):
             print tabulate("Status Page", status_page)
 
             elbs = jmespath.search(
-                "LoadBalancerDescriptions[*].[LoadBalancerName, DNSName]|[? contains([0], `{}-`) == `true`]".format(self.cell, self.cell),
+                "LoadBalancerDescriptions[*].[LoadBalancerName, DNSName]|[? contains([0], `{}-`) == `true`]".format(
+                    self.cell, self.cell
+                ),
                 self.elb.describe_load_balancers()
             )
 
@@ -714,7 +719,7 @@ class Cell(object):
     def is_fresh_file(self, path):
         """ Checks if a file has been touched in the last X seconds """
         return os.path.exists(path) and \
-             (time.time() - os.stat(path).st_mtime) < self.cache_expiry_seconds
+            (time.time() - os.stat(path).st_mtime) < self.cache_expiry_seconds
 
     def ensure_cell_config(self):
         """
@@ -858,6 +863,7 @@ DynamicForward {port}
                 "dcos package describe --config {}".format(package), shell=True
             )
         )
+
         def config_remapper(src):
             """
             Parses a DCOS configuration specification (config.json) and outputs a
@@ -1021,6 +1027,7 @@ DynamicForward {port}
     def run_log(self):
         if not self.arguments["<role>"]:
             refresh_interval = 2
+
             def draw(stdscr):
                 while True:
                     try:
@@ -1127,7 +1134,7 @@ windows:
             pass
 
         cmd = self.ssh_cmd("proxy-cell-{}".format(self.cell), extra_opts="-f -N",
-                           command = "&>{}".format(self.tmp("proxy.log")))
+                           command="&>{}".format(self.tmp("proxy.log")))
         subprocess.call(cmd, shell=True)
 
 def main(work_dir=None):
