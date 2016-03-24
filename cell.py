@@ -134,6 +134,19 @@ def readify(f):
         if '\n' not in f and os.path.exists(f):
             with open(f, 'r') as fd:
                 out = fd.read()
+        elif isinstance(f, basestring) and (f.startswith("http://") \
+            or f.startswith("https://")):
+            try:
+                r = requests.get(f)
+                if r.status_code != 200:
+                    raise Exception(
+                        "ERROR: downloading config file from {} ({})".format(
+                            url, r.status_code
+                        )
+                    )
+                return r.text
+            except Exception as e:
+                return None
         else:
             out = f
     return out
@@ -370,23 +383,24 @@ class Cell(object):
         sh.python([DIR + "/deploy/aws/elastic-cell-scaling-group.py"], _out=self.tmp("elastic-cell-scaling-group.json"))
 
     def build_seed_config(self):
-        default_net_whitelist = [{"addr": "0.0.0.0", "mask": "0"}]
-        def download_net_whitelist(url):
-            entries = default_net_whitelist
-            print "DOWNLOAD net whitelist configuration"
-            try:
-                r = requests.get(url)
-                if r.status_code != 200:
-                    raise Exception("ERROR: downloading config file from {} ({})".format(url, r.status_code))
-                tmp = json.loads(r.text)
-                entries = [
-                    { "addr": entry["net_address"], "mask": entry["net_mask"], }
-                    for entry in json.loads(r.text)["networks"]
-                ]
-                return entries
-            except Exception as e:
-                raise e
-        entries = download_net_whitelist(self.net_whitelist_url)
+        def parse_nets_json(json_text):
+            return [
+                {"addr": entry["net_address"], "mask": entry["net_mask"]}
+                for entry in json.loads(json_text)["networks"]
+            ]
+
+        json_text = first(
+            readify(self.net_whitelist_url),
+            readify(DIR + "/deploy/config/net-whitelist.json")
+        )
+        entries = parse_nets_json(json_text)
+        if len(entries) == 0:
+            print textwrap.dedent("""
+            Empty networks whitelist file, cannot continue !
+            Please check the user guide on how to create it.
+            """)
+            sys.exit(1)
+
         with open(self.tmp("net-whitelist.json"), "wb+") as f:
             f.write(json.dumps(entries, indent=4))
         shutil.copyfile(
