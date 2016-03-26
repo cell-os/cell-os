@@ -93,6 +93,11 @@ HBase is currently deployed as two workloads master and regionserver
 ./cell dcos ${cell_name} package install hbase-regionserver
 ```
 
+Optionally, but recommended, you can deploy HBase REST endpoint as well:
+```bash
+./cell dcos ${cell_name} package install hbase-rest
+```
+
 > **NOTE**  
 This will install using defaults.  
 See `dcos package` help on how to set additional configuration.  
@@ -111,6 +116,49 @@ HTTP/1.1 200 OK
     "hbase.zookeeper.quorum": "10.0.0.77:2181,10.0.0.78:2181,10.0.0.76:2181",
     "zookeeper.znode.parent": "/hbase-1"
 }
+```
+
+#### Using the HBase REST endpoint
+**Resources**
+* [Official HBase Book REST chapter](http://hbase.apache.org/book.html#_rest) 
+(very slow load in Chrome)
+* [Official documentation](https://hbase.apache.org/apidocs/org/apache/hadoop/hbase/rest/package-summary.html)
+
+Get the HBase meta table (`hbase:meta`) schema:
+
+```
+❯ http hbase-rest.gw.c1.metal-cell.adobe.io/hbase:meta/schema
+HTTP/1.1 200 OK
+
+{ NAME=> 'hbase:meta', IS_META => 'true', coprocessor$1 => 
+'|org.apache.hadoop.hbase.coprocessor.MultiRowMutationEndpoint|536870911|', 
+COLUMNS => [ { NAME => 'info', BLOOMFILTER => 'NONE', VERSIONS => '10',
+IN_MEMORY => 'true', KEEP_DELETED_CELLS => 'FALSE', DATA_BLOCK_ENCODING => 
+'NONE', TTL => '2147483647', COMPRESSION => 'NONE', CACHE_DATA_IN_L1 => 'true',
+MIN_VERSIONS => '0', BLOCKCACHE => 'true', BLOCKSIZE => '8192', 
+REPLICATION_SCOPE => '0' } ] }
+```
+
+Create a table named `t1` with a column family named `f1`:
+```
+curl -v -X PUT \
+  http://hbase-rest.gw.c1.metal-cell.adobe.io/t1/schema \
+  -H "Accept: application/json" \
+  -H "Content-Type: application/json" \
+  -d '{"ColumnSchema":[{"name":"f1", "BLOOMFILTER": "ROW", "VERSIONS":"1", \
+  "COMPRESSION": "LZO"}]}'
+```
+
+> **NOTE:**:  
+The `ColumnSchema` entries must: 
+* use lowercase key for the `name` for the column family name or an error will 
+be thrown
+* use upper case keys for all other properties (e.g. `VERSIONS`) or otherwise
+these will not be set and have the upper case entry with the default values.
+
+Delete a table
+```
+curl -v -X DELETE http://hbase-rest.gw.c1.metal-cell.adobe.io/tsdb/schema
 ```
 
 ### Kafka
