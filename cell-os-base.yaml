@@ -6,20 +6,20 @@
 # The order is defined by the level of dependency. 
 # For example Docker is low level running directly on the OS and other modules depend on it
 
-saasbase_deployment::version: 1.27.1
-docker::version: 1.10.2-1.el7.centos
-java::version: 8u74
+saasbase_deployment::version: 1.28-rc2
+docker::version: 1.10.3-1.el7.centos
+java::version: 8u77
 # zookeeper exhibitor
 zookeeper::version: 3.4.6_1.5.6-1
-mesos::version: 0.27.1-2.0.226.centos701406
-marathon::version: v0.15.3
-etcd::version: v2.2.5
+mesos::version: 0.28.0-2.0.16.centos701406
+marathon::version: v1.0.0-RC1
+etcd::version: v2.3.0
 api-gateway::image: "cellos/apigateway:1.9.7.3-2"
 
 modules:
   puppet-zookeeper: 0.1.2-adobe
   puppet-docker: 5.0.0-adobe
-  puppet-mesos: 0.6.5-adobe-2
+  puppet-mesos: 0.8.1-adobe-1
   puppet-marathon: 0.1.4-adobe
   puppet-etcd: 0.1.0-rc3-adobe
 

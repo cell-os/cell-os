@@ -8,8 +8,10 @@ fi
 
 export zk=$(zk-list-nodes)
 cat >>/opt/cell/cluster/cluster.yaml <<-EOT
-mesos::zookeeper:   zk://$zk/mesos
-mesos::listen_address: ""
+mesos::zookeeper: zk://$zk/mesos
+mesos::repo: "mesosphere"
+mesos::log_dir: "/var/log/mesos"
+mesos::master::quorum: 1
 mesos::master::env_var:
   MESOS_work_dir: /var/lib/mesos/master
   MESOS_ip_discovery_command: /usr/local/bin/get_ip
