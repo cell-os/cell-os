@@ -85,7 +85,19 @@ All cell-os builds are available in
 
 Puppet modules (used in seeds) and docker containers are released independently and
 referenced in version bundles
- 
+
+## cell-universe
+The CellOS DCOS repository 
+[cell-universe](https://git.corp.adobe.com/metal-cell/cell-universe) is
+released separately.
+
+> **NOTE:**  
+The repository version needs to have exactly 3 version components 
+(e.g. `1.3.0`)  
+Currently this also needs to match the cell-os release version (see CELL-375)
+for a discussion on changing that.
+
+
 ## Release process
 
 CellOS follows the [HSTACK guidelines on release management](https://git.corp.adobe.com/pages/hstack/opendev/hstack_release_mgmt.html)
