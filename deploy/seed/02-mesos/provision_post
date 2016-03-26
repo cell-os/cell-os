@@ -1,9 +1,9 @@
 #!/bin/bash
 
 module_name="02-mesos"
-mesos_port_range="[31000-32000]" # default port range in Mesos
+mesos_port_range="[31000-32000,80,443]" # default port range in Mesos
 if [[ -f /opt/cell/etc/roles/stateful-body || -f /opt/cell/etc/roles/stateless-body ]]; then
-    mesos_port_range="[4369-4369,8081-32000]"
+    mesos_port_range="[4369-4369,8081-32000,80,443]"
 fi
 
 export zk=$(zk-list-nodes)
