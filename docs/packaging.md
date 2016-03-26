@@ -1,6 +1,19 @@
 ## Cell-OS base deployment packages
 
-TODO
+### HDFS
+
+Deployed in nucleus (NameNode) and `stateful-body` (DataNode) at cell creation
+time.
+Uses `/deploy/seed/10-hdfs-raw` seed which wraps a hadoop2 puppet module.
+
+Once the cell is fully provision you can access the configuration discovery
+endpoint at
+
+    http://hdfs.gw.$cell_name.metal-cell.adobe.io/cellos/config
+
+You can get `hdfs-site.xml` (and `core-site.xml`):
+
+    http://hdfs.gw.$cell_name.metal-cell.adobe.io/cellos/config/hdfs-site.xml
 
 ## Useful base Docker images
 
