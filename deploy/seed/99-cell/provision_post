@@ -40,7 +40,7 @@ cat >${marathon_workload_path} <<-EOT
   },
   "constraints": [[ "hostname","UNIQUE" ], ["role", "CLUSTER", "membrane"]],
   "ports": [ 80 ],
-  "requirePorts": false,
+  "requirePorts": true,
   "instances": 1
 }
 EOT
