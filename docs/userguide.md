@@ -279,8 +279,6 @@ The *first* of these 2 locations which exists will yield the list of accepted ne
 }
 ```
 
-
-
 ## SSH
 
 When creating the cell a dedicated keypair and a local private `.pem` are
@@ -314,3 +312,20 @@ This creates a SOCKS5 proxy on `localhost:1234` (configurable) in the background
 You can configure your browser with a proxy plug-in like 
 [Proxy SwitchyOmega](https://chrome.google.com/webstore/search/switchy%20omega)
 or FoxyProxy and route all internal IPs through the SOCKS proxy. 
+
+# Configuration
+
+For all cli options and configurations run `./cell --help`.  
+`~/.cellos/config` can be used for general cli settings (e.g. default region).  
+
+The typical configuration override order is:
+
+1. file
+2. environment
+3. argument
+
+Hence, the cli arguments have the highest priority.  
+
+Cell level caches, metadata and configurations are stored in `.generated`. 
+See the CLI advanced section on [.generated](userguide.md#generated) for 
+more information.
