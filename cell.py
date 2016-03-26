@@ -1150,7 +1150,13 @@ windows:
 
         cmd = self.ssh_cmd("proxy-cell-{}".format(self.cell), extra_opts="-f -N",
                            command="&>{}".format(self.tmp("proxy.log")))
-        subprocess.call(cmd, shell=True)
+        try:
+            subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT)
+            print "Proxy running on localhost:{}".format(self.proxy_port)
+            print "ssh config loaded from {}".format(self.tmp(""))
+        except subprocess.CalledProcessError as err:
+            print "Failed to create proxy"
+            print err.output
 
 def main(work_dir=None):
     global DIR, TMPDIR
