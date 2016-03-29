@@ -24,6 +24,11 @@ mesos::slave::env_var:
   MESOS_ip_discovery_command: /usr/local/bin/get_ip
   MESOS_modules: '{\"libraries\":[{\"file\":\"/usr/local/lib/liblogrotate_container_logger.so\", \"modules\":[{\"name\":\"org_apache_mesos_LogrotateContainerLogger\", \"parameters\": [{\"key\": \"max_stdout_size\", \"value\": \"50MB\"}, {\"key\": \"max_stderr_size\", \"value\": \"50MB\"}, {\"key\": \"launcher_dir\", \"value\": \"/usr/libexec/mesos/\"}]}]}]}'
   MESOS_container_logger: "org_apache_mesos_LogrotateContainerLogger"
+  # we need this to avoid a weird interaction with the MESOS_modules
+  # If we don't set this, mesos workloads will inherit the environment variables of Mesos agents, 
+  # and Java frameworks, which use the Mesos native library, will throw weird errors related to MESOS_modules
+  # So, we need to clean this up
+  MESOS_executor_environment_variables: '{\"PATH\": \"/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin:sbin\", \"LD_LIBRARY_PATH\": \"/usr/lib:/usr/lib64:/usr/local/lib\"}'
 EOT
 
 # TODO remove after CELL-368
