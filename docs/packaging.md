@@ -15,6 +15,50 @@ You can get `hdfs-site.xml` (and `core-site.xml`):
 
     http://hdfs.gw.$cell_name.metal-cell.adobe.io/cellos/config/hdfs-site.xml
 
+#### Using the HDFS WebHDFS REST endpoint
+
+We configure HDFS to also start the WebHDFS rest endpoint for easier access to HDFS through HTTP
+
+**Resources**
+* [Official documentation](https://hadoop.apache.org/docs/current/hadoop-project-dist/hadoop-hdfs/WebHDFS.html)
+
+Creating a directory in HDFS:
+```
+$ curl -i -X PUT "http://hdfs.gw.c1.metal-cell.adobe.io/webhdfs/v1/my/dir/to/create?op=MKDIRS&permissions=0755&doas=hadoop&user.name=root"
+
+HTTP/1.1 200 OK
+...
+Content-Length: 16
+Age: 0
+
+{"boolean":true} 
+```
+
+Creating a new file inside a directory:
+```
+$ curl -i -X PUT -T testfile "http://hdfs.gw.c1.metal-cell.adobe.io/webhdfs/v1/my/dir/to/create/testfile?op=CREATE&overwrite=true&permissions=0755&doas=hadoop&user.name=root"
+
+HTTP/1.1 200 OK
+...
+Content-Length: 16
+Age: 0
+
+{"boolean":true} 
+```
+
+Download a file:
+```
+$ curl -i -X GET "http://hdfs.gw.c1.metal-cell.adobe.io/webhdfs/v1/my/dir/to/create/testfile?op=OPEN&doas=hadoop&user.name=root"
+
+HTTP/1.1 200 OK
+...
+Content-Length: 14
+
+one
+two
+three
+```
+
 ## Cell-OS DCOS packages
 
 Cell-OS can use DCOS packages. 

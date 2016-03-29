@@ -19,7 +19,10 @@ hadoop.dfs.nameservice_id: "${cell_name}"
 hadoop_data_nodes: []
 hadoop_number_of_disks: $(/usr/local/bin/detect-and-mount-disks)
 hadoop::historyserver_host: "${nn1_host}"
-hadoop::proxyusers: {}
+hadoop::proxyusers:
+  - name: root
+    groups: ['*']
+    hosts:  ['*']
 hadoop_data_nodes: []
 EOT
 
