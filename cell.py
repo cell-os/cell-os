@@ -1021,7 +1021,7 @@ DynamicForward {port}
 
     @check_cell_exists
     def run_cmd(self):
-        self.run_ssh(command=self.arguments['<command>'], interactive=True)
+        self.run_ssh(command=self.arguments['<command>'])
 
     def get_stack_log(self, max_items=30):
         """
