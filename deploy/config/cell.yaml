@@ -1,0 +1,30 @@
+---
+membrane:
+  modules:
+    - 00-docker
+    - 02-mesos
+    - 99-cell
+
+nucleus:
+  modules:
+    - 00-docker
+    - 00-java
+    - 01-exhibitor
+    - 10-hdfs-raw
+    - 99-cell
+
+stateful-body:  
+  modules:
+    - 00-docker
+    - 00-java
+    - 02-mesos
+    - 10-hdfs-raw
+    - 99-cell
+
+stateless-body:  
+  modules:
+    - 00-docker
+    - 01-exhibitor
+    - 02-mesos
+    - 10-marathon
+    - 99-cell

@@ -4,6 +4,7 @@ import os
 import string
 import pystache
 import requests
+import yaml
 
 import awacs
 import awacs.ec2
@@ -41,8 +42,13 @@ parser.add_option('--net-whitelist', dest='net_whitelist',
 (options, args) = parser.parse_args()
 if not options.net_whitelist:
     parser.error('Missing location to network whitelist config file')
-
 net_whitelist = json.loads(open(options.net_whitelist, "rb+").read())
+
+modules = {}
+with open("deploy/config/cell.yaml", 'r') as stream:
+    cell = yaml.load(stream)
+    for role in ['nucleus', 'membrane', 'stateless-body', 'stateful-body']:
+        modules[role] = ",".join(cell[role]['modules'])
 
 t = Template()
 
@@ -827,7 +833,7 @@ create_cellos_substack(
     t,
     name="Nucleus",
     role="nucleus",
-    cell_modules="00-docker,00-java,01-exhibitor,10-hdfs-raw,99-cell",
+    cell_modules=modules["nucleus"],
     tags="nucleus",
     instance_profile="NucleusInstanceProfile",
     security_groups=[
@@ -842,7 +848,7 @@ create_cellos_substack(
     t,
     name="Membrane",
     role="membrane",
-    cell_modules="00-docker,02-mesos,99-cell",
+    cell_modules=modules["membrane"],
     tags="membrane,slave,body",
     instance_profile="MembraneInstanceProfile",
     security_groups=[
@@ -861,7 +867,7 @@ create_cellos_substack(
     t,
     name="StatelessBody",
     role="stateless-body",
-    cell_modules="00-docker,01-exhibitor,02-mesos,10-marathon,99-cell",
+    cell_modules=modules["stateless-body"],
     tags="slave,body,stateless,stateless-body",
     instance_profile="StatelessBodyInstanceProfile",
     security_groups=[
@@ -879,7 +885,7 @@ create_cellos_substack(
     t,
     name="StatefulBody",
     role="stateful-body",
-    cell_modules="00-docker,00-java,02-mesos,10-hdfs-raw,99-cell",
+    cell_modules=modules["stateful-body"],
     tags="slave,body,stateful,stateful-body",
     instance_profile="StatefulBodyInstanceProfile",
     security_groups=[
