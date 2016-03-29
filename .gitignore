@@ -4,3 +4,5 @@ build/
 deploy/aws/build
 .generated
 patches
+env
+virtualenv
