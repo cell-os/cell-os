@@ -48,6 +48,53 @@ local accepted_keys = {
     ["dfs%.client%.failover%.proxy%.provider.*"]=true,
 }
 
+function _M.get_webhdfs_target_url()
+    local active_nn = _M.find_active_namenode(ngx.var.marathon_app_name)
+    if not active_nn then
+        return cjson.encode({error="Can't find HDFS Active NameNode"}), nil
+    end
+
+    -- issue the request against the active namenode
+    local nn_webhdfs_url = "http://" .. active_nn .. ":" .. ngx.var.hdfs_http_port .. ngx.var.request_uri
+
+    -- Some requests are more complicated: 
+    -- https://hadoop.apache.org/docs/current/hadoop-project-dist/hadoop-hdfs/WebHDFS.html#Create_and_Write_to_a_File
+    -- The requests that involve redirects are: 
+    --    Create and Write to a File
+    --    Append to a file
+    --    Open and read a file
+    --    Get File Checksum
+    -- 
+    -- They involve redirecting the client to a datanode, and we need to proxy this 
+    -- through gateway, since the datanodes are not accessible directly
+    local conn = http.new()
+    local res, err = conn:request_uri(nn_webhdfs_url, {
+        method = ngx.var.request_method
+    })
+
+    if not (res and res.status < 400) then
+        ngx.log(ngx.ERR, "[webhdfs] ERROR: (" .. res.status .. ")", err)
+        return cjson.encode({error="Can't connect to webhdfs datanode endpoint"}), nil
+    end
+
+    -- if we get a redirect, look at the 'Location' header
+    if (res.status >= 300) then
+        local target_url = res.headers["Location"]
+        if target_url == nil then
+            return cjson.encode({error="Expecting 'Location' header in redirect response"}), nil
+        end
+
+        return nil, target_url
+    end
+
+    -- if it's not a redirect, just give the initial URI back
+    if (res.status >= 200) then
+        return nil, nn_webhdfs_url
+    end
+
+    return cjson.encode({error="Unexpected status code: " .. res.status}), nil
+end
+
 function _M.get_config(file)
     local active_nn = _M.find_active_namenode(ngx.var.marathon_app_name)
 
