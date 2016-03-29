@@ -22,6 +22,8 @@ mesos::slave::env_var:
   MESOS_gc_delay: 1days
   MESOS_slave_subsystems: cpu,memory
   MESOS_ip_discovery_command: /usr/local/bin/get_ip
+  MESOS_modules: '{\"libraries\":[{\"file\":\"/usr/local/lib/liblogrotate_container_logger.so\", \"modules\":[{\"name\":\"org_apache_mesos_LogrotateContainerLogger\", \"parameters\": [{\"key\": \"max_stdout_size\", \"value\": \"50MB\"}, {\"key\": \"max_stderr_size\", \"value\": \"50MB\"}, {\"key\": \"launcher_dir\", \"value\": \"/usr/libexec/mesos/\"}]}]}]}'
+  MESOS_container_logger: "org_apache_mesos_LogrotateContainerLogger"
 EOT
 
 # TODO remove after CELL-368
