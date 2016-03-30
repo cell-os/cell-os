@@ -443,7 +443,6 @@ class Cell(object):
         else:
             print "Using existing bucket s3://{}".format(self.existing_bucket)
 
-        print "CORS Configuration for bucket {}".format(self.bucket)
         bucket = self.s3.Bucket(self.bucket)
         cors = bucket.Cors()
         config = {
