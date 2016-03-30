@@ -464,11 +464,15 @@ class Cell(object):
             for f in delete_response[0]['Deleted']:
                 print "DELETE s3://{}".format(f['Key'])
 
-    def delete_temp_dir(self):
+    def create_temp_dir(self):
+        mkdir_p(os.path.dirname(self.tmp("")))
+
+    def delete_temp_dir(self, force=False):
         cell_temp_dir = self.tmp("")
         print "DELETE {} temporary directory".format(cell_temp_dir)
         if cell_temp_dir != "" \
-                and os.path.exists(os.path.join(cell_temp_dir, "seed.tar.gz")):
+                and (os.path.exists(os.path.join(cell_temp_dir, "seed.tar.gz"))
+                     or force):
             shutil.rmtree(cell_temp_dir)
         else:
             print "Refusing to delete directory {}. Please check contents.".format(cell_temp_dir)
@@ -599,6 +603,7 @@ class Cell(object):
             traceback.print_exc(file=sys.stdout)
             raise
         try:
+            self.create_temp_dir()
             self.create_key()
         except Exception:
             self.delete_bucket()
@@ -609,6 +614,10 @@ class Cell(object):
             self.stack_action()
         except Exception as e:
             print "Error creating cell: ", e
+            try:
+                self.delete_temp_dir(force=True)
+            except Exception as e:
+                print "Error deleting local dir {}".format(self.tmp("")), e
             try:
                 self.delete_key()
             except Exception as e:
