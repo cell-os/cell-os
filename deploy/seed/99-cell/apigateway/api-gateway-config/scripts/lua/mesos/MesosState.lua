@@ -153,7 +153,7 @@ function _M:getState(update_slave_hostnames)
         -- JS should not assume all the slaves are accessible on their private IP address
         for _, slave in ipairs(mesos_state['slaves']) do
             slave.hostname = ngx.var.host .. '/slave/' .. slave.id
-            slave.pid = ngx.re.gsub(slave.pid, ':\\\\d+$', ':' .. ngx.var.proxy_forwarded_port, 'jo')
+            slave.pid = ngx.re.gsub(slave.pid, ":\\d+$", ':' .. ngx.var.proxy_forwarded_port, 'jo')
         end
     end
 
