@@ -395,11 +395,10 @@ class Cell(object):
         )
         entries = parse_nets_json(json_text)
         if len(entries) == 0:
-            print textwrap.dedent("""
+            raise Exception(textwrap.dedent("""
             Empty networks whitelist file, cannot continue !
             Please check the user guide on how to create it.
-            """)
-            sys.exit(1)
+            """))
 
         with open(self.tmp("net-whitelist.json"), "wb+") as f:
             f.write(json.dumps(entries, indent=4))
