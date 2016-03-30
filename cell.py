@@ -141,7 +141,7 @@ def readify(f):
                 if r.status_code != 200:
                     raise Exception(
                         "ERROR: downloading config file from {} ({})".format(
-                            url, r.status_code
+                            f, r.status_code
                         )
                     )
                 return r.text
@@ -362,8 +362,8 @@ class Cell(object):
                 if inst.cell != None:
                     inst.session.client('cloudformation').describe_stacks(StackName=inst.cell)
             except Exception:
-                print "Cell {} does not exist or is not running !".format(inst.cell)
-                sys.exit(1)
+                raise Exception("Cell {} does not exist or is not running !"
+                                .format(inst.cell))
             return f(inst, *args, **kwargs)
         return wrapped
 
@@ -597,13 +597,13 @@ class Cell(object):
             self.create_bucket()
         except Exception:
             traceback.print_exc(file=sys.stdout)
-            sys.exit(1)
+            raise
         try:
             self.create_key()
         except Exception:
             self.delete_bucket()
             traceback.print_exc(file=sys.stdout)
-            sys.exit(1)
+            raise
         try:
             self.seed()
             self.stack_action()
@@ -615,7 +615,7 @@ class Cell(object):
                 print "Error deleting key", e
             self.delete_bucket()
             traceback.print_exc(file=sys.stdout)
-            sys.exit(1)
+            raise
         print """
         To watch your cell infrastructure provisioning log you can
             ./cell log {cell}
@@ -967,7 +967,7 @@ DynamicForward {port}
             confirmation = raw_input(">")
             if confirmation.lower() not in ['y', 'yes']:
                 print "Aborting scale down operation"
-                sys.exit(1)
+                raise Exception("Expecting 'y' or 'yes'")
         print "Scaling {}.{} ({}) to {}".format(
             self.cell,
             self.arguments["<role>"],
@@ -1183,7 +1183,12 @@ It is used to build an ELB name which is 32 chars max:
     http://docs.aws.amazon.com/ElasticLoadBalancing/latest/APIReference/API_CreateLoadBalancer.html
 """
         sys.exit(1)
-    Cell(arguments, version).run()
+    cell = Cell(arguments, version)
+    try:
+        cell.run()
+    except Exception as e:
+        print "{}: {}".format(cell.command, e)
+        sys.exit(1)
 
 
 if __name__ == '__main__':
