@@ -15,12 +15,12 @@ test:
 	cp -r ./target ~/tmp/apiplatform/api-gateway-config/
 	echo " ... generating resolvers.conf"
 	echo resolver $$(awk 'BEGIN{ORS=" "} /nameserver/{print $$2}' /etc/resolv.conf | sed "s/ $$/;/g") > ~/tmp/apiplatform/api-gateway-config/conf.d/includes/resolvers.conf
-	docker run --rm -e "DEBUG=true" \
+	- docker run --rm -e "DEBUG=true" \
 					-e  "TEST_NGINX_PORT=1981" \
-					-v ${HOME}/tmp/apiplatform/api-gateway-config:/etc/api-gateway \
-					-v ${HOME}/tmp/apiplatform/api-gateway-config/target/:/t \
+					-v ${MOUNT}/tmp/apiplatform/api-gateway-config:/etc/api-gateway \
+					-v ${MOUNT}/tmp/apiplatform/api-gateway-config/target/:/t \
 					--entrypoint prove \
-				 cellos/apigateway:1.9.7.3 -I /usr/local/test-nginx-0.24/lib -I /usr/local/test-nginx-0.24/inc -r /etc/api-gateway/tests
+				 cellos/apigateway:1.9.7.3-2 -I /usr/local/test-nginx-0.24/lib -I /usr/local/test-nginx-0.24/inc -r /etc/api-gateway/tests
 
 	cp -r ~/tmp/apiplatform/api-gateway-config/target/* ./target/
 	rm -rf ~/tmp/apiplatform/api-gateway-config
