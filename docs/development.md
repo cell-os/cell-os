@@ -67,6 +67,18 @@ ensemble reported by Exhibitor endpoint (accessed through ELB).
 Make sure that they have the right [sha-bang](http://www.tldp.org/LDP/abs/html/sha-bang.html)
 E.g. `#!/bin/bash`
 
+## Running Gateway tests
+
+Adobe.io gateway integration has a series of integrated tests that you can run. 
+To run them, you need a Docker setup. 
+
+To run the tests pass in the `MOUNT` variable the location where the cell-os checkout is mounted on the Docker machine. For example, if you have Docker running in a VM and the cell-os directory is mounted at /cell, pass `MOUNT=/cell`
+ 
+```
+cd deploy/seed/99-cell/apigateway
+MOUNT=/RemoteHome make test
+```
+
 # Releasing
 
 ## Builds and Artifacts 
