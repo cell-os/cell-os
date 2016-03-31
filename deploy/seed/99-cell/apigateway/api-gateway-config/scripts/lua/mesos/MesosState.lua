@@ -93,7 +93,7 @@ local function getMesosLeaderFromMesosAPI(internal_location)
         ngx.log(ngx.WARN, tostring(internal_location), "Could not find the master. For status", tostring(response.status), " and body:", tostring(response.body))
         return nil
     end
-    local m, err = ngx.re.match(loc, "(http[s]:)*(//)*(?<host>.*)")
+    local m, err = ngx.re.match(loc, "(http[s]:)?(//)(?<host>.*)")
     if (m.host == nil or err ~= nil) then
         ngx.log(ngx.WARN, tostring(internal_location), " returned unknown Location header:", tostring(loc), ". Could not match the host. err=", err)
         return nil
