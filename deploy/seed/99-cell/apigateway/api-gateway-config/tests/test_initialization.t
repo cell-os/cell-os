@@ -24,7 +24,9 @@ our $HttpConfig = <<_EOC_;
     fastcgi_temp_path /tmp/;
 
     include /etc/api-gateway/environment.conf.d/api-gateway-env.http.conf;
-    include /etc/api-gateway/conf.d/commons/whitelist.conf;
+    geo \$http_x_forwarded_for \$is_admin_zone_ip {
+        127.0.0.1 1;
+    } 
     include /etc/api-gateway/conf.d/commons/blacklist.conf;
 
     include /etc/api-gateway/conf.d/*.conf;
