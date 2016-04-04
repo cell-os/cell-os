@@ -15,6 +15,26 @@ mesos::master::quorum: 1
 mesos::master::env_var:
   MESOS_work_dir: /var/lib/mesos/master
   MESOS_ip_discovery_command: /usr/local/bin/get_ip
+  MESOS_acls: "file:///etc/mesos/acls"
+  MESOS_credentials: "file:///etc/mesos/master-credentials"
+mesos::master::credentials:
+  - principal: principal-1-placeholder
+    secret: secret-1-placeholder
+  - principal: principal-2-placeholder
+    secret: secret-2-placeholder
+  - principal: marathon-principal-placeholder
+    secret: marathon-secret-placeholder
+mesos::master::acls:
+  register_frameworks:
+    - principals:
+        type: ANY
+      roles:
+        type: ANY
+  run_tasks:
+    - principals:
+        type: ANY
+      users:
+        type: ANY
 mesos::slave::env_var:
   MESOS_work_dir: /var/lib/mesos/slave
   MESOS_attributes: "role:${cell_role}"
