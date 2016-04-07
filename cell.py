@@ -77,6 +77,7 @@ import boto3.session
 import jmespath
 import sh
 import pystache
+import toml
 import yaml
 
 from awscli.formatter import TableFormatter
@@ -257,14 +258,6 @@ class Cell(object):
         )
 
     @property
-    def repository(self):
-        return first(
-            os.getenv('REPOSITORY'),
-            self.conf('repository'),
-            's3://saasbase-repo'
-        )
-
-    @property
     def key_file(self):
         return self.tmp("{}.pem".format(self.full_cell))
 
@@ -306,6 +299,14 @@ class Cell(object):
             os.getenv('SAASBASE_SECRET_ACCESS_KEY'),
             self.conf('saasbase_secret_access_key'),
             'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+        )
+
+    @property
+    def repository(self):
+        return first(
+            os.getenv('REPOSITORY'),
+            self.conf('repository'),
+            's3://saasbase-repo'
         )
 
     @property
@@ -788,10 +789,30 @@ cell: {cell}
         """
         Creates a DCOS cli configuration file
         """
-        dcos_config = self.tmp("dcos.toml")
-        if os.path.exists(dcos_config):
-            return
-        with open(dcos_config, "wb+") as f:
+        with open('cell-os-base.yaml', 'r') as bundle_stream:
+            version_bundle = yaml.load(bundle_stream)
+            universe_version =  version_bundle['cell-os-universe::version']
+
+        repo_url = self.repository.replace('s3://', 'https://s3.amazonaws.com/')
+        cell_universe_url = '{0}/cell-os/cell-os-universe-{1}.zip'\
+            .format(repo_url, universe_version)
+        dcos_config_file = self.tmp('dcos.toml')
+
+        try:
+            with open(dcos_config_file, 'r') as dcos_config_stream:
+                dcos_config = toml.loads(dcos_config_stream.read())
+                sources = dcos_config['package']['sources']
+        except Exception:
+            sources = [cell_universe_url]
+            print('generating {config_file} with default sources {default_src}'
+              .format(config_file=dcos_config_file, default_src=sources))
+
+        # Override cell-os-universe source with the bundle version
+        for index, repo in enumerate(sources):
+            if 'cell-os/cell-os-universe' in repo:
+                sources[index] = cell_universe_url
+                break
+        with open(dcos_config_file, "wb+") as f:
             f.write("""\
 [core]
 mesos_master_url = "{mesos}"
@@ -801,14 +822,14 @@ cell_url = "http://{{service}}.{dns}"
 [marathon]
 url = "{marathon}"
 [package]
-sources = [ "https://s3.amazonaws.com/saasbase-repo/cell-os/cell-os-universe-{version}.zip"]
-cache = "{tmp}/dcos_tmp"
+sources = [{sources}]
+cache = "{tmp}dcos_tmp"
                 """.format(
                     mesos=self.gateway("mesos"),
                     marathon=self.gateway("marathon"),
-                    version=self.version,
                     tmp=self.tmp(""),
-                    dns=self.dns_name
+                    dns=self.dns_name,
+                    sources=",".join('"{0}"'.format(x) for x in sources)
                 )
             )
             f.flush()
