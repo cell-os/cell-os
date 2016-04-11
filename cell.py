@@ -828,11 +828,11 @@ cache = "{tmp}/dcos_tmp"
 IdentitiesOnly yes
 ConnectTimeout {timeout}
 IdentityFile {key}
+StrictHostKeyChecking no
+User centos
 
 Host proxy-cell-{cell}
 Hostname {host}
-StrictHostKeyChecking no
-User centos
 DynamicForward {port}
             """.format(
                 timeout=self.ssh_timeout,
@@ -1007,11 +1007,10 @@ DynamicForward {port}
             ''
         )
 
-        return "{executable} -F {ssh_config} {opts} {user}@{host} {extra}".format(
+        return "{executable} -F {ssh_config} {opts} {host} {extra}".format(
             executable=ssh_executable,
             ssh_config=self.tmp("ssh_config"),
             opts=ssh_options + " " + extra_opts,
-            user=self.ssh_user,
             host=ip,
             extra=command
         )
