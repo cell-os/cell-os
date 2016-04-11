@@ -217,6 +217,7 @@ body = t.add_resource(asn.AutoScalingGroup(
     MaxSize="1000",
     VPCZoneIdentifier=[Ref(subnet)],
     LoadBalancerNames=Ref(load_balancer_names),
+    TerminationPolicies=["NewestInstance", "ClosestToNextInstanceHour"]
 ))
 
 ROOT_DEVICE_SIZE = 200
