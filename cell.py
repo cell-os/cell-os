@@ -925,29 +925,30 @@ DynamicForward {port}
             return args
 
         print "Found supported package {}, rendering options file".format(package)
-        opts_file = self.tmp("{}.json".format(package))
-        with open(opts_file, "wb+") as outf:
-            outf.write(
-                pystache.render(
-                    readify(opts_template),
-                    yaml.load(readify(self.tmp("config.yaml")))
-                )
+        options_file = self.tmp("{}.json".format(package))
+        with open(options_file, "wb+") as outf:
+            rendered_options = pystache.render(
+                readify(opts_template),
+                yaml.load(readify(self.tmp("config.yaml")))
             )
+            print("Rendered options {}".format(options_file))
+            print(rendered_options)
+            outf.write(rendered_options)
             outf.flush()
             print "Rendered DCOS config for package {}\n\t as {}".\
-                format(package, opts_file)
+                format(package, options_file)
 
         # try to append options to the command
         has_options = '--options' in args
         if has_options:
             print "Command already contains --options, merging options file !!!"
-            cell_json = json.loads(readify(opts_file))
+            cell_json = json.loads(readify(options_file))
             opts_file_index = args.index("--options") + 1
             user_json = json.loads(readify(args[opts_file_index]))
             aggregated_json = deep_merge(dict(cell_json), user_json)
-            with open(opts_file, "wb+") as outf:
+            with open(options_file, "wb+") as outf:
                 outf.write(json.dumps(aggregated_json, indent=4))
-            args[opts_file_index] = opts_file
+            args[opts_file_index] = options_file
             return args
 
         print "Adding package install options"
