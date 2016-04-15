@@ -90,12 +90,14 @@ curl -s ${marathon_host}/v2/tasks -H "Accept:text/plain" | gawk '
     servers = servers "\n server " $f " fail_timeout=10s;";
   }
   # if this is the first port, expose it as "workload"
-  if (port_index[app] == 1) {
+  if (port_index[app] == 1 && servers != "") {
     print "upstream " app " {" servers "\n keepalive 16;\n}";
   }
 
   # for the rest of the ports, also expose "workload_port0", "workload_port1" etc
-  print "upstream " app "_port" (port_index[app]-1) " {" servers "\n keepalive 16;\n}";
+  if (servers != "") {
+    print "upstream " app "_port" (port_index[app]-1) " {" servers "\n keepalive 16;\n}";
+  }
 }
 ' > ${TMP_UPSTREAM_FILE}
 
