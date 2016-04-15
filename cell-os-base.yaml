@@ -6,14 +6,14 @@
 # The order is defined by the level of dependency. 
 # For example Docker is low level running directly on the OS and other modules depend on it
 
-saasbase_deployment::version: 1.28-rc2
+saasbase_deployment::version: 1.28
 docker::version: 1.10.3-1.el7.centos
-java::version: 8u77
+java::version: 8u91
 # zookeeper exhibitor
 zookeeper::version: 3.4.6_1.5.6-1
-mesos::version: 0.28.0-2.0.16.centos701406
-marathon::version: v1.0.0-RC1
-etcd::version: v2.3.0
+mesos::version: 0.28.1-2.0.20.centos701406
+marathon::version: v1.1.1
+etcd::version: v2.3.4
 api-gateway::image: "cellos/apigateway:1.9.7.3-2"
 cell-os-universe::version: 1.2.1-SNAPSHOT
 
