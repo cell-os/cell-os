@@ -931,6 +931,16 @@ DynamicForward {port}
                         dest[k] = tmp
                 elif v["type"] == "string" and "default" in v:
                     dest[k] = v["default"]
+                    # monkey-patch to enable general DCOS universe repo
+                    # replace DCOS specific host:port service discriminators
+                    # with the cell-os specific endpoints
+                    # note that this works for 90% of the packages, as some
+                    # may have these values hardcoded somewhere else
+                    dest[k] = dest[k].replace("master.mesos:2181", "{{zk}}")
+                    dest[k] = dest[k].replace("master.mesos:5050", "{{mesos}}")
+                    dest[k] = dest[k].replace("master.mesos:8080",
+                                              "{{marathon}}")
+                    dest[k] = dest[k].replace(".marathon.mesos", self.dns_name)
             return dest
 
         opts_template = None
