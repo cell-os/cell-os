@@ -38,7 +38,7 @@ Currently only AWS is supported by the CLI.
 
 ## Install
 
-#### Configure [AWS CLI](http://aws.amazon.com/cli/)
+#### **Step 0**: Configure [AWS CLI](http://aws.amazon.com/cli/)
 The cell CLI tool is using a bunch of Python packages, that talk to AWS:
 
     aws configure
@@ -49,7 +49,7 @@ Contact your account manager if you don't have one.
 
 **We recommend using [virtualenv](http://virtualenv.readthedocs.org/en/latest/)**
 
-#### Running from source
+#### **Step 1**: Running from source
 
 Install `requirements.txt` dependencies
 
@@ -57,7 +57,7 @@ Install `requirements.txt` dependencies
     pip install -r requirements.txt
     ./cell
 
-#### pip package (new feature*)
+#### **Step 1**: pip package (new feature*)
 
     pip install --upgrade git+ssh://git.corp.adobe.com/metal-cell/cell-os.git
     cell --help
@@ -65,7 +65,7 @@ Install `requirements.txt` dependencies
  \* We've recently added the pip functionality and has so far worked well. If you have any issues
 please report them promptly. 
 
-#### Activate virtualenv (both source and pip)
+#### **Step 2**: Activate virtualenv (both source and pip)
 
     virtualenv env
     source env/bin/activate
