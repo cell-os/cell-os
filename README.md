@@ -47,7 +47,7 @@ The cell CLI tool is using a bunch of Python packages, that talk to AWS:
 You will need an [acccess key id and secret access key](http://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSGettingStartedGuide/AWSCredentials.html) for this. 
 Contact your account manager if you don't have one.
 
-We recommend using [virtualenv](http://virtualenv.readthedocs.org/en/latest/)
+**We recommend using [virtualenv](http://virtualenv.readthedocs.org/en/latest/)**
 
 #### Running from source
 
@@ -59,14 +59,16 @@ Install `requirements.txt` dependencies
 
 #### pip package (new feature*)
 
-    virtualenv env
-    source env/bin/activate
-
     pip install --upgrade git+ssh://git.corp.adobe.com/metal-cell/cell-os.git
     cell --help
 
  \* We've recently added the pip functionality and has so far worked well. If you have any issues
 please report them promptly. 
+
+#### Activate virtualenv (both source and pip)
+
+    virtualenv env
+    source env/bin/activate
 
 ## Usage
 
