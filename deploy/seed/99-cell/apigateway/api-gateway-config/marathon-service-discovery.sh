@@ -116,6 +116,13 @@ if [ ${redis_master} -eq 0 ]; then
     echo "upstream api-gateway-redis { server 127.0.0.1:6379; }" >> ${TMP_UPSTREAM_FILE}
 fi
 
+# 2.2 mesos tasks upstream
+MESOS_UPSTREAM_FILE_NAME=api-gateway-mesos-upstreams.http.conf
+TMP_MESOS_UPSTREAM_FILE=${TMP_DIR}/${MESOS_UPSTREAM_FILE_NAME}
+MESOS_UPSTREAM_FILE=${CONFIG_DIR}/${MESOS_UPSTREAM_FILE_NAME}
+MESOS_LOCATION=$(curl -i $MESOS_MASTER_HOST/master/redirect 2>/dev/null | grep "Location:" | tr '\r' ' ' | awk '{print $2}')
+curl "http:${MESOS_LOCATION}/state.json" 2>/dev/null | python /etc/api-gateway/mesos-service-discovery.py > ${TMP_MESOS_UPSTREAM_FILE}
+
 # 2. check for changes
 changed_files=$(find /etc/api-gateway -type f -newer /var/run/apigateway-config-watcher.lastrun -print)
 # check both the vars and upstream files
@@ -123,12 +130,18 @@ cmp -s ${TMP_UPSTREAM_FILE} ${UPSTREAM_FILE}
 changed_upstreams=$?
 cmp -s ${TMP_VARS_FILE} ${VARS_FILE}
 changed_vars=$?
-if [[ \( -n "${changed_files}" \) -o \( ${changed_upstreams} -gt 0 \) -o \( ${changed_vars} -gt 0 \) ]]; then
+cmp -s ${TMP_MESOS_UPSTREAM_FILE} ${MESOS_UPSTREAM_FILE}
+changed_mesos_upstreams=$?
+# if any of the Api Gateway configuration files has changed, reload the configuration
+# We might get changes when something happens in Marathon or in Mesos
+if [[ \( -n "${changed_files}" \) -o \( ${changed_upstreams} -gt 0 \) -o \( ${changed_vars} -gt 0 \) -o \( ${changed_mesos_upstreams} -gt 0 \) ]]; then
     info_log "discovered changed files ..."
     info_log ${changed_files}
     cp ${TMP_UPSTREAM_FILE} ${UPSTREAM_FILE}
     cp ${TMP_VARS_FILE} ${VARS_FILE}
+    cp ${TMP_MESOS_UPSTREAM_FILE} ${MESOS_UPSTREAM_FILE}
     info_log "reloading gateway ..."
     api-gateway -t -p /usr/local/api-gateway/ -c /etc/api-gateway/api-gateway.conf && api-gateway -s reload
 fi
+
 echo `date` > /var/run/apigateway-config-watcher.lastrun
