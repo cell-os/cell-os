@@ -433,6 +433,7 @@ class Cell(object):
         )
         self.upload(DIR + "/deploy/aws/resources/status.html", "/shared/status/",
                     extra_args={"ContentType": "text/html"})
+        self.upload(DIR + "/deploy/machine/user-data", "/shared/cell-os/")
 
     def create_bucket(self):
         if not self.existing_bucket:
