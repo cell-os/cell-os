@@ -451,7 +451,7 @@ for device in "${actual_devices[@]}"; do
     if mountpoint -q -- "/mnt/data_${n}"; then
         echo "/mnt/data_${n} is already mounted" >&2
     else
-        echo "$1 is not a mountpoint" >&2
+        echo "/mnt/data_${n} is not a mountpoint" >&2
         mkdir -p -m 755 /mnt/data_${n} >&2
         mount ${device}1 /mnt/data_${n} >&2 || true
         echo "${device}1 /mnt/data_${n} xfs rw,relatime,attr2,inode64,noquota,nofail 0 0" >> /etc/fstab
