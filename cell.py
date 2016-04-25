@@ -723,9 +723,8 @@ class Cell(object):
             print tabulate("Status Page", status_page)
 
             elbs = jmespath.search(
-                "LoadBalancerDescriptions[*].[LoadBalancerName, DNSName]|[? contains([0], `{}-`) == `true`]".format(
-                    self.cell, self.cell
-                ),
+                "LoadBalancerDescriptions[*].[LoadBalancerName, DNSName]"
+                "|[? contains([0], `{}-`) == `true`]".format(self.cell),
                 self.elb.describe_load_balancers()
             )
 
