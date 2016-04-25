@@ -730,7 +730,7 @@ class Cell(object):
             )
 
             # filter ELBs for only this cell (e.g.  c1-mesos and not c1-1-mesos )
-            expression = self.cell + "[-lb]*-(marathon|membrane|mesos|zookeeper)"
+            expression = self.cell + "[-lb]*-(marathon|gateway|mesos|zookeeper)"
             regexp = re.compile(expression)
             elbs = filter(lambda name: regexp.match(name[0]), elbs)
 
