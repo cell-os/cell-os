@@ -60,18 +60,6 @@ For more info see [HTTP access to S3 folder](#http-access-to-S3-folder)
 > **NOTE:**  
 The endpoints described are available only from a restricted set of egress IPS**
 
-### HTTP access to S3 folder
-The `shared/http` "folder" can be accessed over HTTP directly form inside the VPC.
-
-Applications that need remote configuration, can upload files to 
-`s3://cell-os--$CELL_NAME/cell-os--$CELL_NAME/shared/http`.  
-The folder can be accessed from inside cell's VPC. 
-
-> **NOTE:** 
-This folder should only contain information that is shareable between workloads.
-E.g. a `.dockercfg` might be needed in order to get docker images from private 
-registries. This file could be uploaded in this folder and accessed using HTTP.
-
 ### Namespacing user-level workloads in S3
 We don't currently enforce finer grained accees to S3 resources.
 However, we recommend that user-level workloads namespace their S3 resources under
@@ -312,6 +300,28 @@ This creates a SOCKS5 proxy on `localhost:1234` (configurable) in the background
 You can configure your browser with a proxy plug-in like 
 [Proxy SwitchyOmega](https://chrome.google.com/webstore/search/switchy%20omega)
 or FoxyProxy and route all internal IPs through the SOCKS proxy. 
+
+## S3
+
+### HTTP access to S3 folder
+The `shared/http` "folder" can be accessed over HTTP directly form inside the VPC.
+
+Applications that need remote configuration, can upload files to 
+`s3://cell-os--$CELL_NAME/cell-os--$CELL_NAME/shared/http`.  
+The folder can be accessed from inside cell's VPC as
+`"https://cell-os--$CELL_NAME.s3.amazonaws.com/cell-os--$CELL_NAME/shared/http"`
+
+> **NOTE:** 
+This folder should only contain information that is shareable between workloads.
+E.g. a `.dockercfg` might be needed in order to get docker images from private 
+registries. This file could be uploaded in this folder and accessed using HTTP.
+
+## Docker private registries in Marathon
+For more information on how to package docker credentials for Marathon:
+https://mesosphere.github.io/marathon/docs/native-docker-private-registry.html
+
+Once you packaged them you can upload and use them as described in the S3 HTTP
+section.
 
 # Configuration
 
