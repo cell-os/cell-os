@@ -396,6 +396,30 @@ Now you can proceed and install the package on a cell
 Use an [existing package](https://git.corp.adobe.com/metal-cell/cell-universe/)
 as a template. 
 
+#### Troubleshooting
+
+`package install` returns `Error: Object is not valid`
+
+dcos cli truncates the details of the actual error message.
+
+You can generate the marathon json payload 
+
+    ./cell dcos c1 package describe --app --render YOUR_MODULE_NAME
+
+Save it to a file (e.g. `marathon.json`) and POST directly to marathon
+
+    curl -X POST -H "Content-Type: application/json" \
+    http://marathon.gw.c1.metal-cell.adobe.io//v2/apps\?force\=true \
+    -d@marathon.json  -vvv  
+
+This will return a more detailed erorr message. E.g.
+
+    {
+      "message":"Object is not valid",
+      "details":[{"path":"/container/docker/image",
+      "errors":["must not be empty"]}]
+    }
+ 
 ### Checklist
 
 1. Read DCOS [contributing a package doc](https://git.corp.adobe.com/metal-cell/cell-universe#contributing-a-package)
