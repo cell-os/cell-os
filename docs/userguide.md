@@ -50,7 +50,7 @@ it has exclusive `r/w` access:
 * `/nucleus`
 * `/stateless-body`
 * `/stateful-body`
-* `/membrane
+* `/membrane`
 
 In addition there's a shared directory to which all bodies have access to
 * `/shared`
@@ -64,7 +64,7 @@ The endpoints described are available only from a restricted set of egress IPS**
 We don't currently enforce finer grained accees to S3 resources.
 However, we recommend that user-level workloads namespace their S3 resources under
 
-    /users/<tenant>/<subnamespaces>`
+    /users/<tenant>/<subnamespaces>
 
 This will allow us to further isolate access between tenants of the same cell and 
 within namespaces of the same tenant.
