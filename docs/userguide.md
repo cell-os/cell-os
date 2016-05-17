@@ -239,7 +239,7 @@ While there may be a subset of overlapping functionality there, we should
 strive to keep the separation of concerns, so learn how that works before 
 trying to do something related to that with this.
 
-# Access
+# Access to your cell
 
 Each cell is isolated and access is available through:
 
@@ -339,3 +339,23 @@ Hence, the cli arguments have the highest priority.
 Cell level caches, metadata and configurations are stored in `.generated`. 
 See the CLI advanced section on [.generated](userguide.md#generated) for 
 more information.
+
+# Access from your cell 
+
+## Aceessing docker private registries with Marathon
+
+With marathon you can tar.gz your docker credentials (see marathon docs for
+details) and make them available by copying them to the `shared/http` s3 
+location.  
+
+Alternatively you can copy them into HDFS and used the WebHDFS REST endpoint
+
+```json
+ {
+ "uris": ["https://s3-us-west-1.amazonaws.com/cell-os--c2/cell-os--c2/shared/http/target/docker.tar.gz"],
+ ...
+ }
+```
+Read the 
+[Marathon doc on private registries](https://github.com/mesosphere/marathon/blob/master/docs/docs/native-docker-private-registry.md)
+for more information on how to pack the credentials.
