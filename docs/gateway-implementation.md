@@ -47,4 +47,6 @@ Reload
 
     api-gateway -s reload
 
+# Marathon generated 
+`/etc/apigateway/environment.conf.d/api-gateway-upstreams.http.conf`
 
