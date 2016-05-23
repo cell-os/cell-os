@@ -9,6 +9,11 @@ marathon::zk: zk://$zk/marathon
 marathon::master: zk://$zk/mesos
 marathon::bin_path: /opt/marathon/bin
 marathon::install_java: false
+
+marathon::authn_enabled: true
+marathon::authn_principal: marathon-principal-placeholder
+marathon::authn_secret: marathon-secret-placeholder
+marathon::role: marathon-role
 EOT
   provision puppet marathon
 else
