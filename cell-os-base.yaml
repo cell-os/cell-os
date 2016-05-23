@@ -21,6 +21,6 @@ modules:
   puppet-zookeeper: 0.1.2-adobe
   puppet-docker: 5.0.0-adobe
   puppet-mesos: 0.8.1-adobe-1
-  puppet-marathon: 0.1.4-adobe
+  puppet-marathon: 0.1.5-SNAPSHOT
   puppet-etcd: 0.1.0-rc3-adobe
 
