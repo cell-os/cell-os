@@ -9,7 +9,7 @@ The CLI is a convenience wrapper around the [AWS CLI](http://aws.amazon.com/cli/
 ## Environment
 
 The AWS region is picked from the AWS CLI configuration / environment
-(`DEFAULT_AWS_REGION`)
+(`AWS_DEFAULT_REGION`)
 
 ## Usage
 
