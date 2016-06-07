@@ -38,7 +38,7 @@ Currently only AWS is supported by the CLI.
 
 ## Install
 
-#### **Step 0**: Activate virtualenv (both source and pip)
+#### **Step 0**: Activate virtualenv
 
     virtualenv env
     source env/bin/activate
