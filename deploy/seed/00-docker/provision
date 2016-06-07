@@ -1,6 +1,6 @@
 #!/bin/bash
 
-yum install -y libcgroup systemd-libs policycoreutils-python audit-libs
+yum install -y libcgroup systemd-libs policycoreutils-python audit-libs hdparm
 
 set -eu
 trap "echo 'error: script failed: see failed command above'" err
@@ -63,7 +63,10 @@ make_lvm_disk() {
       #  * 2nd one for LVM 
       parted -s ${device_path} -- mkpart primary 1 $(bc <<< "($disk_size-$LVM_PART_SIZE_GB-1)*1024/1")
       parted -s ${device_path} -- mkpart primary $(bc <<< "($disk_size-$LVM_PART_SIZE_GB)*1024/1") -1
-      partprobe ${device_path} >&2 || true
+      while [ ! -b ${device_path}1 ]; do
+        partprobe ${device_path} >&2 || true
+        hdparm -z ${device_path} >&2 || true
+      done
 
       # format the 1st partition (xfs)
       mkfs.xfs -f ${device_path}1
