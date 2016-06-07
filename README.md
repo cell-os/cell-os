@@ -38,6 +38,11 @@ Currently only AWS is supported by the CLI.
 
 ## Install
 
+#### **Step 0**: Activate virtualenv (both source and pip)
+
+    virtualenv env
+    source env/bin/activate
+
 #### **Step 0**: Configure [AWS CLI](http://aws.amazon.com/cli/)
 The cell CLI tool is using a bunch of Python packages, that talk to AWS:
 
@@ -46,8 +51,6 @@ The cell CLI tool is using a bunch of Python packages, that talk to AWS:
 > NOTE  
 You will need an [acccess key id and secret access key](http://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSGettingStartedGuide/AWSCredentials.html) for this. 
 Contact your account manager if you don't have one.
-
-**We recommend using [virtualenv](http://virtualenv.readthedocs.org/en/latest/)**
 
 #### **Step 1**: Running from source
 
@@ -65,10 +68,6 @@ Install `requirements.txt` dependencies
  \* We've recently added the pip functionality and has so far worked well. If you have any issues
 please report them promptly. 
 
-#### **Step 2**: Activate virtualenv (both source and pip)
-
-    virtualenv env
-    source env/bin/activate
 
 ## Usage
 
