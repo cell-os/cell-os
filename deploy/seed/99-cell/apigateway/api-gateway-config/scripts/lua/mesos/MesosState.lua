@@ -151,9 +151,12 @@ function _M:getState(update_slave_hostnames)
         -- for Mesos 0.25 UI we need to replace the hostname and the pid fields
         -- the issue is in this commit: https://github.com/apache/mesos/commit/8e13a26e8514ca8be904f91f0fcc4c2fc74d71bc#diff-9f2e9a08332888bca98d111787b3a8c3R770
         -- JS should not assume all the slaves are accessible on their private IP address
+        local host = ngx.var.host
+        local port = ngx.var.http_x_forwarded_port or ngx.var.server_port
+        local authority = host .. ":" .. port
         for _, slave in ipairs(mesos_state['slaves']) do
-            slave.hostname = ngx.var.host .. '/slave/' .. slave.id
-            slave.pid = ngx.re.gsub(slave.pid, ":\\d+$", ':' .. ngx.var.proxy_forwarded_port, 'jo')
+            slave.hostname = authority .. '/slave/' .. slave.id
+            slave.pid = ngx.re.gsub(slave.pid, ":\\d+$", ':' .. port, 'jo')
         end
     end
 

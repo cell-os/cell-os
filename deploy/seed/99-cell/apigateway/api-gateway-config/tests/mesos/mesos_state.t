@@ -119,7 +119,7 @@ Mesos Leader is http://127.0.0.1:1981
 --- request
 GET /t
 --- response_body
-slave(1)@10.0.0.223:1981,slave(2)@10.0.0.224:1981,localhost/slave/S1,localhost/slave/S2,http://127.0.0.1:1981
+slave(1)@10.0.0.223:1981,slave(2)@10.0.0.224:1981,localhost:1981/slave/S1,localhost:1981/slave/S2,http://127.0.0.1:1981
 --- no_error_log
 [error]
 
