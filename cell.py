@@ -185,7 +185,6 @@ def command(args):
 
 def cell_config():
     config = ConfigParser.RawConfigParser()
-    config.read(os.path.expanduser('~/.aws/config'))
     config.read(os.path.expanduser('~/.cellos/config'))
     return config
 
