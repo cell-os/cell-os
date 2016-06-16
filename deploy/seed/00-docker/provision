@@ -50,28 +50,35 @@ make_lvm_disk() {
 
     # detect the size of the target disk
     disk_size=$(fdisk -l | grep "Disk" | grep "${device_path}" | awk '{print $3}')
+    echo "target disk size: ${disk_size}"
 
     # if the desired size for the LVM partition is larger
     # than the full disk size, just use the whole disk for the LVM partition;
     # otherwise, do a re-partition
     if [[ $disk_size > $LVM_PART_SIZE_GB ]]; then
       # delete the existing partition
+      echo "deleting existing partition on ${device_path}"
       parted -s ${device_path} rm 1
       
       # create two partitions: 
       #  * 1st one to be mounted in the original mountpoint
-      #  * 2nd one for LVM 
+      #  * 2nd one for LVM
+      echo "creating partitions"
       parted -s ${device_path} -- mkpart primary 1 $(bc <<< "($disk_size-$LVM_PART_SIZE_GB-1)*1024/1")
       parted -s ${device_path} -- mkpart primary $(bc <<< "($disk_size-$LVM_PART_SIZE_GB)*1024/1") -1
       while [ ! -b ${device_path}1 ]; do
+        echo "Waiting for ${device_path}1 "
         partprobe ${device_path} >&2 || true
         hdparm -z ${device_path} >&2 || true
+        sleep 1
       done
 
       # format the 1st partition (xfs)
+      echo "format the 1st partition"
       mkfs.xfs -f ${device_path}1
 
       # format the 2nd partition (lvm)
+      echo "format the 2nd partition"
       target_part=${device_path}2
 
       # re-mount the original mountpoints
@@ -81,6 +88,7 @@ make_lvm_disk() {
       target_part=${device_path}1
     fi
     # we can now do the LVM partitioning
+    echo "creating thin pool logical volumes"
     pvcreate -ff -y ${target_part}
     vgcreate docker ${target_part}
     lvcreate -y --wipesignatures y -n thinpool docker -l 90%VG
@@ -101,7 +109,7 @@ compute_target_device() {
   drive_count=${#drives[@]} 
   if [[ $drive_count > 1 ]]; then
     # choose the last available ephemeral drive
-    target=${drives[(( $drive_count -1 ))]}
+    target=${drives[(( $drive_count - 1 ))]}
     echo /dev/$target
   else
     echo ""
