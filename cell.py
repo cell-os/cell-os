@@ -108,6 +108,7 @@ def deep_merge(a, b):
             a[key] = b[key]
     return a
 
+
 def flatten(l):
     """
     Flattens a list;
@@ -126,30 +127,33 @@ def flatten(l):
     return _flat(l, [])
 
 
-def readify(f):
-    if f is None:
-        return None
-    if hasattr(f, 'read'):
-        out = f.read()
+def readify(path):
+    """
+
+    :param path:
+    :return: the content of the file or URL identified at the given path
+    """
+    if path is None:
+        out = None
+    elif hasattr(path, 'read'):
+        out = path.read()
+    elif '\n' not in path and os.path.exists(path):
+        with open(path, 'r') as fd:
+            out = fd.read()
+    elif isinstance(path, basestring) \
+            and (path.startswith("http://") or path.startswith("https://")):
+        try:
+            r = requests.get(path)
+            if r.status_code != 200:
+                sys.stderr.write("ERROR: downloading config file from {} ({})"
+                                 .format(path, r.status_code))
+            out = r.text
+        except Exception as e:
+            sys.stderr.write("Error while getting {}: \n\t{}".format(path, e))
+            out = None
     else:
-        if '\n' not in f and os.path.exists(f):
-            with open(f, 'r') as fd:
-                out = fd.read()
-        elif isinstance(f, basestring) and (f.startswith("http://") \
-            or f.startswith("https://")):
-            try:
-                r = requests.get(f)
-                if r.status_code != 200:
-                    raise Exception(
-                        "ERROR: downloading config file from {} ({})".format(
-                            f, r.status_code
-                        )
-                    )
-                return r.text
-            except Exception as e:
-                return None
-        else:
-            out = f
+        # (clehene) why would we set the output to the input?
+        out = path
     return out
 
 
@@ -163,7 +167,8 @@ def tabulate(operation, data):
                        column_separator='|', styler=Styler(),
                        auto_reformat=False)
 
-    formatter = TableFormatter(type('dummy', (object,), {"color": "on", "query": None}))
+    formatter = TableFormatter(type('dummy', (object,),
+                                    {"color": "on", "query": None}))
     formatter.table = table
     stream = six.StringIO()
     formatter(operation, data, stream=stream)
@@ -368,8 +373,9 @@ class Cell(object):
         def wrapped(inst, *args, **kwargs):
             try:
                 # if the cell parameter is defined, check it
-                if inst.cell != None:
-                    inst.session.client('cloudformation').describe_stacks(StackName=inst.cell)
+                if inst.cell is not None:
+                    inst.session.client('cloudformation')\
+                        .describe_stacks(StackName=inst.cell)
             except Exception:
                 raise Exception("Cell {} does not exist or is not running !"
                                 .format(inst.cell))
