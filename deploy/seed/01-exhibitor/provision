@@ -2,7 +2,7 @@
 
 module_name="01-exhibitor"
 if [[ -f /opt/cell/etc/roles/nucleus ]]; then
-  cat >> /opt/cell/cluster/cluster.yaml <<-EOT
+  [[ "${cell_backend}" == "aws" ]] && cat >> /opt/cell/cluster/cluster.yaml <<-EOT
 zookeeper::aws_s3_region: ${aws_region}
 zookeeper::aws_s3_bucket: ${cell_bucket_name}
 zookeeper::aws_s3_prefix: ${full_cell_name}/nucleus/exhibitor
