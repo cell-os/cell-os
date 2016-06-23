@@ -230,6 +230,11 @@ Default is *true*;
 * `lb:module` - Optional - specifies a custom GW module to handle this 
 application type; the configuration and proxying microservice for this 
 specific application;
+* EXPERIMENTAL - `lb:hash` - Optional - specifies a load balancing method used by the gateway:
+  * e.g.: balancing based on end-user source IP `lb:hash=$http_x_forwarded_for`
+  * the `consistent` hashing option([Nginx Doc Here](http://nginx.org/en/docs/http/ngx_http_upstream_module.html#hash)) can be activated by setting the Marathon app tag `lb:consistent` to any value. E.g.: `lb:consistent=true`. The `lb:consistent` tag gets ignored if the `lb:hash` tag is not defined.
+  * the option is ignored for upstreams with only one member. (please read: Marathon apps running in a single instance.)
+  * A simple way of providing web session stickiness for a Marathon app and simulate the `cookie_insert` balancing option available for the nginx commercial version is to enable Duration Based Stickiness on the AWS ELB([AWS Docs Here](http://docs.aws.amazon.com/ElasticLoadBalancing/latest/DeveloperGuide/elb-sticky-sessions.html#enable-sticky-sessions-duration)) and use the ELB injected cookie at the gateway level by passing the value of the Marathon app tag like this: `lb:hash=$cookie_awselb`. Be aware that you first have to use a stateless client request just to have the cookie set on the client side for subsequent requests.
 
 ## Service discovery and load balancing != api management
 

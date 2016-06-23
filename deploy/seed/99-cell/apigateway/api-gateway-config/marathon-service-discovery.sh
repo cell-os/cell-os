@@ -52,7 +52,9 @@ info_log() {
 
 # 1. create the new vars config
 VARS_FILE_NAME=api-gateway-vars.server.conf
+SHELL_VARS_FILE_NAME=api-gateway-shell-vars.server.conf
 TMP_VARS_FILE=${TMP_DIR}/${VARS_FILE_NAME}
+TMP_SHELL_VARS_FILE=${TMP_DIR}/${SHELL_VARS_FILE_NAME}
 VARS_FILE=${CONFIG_DIR}/${VARS_FILE_NAME}
 # jq outputs the json tree as 
 # labels /hbase-master lb:enabled true
@@ -75,7 +77,26 @@ END {
 }
 ' > ${TMP_VARS_FILE}
 
+# 1.1. create shell signal variables for subsequent steps
+# Export the list of Nginx variables from ${TMP_VARS_FILE} into a file ${TMP_SHELL_VARS_FILE} defining shell placeholder variables.
+# The purpose of this step is to provide a way to signal subsequent steps that a certain Nginx var is defined.
+# Sample: 
+#  the line: set $smi_lb_hash $cookie_awselb;
+#  would be translated into: export smi_lb_hash="DEFINED"
+cat ${TMP_VARS_FILE} | awk '{if (NF > 2) print "export " substr($2, 2) "=\"DEFINED\""}' > ${TMP_SHELL_VARS_FILE}
+source ${TMP_SHELL_VARS_FILE}
+
 # 2. create the new upstream config
+# Sample upstream for a Marathon app named testwebapp setting the lb:hash=$http_x_forwarded_for and lb:consistent=true :
+#
+# upstream testwebapp {
+#  hash $testwebapp_lb_hash consistent;
+#  server ip-10-0-0-204.us-west-2.compute.internal:20351 fail_timeout=10s;
+#  server ip-10-0-0-164.us-west-2.compute.internal:19842 fail_timeout=10s;
+#  keepalive 16;
+#
+# }
+
 UPSTREAM_FILE_NAME=api-gateway-upstreams.http.conf
 TMP_UPSTREAM_FILE=${TMP_DIR}/${UPSTREAM_FILE_NAME}
 UPSTREAM_FILE=${CONFIG_DIR}/${UPSTREAM_FILE_NAME}
@@ -83,6 +104,8 @@ curl -s ${marathon_host}/v2/tasks -H "Accept:text/plain" | gawk '
 {
   app=$1
   port_index[app]++
+  lb_ngx_var=app "_lb_hash"
+  lb_ngx_var_consistent=app "_lb_consistent"
 
   # compute the upstream servers list from this line
   servers="";
@@ -90,13 +113,24 @@ curl -s ${marathon_host}/v2/tasks -H "Accept:text/plain" | gawk '
     servers = servers "\n server " $f " fail_timeout=10s;";
   }
   # if this is the first port, expose it as "workload"
-  if (port_index[app] == 1 && servers != "") {
-    print "upstream " app " {" servers "\n keepalive 16;\n}";
-  }
+  
+  if(servers != ""){
+    upstream_body = "";
+    # avoid hashing for a single upstream server
+    if(NF > 3 && ENVIRON[lb_ngx_var] ~ "DEFINED"){
+      if(ENVIRON[lb_ngx_var_consistent] ~ "DEFINED"){
+        upstream_body = upstream_body "\n hash $" lb_ngx_var " consistent;";  
+      } else {
+        upstream_body = upstream_body "\n hash $" lb_ngx_var ";";  
+      }
+    }
+    upstream_body = upstream_body servers "\n keepalive 16;";
+  
+    if (port_index[app] == 1) {
+      print "upstream " app " {" upstream_body "\n}\n";
+    }
 
-  # for the rest of the ports, also expose "workload_port0", "workload_port1" etc
-  if (servers != "") {
-    print "upstream " app "_port" (port_index[app]-1) " {" servers "\n keepalive 16;\n}";
+    print "upstream " app "_port" (port_index[app]-1) " {" upstream_body "\n}\n";
   }
 }
 ' > ${TMP_UPSTREAM_FILE}
