@@ -1,39 +1,31 @@
-import json
-import sys
-import os
-import string
-import pystache
-import requests
-import yaml
+from optparse import OptionParser
 
 import awacs
-import awacs.ec2
-import awacs.aws
-import awacs.sts
-import awacs.s3
-import awacs.sqs
 import awacs.autoscaling
+import awacs.aws
 import awacs.cloudformation
 import awacs.cloudfront
 import awacs.cloudwatch
 import awacs.dynamodb
+import awacs.ec2
 import awacs.elasticloadbalancing
 import awacs.iam
-
-import troposphere.iam as iam
-import troposphere.ec2 as ec2
-import troposphere.route53 as route53
-import troposphere.elasticloadbalancing as elb
+import awacs.s3
+import awacs.sqs
+import awacs.sts
+import pystache
 import troposphere.cloudformation as cfn
+import troposphere.elasticloadbalancing as elb
+import troposphere.iam as iam
+import troposphere.route53 as route53
+import yaml
 from tropopause import *
-
-from troposphere import Not, Ref, Equals, If, Tags
-from troposphere import Base64, Select, FindInMap, GetAtt, GetAZs, Join, Output
+from troposphere import Equals, If
+from troposphere import FindInMap, GetAtt, Join, Output
 from troposphere import Parameter, Ref, Tags, Template
-from troposphere.s3 import BucketPolicy
 from troposphere.ec2 import VPCEndpoint
+from troposphere.s3 import BucketPolicy
 
-from optparse import OptionParser
 pkg_dir = os.path.dirname(os.path.abspath(__file__))
 
 parser = OptionParser()
