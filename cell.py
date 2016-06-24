@@ -182,8 +182,9 @@ def first(*args):
             return item
     return None
 
+
 class Config(object):
-    def __init__(self, raw_config, sections=['default']):
+    def __init__(self, raw_config, sections):
         self.__dict__["sections"] = sections
         self.__dict__["raw_config"] = raw_config
 
@@ -197,7 +198,6 @@ class Config(object):
     def conf_get(config, profiles, key):
         value = None
         for profile in profiles:
-            value = None
             try:
                 value = config.get(profile, key)
             except:
@@ -357,7 +357,6 @@ class Cell(object):
                 if not exists:
                     raise Exception("Cell {} does not exist or is not running !"
                                     .format(inst.cell))
-                    sys.exit(1)
             return f(inst, *args, **kwargs)
 
         formatted_args = inspect.formatargspec(*argspec)
@@ -741,10 +740,11 @@ Host 10.*
         (group, current_capacity) = self.backend.get_role_capacity(
             self.arguments['<role>']
         )
-        if self.arguments['<role>'] in ['nucleus', 'stateful-body'] and capacity < current_capacity:
+        if self.arguments['<role>'] in ['nucleus', 'stateful-body'] \
+                and capacity < current_capacity:
             print textwrap.dedent("""\
                 WARNING: THIS WILL SCALE DOWN THE {} GROUP FROM {} TO {} !
-                Please check your current capacity / data usage to avoid data loss !
+                Please check your current capacity / data usage to avoid data loss!
             """).format(self.arguments["<role>"], current_capacity, capacity)
             print "Are you sure ? (y/N)"
             confirmation = raw_input(">")
