@@ -34,6 +34,7 @@ from troposphere.s3 import BucketPolicy
 from troposphere.ec2 import VPCEndpoint
 
 from optparse import OptionParser
+pkg_dir = os.path.dirname(os.path.abspath(__file__))
 
 parser = OptionParser()
 parser.add_option('--template-url', dest='template_url', help='CFN template URL')
@@ -45,7 +46,7 @@ if not options.net_whitelist:
 net_whitelist = json.loads(open(options.net_whitelist, "rb+").read())
 
 modules = {}
-with open("deploy/config/cell.yaml", 'r') as stream:
+with open(os.path.join(pkg_dir, "../config/cell.yaml"), 'r') as stream:
     cell = yaml.load(stream)
     for role in ['nucleus', 'membrane', 'stateless-body', 'stateful-body']:
         modules[role] = ",".join(cell[role]['modules'])
