@@ -42,7 +42,8 @@ class AwsBackend(object):
     def region(self):
         return first(
             os.getenv('AWS_DEFAULT_REGION'),
-            self.config.region
+            self.config.region,
+            'us-west-1'
         )
 
     @property
