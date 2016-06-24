@@ -1,6 +1,6 @@
 #!/bin/bash
 
-yum install -y libcgroup systemd-libs policycoreutils-python audit-libs hdparm
+yum install -y libcgroup systemd-libs policycoreutils-python audit-libs hdparm libtool-ltdl
 
 set -eu
 trap "echo 'error: script failed: see failed command above'" err

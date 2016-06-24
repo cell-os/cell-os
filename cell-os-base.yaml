@@ -7,20 +7,19 @@
 # For example Docker is low level running directly on the OS and other modules depend on it
 
 saasbase_deployment::version: 1.28
-docker::version: 1.11.0-1.el7.centos
-java::version: 8u91
+docker::version: 1.11.2-1.el7.centos
+java::version: 8u92
 # zookeeper exhibitor
 zookeeper::version: 3.4.6_1.5.6-1
-mesos::version: 0.28.1-2.0.20.centos701406
+mesos::version: 0.28.2-2.0.27.centos701406
 marathon::version: v1.1.1
-etcd::version: v2.3.4
 api-gateway::image: "cellos/apigateway:1.9.7.3-2"
 cell-os-universe::version: 1.2.1-SNAPSHOT
 
 modules:
-  puppet-zookeeper: 0.1.2-adobe
+  puppet-zookeeper: 0.1.3-adobe
   puppet-docker: 5.0.0-adobe-1
   puppet-mesos: 0.8.1-adobe-1
-  puppet-marathon: 0.1.5-SNAPSHOT
+  puppet-marathon: 0.1.5-adobe
   puppet-etcd: 0.1.0-rc3-adobe
 
