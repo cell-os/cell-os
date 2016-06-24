@@ -24,6 +24,7 @@ class KeyException(Exception):
 
 class AwsBackend(object):
     name = "aws"
+
     def __init__(self, config, base):
         self.config = config
         self.base = base
@@ -85,11 +86,11 @@ class AwsBackend(object):
     def cell_exists(self):
         try:
             # if the cell parameter is defined, check it
-            if self.base.cell != None:
+            if self.base.cell is not None:
                 tmp = self.session.client('cloudformation').describe_stacks(
                     StackName=self.base.cell
                 )
-                return tmp != None
+                return tmp is not None
         except Exception:
             return False
 
