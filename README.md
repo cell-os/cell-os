@@ -71,9 +71,6 @@ please report them promptly.
 
 ## Usage
 
-    export AWS_KEY_PAIR=<the EC2 keypair that should be used. Defaults to first key on the AWS account>
-    export KEYPATH=<the location of your ${AWS_KEY_PAIR}.pem (must end in .pem).defaults to ~/.ssh>
-
 Create a new cell
     
     ./cell create cell-1
