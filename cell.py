@@ -967,12 +967,8 @@ DynamicForward {port}
                 readify(opts_template),
                 yaml.load(readify(self.tmp("config.yaml")))
             )
-            print("Rendered options {}".format(options_file))
-            print(rendered_options)
             outf.write(rendered_options)
             outf.flush()
-            print "Rendered DCOS config for package {}\n\t as {}".\
-                format(package, options_file)
 
         # try to append options to the command
         has_options = '--options' in args
@@ -985,10 +981,14 @@ DynamicForward {port}
             with open(options_file, "wb+") as outf:
                 outf.write(json.dumps(aggregated_json, indent=4))
             args[opts_file_index] = options_file
-            return args
+        else:
+            print "Adding package install options"
+            args.insert(-1, "--options=" + self.tmp("{}.json".format(package)))
 
-        print "Adding package install options"
-        args.insert(-1, "--options=" + self.tmp("{}.json".format(package)))
+        # display the contents of the config file in its final form
+        with open(options_file, "r") as inf:
+            print(inf.read())
+
         return args
 
     # we wrap the dcos command with the gateway configuration
