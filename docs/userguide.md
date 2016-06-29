@@ -244,6 +244,47 @@ While there may be a subset of overlapping functionality there, we should
 strive to keep the separation of concerns, so learn how that works before 
 trying to do something related to that with this.
 
+## Deploying a service across multiple cells
+
+When you deploy a service in a cell it will get a canonical URL like
+
+    <service>.<scheduler>.<gateway>.<cell>.<domain>
+
+A service can be deployed in multiple cells. For instance consider service 
+'foo' deployed in cells `c1-us-west-1` and `c2-us-east-1`:
+
+    http://foo.marathon.c1-us-west-1.gw.cell.xyz
+    http://foo.marathon.c2-us-east-1.gw.cell.xyz
+
+Routing traffic across both instances of the service is possible through either
+using DNS, a global gateway or Anycast
+
+### DNS
+Add a global service name and 2 CNAME records
+
+    NAME                    TYPE   VALUE
+    --------------------------------------------------
+    foo.example.com.        CNAME  foo.marathon.c1-us-west-1.gw.cell.xyz
+    foo.example.com.        CNAME  foo.marathon.c2-us-east-1.gw.cell.xyz
+
+Services such as Amazon Route53, Google Cloud DNS or Cloudflare can be used for
+this.
+
+### Gateway
+
+Using a gateway you can proxy traffic to both sites.
+Using a gateway allows to have custom routing logic, beyond what would be
+possible with DNS routing, for instance API management, global throttling, etc.
+Note that this method has the disadvantage that the actual traffic goes throuhg
+an extra network hop, which can add additional latency, bandwidth and cost.
+
+### Anycast BGP(advanced)
+
+By using Anycast you can advertise a VIP (virtual IP) and serve it from 
+multiple locations. Using BGP requires a more elaborated networking 
+architecture or using servics such as Cloudflare or UltraDNS.
+
+
 # Access to your cell
 
 Each cell is isolated and access is available through:
