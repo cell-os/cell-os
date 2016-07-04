@@ -56,13 +56,18 @@ def mesos_state_to_upstream_defs(mesos_state_json):
     """
     apigateway_conf = []
     for framework in mesos_state_json["frameworks"]:
+        if framework["active"] == False:
+            continue
         name = framework["name"]
         discoverable_tasks = {}
         all_tasks = {}
         has_discoverable_tasks = False
         for task in framework["tasks"]:
+            if task["state"] != "TASK_RUNNING":
+                continue
             try:
-                ip = task["statuses"][0]["container_status"]\
+                lsi = len(task["statuses"]) - 1
+                ip = task["statuses"][lsi]["container_status"]\
                     ["network_infos"][0]["ip_address"]
                 # Mesos tasks are tagged with a discovery tag
                 # http://mesos.apache.org/documentation/latest/app-framework-development-guide/
