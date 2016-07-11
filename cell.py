@@ -821,7 +821,7 @@ Host 10.*
                         time.sleep(refresh_interval)
                     except KeyboardInterrupt:
                         break
-                    except Exception, e:
+                    except Exception as e:
                         # any curses error should trigger a refresh
                         continue
             curses.wrapper(draw)
