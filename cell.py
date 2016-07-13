@@ -527,39 +527,36 @@ backend: {backend}
         ssh_config = self.tmp("ssh_config")
         if self.is_fresh_file(ssh_config):
             return
-        if self.backend.bastion() != None:
-            proxy_host = self.backend.bastion()
+        if self.backend.bastion() is not None:
+            bastion = self.backend.bastion()
         else:
-            proxy_host = flatten(self.backend.instances(role='stateless-body', format="PublicIpAddress"))[0]
+            raise RuntimeError("bastion not available yet")
         with open(ssh_config, "wb+") as f:
             f.write("""\
 IdentitiesOnly yes
 ConnectTimeout {timeout}
 IdentityFile {key}
 StrictHostKeyChecking no
-User centos
+User {user}
 
 Host proxy-cell-{cell}
   Hostname {host}
   DynamicForward {port}
+
+Host {ip_wildcard}
+  ProxyCommand ssh -i {key} {user}@{host} -W %h:%p
+
             """.format(
                 timeout=self.ssh_timeout,
                 cell=self.cell,
-                host=proxy_host,
+                host=bastion,
                 key=self.tmp(self.key_file),
-                port=self.proxy_port
+                port=self.proxy_port,
+                # FIXME (clehene) ip_wildccard should be based on subnet
+                ip_wildcard="10.*",
+                # FIXME (clehene) user should come from config
+                user="centos"
             ))
-            bastion = self.backend.bastion()
-            if bastion:
-                f.write("""
-Host 10.*
-  IdentityFile {key}
-  User centos
-  ProxyCommand ssh -i {key} centos@{bastion} -W %h:%p
-            """.format(
-                key=self.tmp(self.key_file),
-                bastion=bastion
-                ))
             f.flush()
 
     def ensure_migrated(self):
