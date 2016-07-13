@@ -211,7 +211,9 @@ class AwsBackend(object):
         print "UPLOADED {} to s3://{}/{}".format(path, self.bucket, remote_path)
 
     def bastion(self):
-        return None
+        result = self.instances(role='stateless-body',
+                                format="PublicIpAddress")
+        return result[0][0] if result else None
 
     def instances(self, role=None, format="PublicIpAddress, PrivateIpAddress, InstanceId, ImageId, State.Name"):
         filters = [
@@ -232,7 +234,7 @@ class AwsBackend(object):
                 }
             )
         tmp = jmespath.search(
-            "Reservations[*].Instances[*].[{}]".format(format),
+            "Reservations[*].Instances[*][].[{}]".format(format),
             self.ec2.describe_instances(
                 Filters=filters
             )
