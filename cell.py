@@ -777,18 +777,17 @@ Host 10.*
     @check_cell_exists
     def run_ssh(self, command=None):
         self.ensure_config()
-
-        instances = flatten(self.backend.instances(self.arguments["<role>"], format="PublicIpAddress"))
+        instances = flatten(self.backend.instances(self.arguments["<role>"],
+                                                   format="PublicIpAddress"))
         index = int(self.arguments["<index>"])
         if index is None or index == "":
             index = 1
         else:
             index = int(index)
         if len(instances) < index:
-            print "can't find node {} in {} yet. Is the cell fully up?".format(
-                index,
-                self.arguments["<role>"]
-            )
+            print("can't find node {} in {} yet. Is the cell fully up?".format(
+                index, self.arguments["<role>"]
+            ))
             return
         ip = instances[index - 1]
         if command:
@@ -832,7 +831,7 @@ Host 10.*
     def run_i2cssh(self):
         self.ensure_config()
         if not sh.which('i2cssh'):
-            print "You need i2cssh for this subcommand. Install it with gem install i2cssh"
+            print("You need i2cssh for this subcommand (gem install i2cssh)")
             return
         roles = ROLES[:]
         if self.arguments["<role>"]:
@@ -841,9 +840,7 @@ Host 10.*
         for role in roles:
             instances_for_role = self.backend.instances(role=role, format="PublicIpAddress")
             if instances_for_role is not None:
-                instances.extend(
-                    instances_for_role
-                )
+                instances.extend(instances_for_role)
         instances = flatten(instances)
         machines = ",".join([d for d in instances])
         if self.key_file:
@@ -854,10 +851,10 @@ Host 10.*
     def run_mux(self):
         self.ensure_config()
         if not sh.which('tmux'):
-            print("You need tmux for this subcommand. Install it with brew install tmux")
+            print("You need tmux for this subcommand (brew install tmux).")
             return
         if not sh.which('mux'):
-            print("You need mux for this subcommand. Install it with gem install tmuxinator.")
+            print("You need mux for this subcommand (gem install tmuxinator).")
             return
 
         roles = ROLES[:]
