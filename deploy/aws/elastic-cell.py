@@ -1,3 +1,4 @@
+from __future__ import unicode_literals
 from optparse import OptionParser
 
 import awacs
@@ -25,10 +26,12 @@ from troposphere import FindInMap, GetAtt, Join, Output
 from troposphere import Parameter, Ref, Tags, Template
 from troposphere.ec2 import VPCEndpoint
 from troposphere.s3 import BucketPolicy
+import ipaddress
 
 pkg_dir = os.path.dirname(os.path.abspath(__file__))
 
 parser = OptionParser()
+parser.add_option('--cidr', dest='cidr', help='VPC CIDR to use', default="10.0.0.0/16")
 parser.add_option('--template-url', dest='template_url', help='CFN template URL')
 parser.add_option('--net-whitelist', dest='net_whitelist',
                    help='Location to network whitelist config file')
@@ -261,10 +264,16 @@ t.add_output(Output(
     Value=Join('', ['http://', GetAtt("MarathonElb", 'DNSName')]),
 ))
 
+cidr_block = unicode(options.cidr)
+net_calc = ipaddress.IPv4Network(cidr_block)
+subnets = list(net_calc.subnets())
+public_subnet_cidr_block = str(subnets[0])
+private_subnet_cidr_block = str(subnets[1])
+
 VPC = t.add_resource(ec2.VPC(
     "VPC",
     EnableDnsSupport=True,
-    CidrBlock="10.0.0.0/16",
+    CidrBlock=options.cidr,
     EnableDnsHostnames=True,
     Tags=Tags(
         Application=Ref("AWS::StackId"),
@@ -307,7 +316,7 @@ VPCDHCPOptionsAssociation = t.add_resource(ec2.VPCDHCPOptionsAssociation(
 public_subnet = t.add_resource(ec2.Subnet(
     "PublicSubnet",
     VpcId=Ref(VPC),
-    CidrBlock="10.0.0.0/24",
+    CidrBlock=public_subnet_cidr_block,
     Tags=Tags(
         Application=Ref("AWS::StackId"),
     ),
@@ -374,7 +383,7 @@ private_subnet = t.add_resource(ec2.Subnet(
     VpcId=Ref(VPC),
     # Ensure our public and private subnets are collocated in the same AZ
     AvailabilityZone=GetAtt(public_subnet, 'AvailabilityZone'),
-    CidrBlock="10.0.1.0/24",
+    CidrBlock=private_subnet_cidr_block,
     Tags=Tags(
         Application=Ref("AWS::StackId"),
     ),

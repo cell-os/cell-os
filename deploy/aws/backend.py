@@ -112,6 +112,8 @@ class AwsBackend(object):
         args = [dir + "/deploy/aws/elastic-cell.py"]
         if self.base.template_url:
             args += ["--template-url", self.base.template_url]
+        if self.base.cidr:
+            args += ["--cidr", self.base.cidr]
         args += ["--net-whitelist", self.base.tmp_dir + "/net-whitelist.json"]
         print "Building stack ..."
         sh.python(args, _out=self.base.tmp_dir + "/elastic-cell.json")

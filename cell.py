@@ -10,7 +10,7 @@
  ╚═════╝╚══════╝╚══════╝╚═════╝         ╚═════╝  ╚══════╝     ╚═╝═╝ ╚══════╝
 
 Usage:
-  cell create <cell-name> [--backend <backend>] [--cell_config <config>]
+  cell create <cell-name> [--cidr <cidr>] [--backend <backend>] [--cell_config <config>]
   cell list [<cell-name>] [--backend <backend>] [--cell_config <config>]
   cell update <cell-name> [--backend <backend>] [--cell_config <config>]
   cell seed <cell-name> [--backend <backend>] [--cell_config <config>]
@@ -23,7 +23,7 @@ Usage:
   cell mux <cell-name> [<role>] [--backend <backend>] [--cell_config <config>]
   cell proxy <cell-name> [--backend <backend>] [--cell_config <config>]
   cell cmd <cell-name> <role> <index> <command> [--backend <backend>] [--cell_config <config>]
-  cell build <cell-name> [--template-url <substack-template-url>] [--backend <backend>] [--cell_config <config>]
+  cell build <cell-name> [--cidr <cidr>] [--template-url <substack-template-url>] [--backend <backend>] [--cell_config <config>]
   cell (-h | --help)
   cell --version
 
@@ -243,6 +243,7 @@ class Cell(object):
             "full_cell": self.full_cell,
             "cell_dir": DIR,
             "template_url": self.arguments['--template-url'],
+            "cidr": self.arguments['<cidr>'],
             "repository": self.repository
         }
         if self.cell is not None:
