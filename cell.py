@@ -732,7 +732,7 @@ Host 10.*
         # FIXME - because of some weird interactions (passing through the shell
         # twice), we can't use the subprocess.call([list]) form, it doesn't
         # work, and we have to quote the args for complex params
-        subprocess.call(" ".join(["dcos"] + ['"' + arg + '"' for arg in dcos_args]), shell=True)
+        exit(subprocess.call(" ".join(["dcos"] + ['"' + arg + '"' for arg in dcos_args]), shell=True))
 
     @check_cell_exists
     def run_scale(self):
