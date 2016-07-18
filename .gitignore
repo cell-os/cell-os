@@ -1,5 +1,7 @@
 .idea/
 *.iml
+*.pyc
+*.egg-info/
 build/
 deploy/aws/build
 .generated
