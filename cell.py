@@ -57,7 +57,7 @@ Slack https://adobe.slack.com/messages/metal-cell/
 import ConfigParser
 import curses
 import datetime
-import functools
+import decorator
 import imp
 import inspect
 import json
@@ -344,26 +344,19 @@ class Cell(object):
             60 * 3
         )
 
-    def check_cell_exists(f):
-        argspec = inspect.getargspec(f)
-
-        def _wrap(inst, *args, **kwargs):
-            # if the cell parameter is defined, check it
-            if inst.cell != None:
-                try:
-                    exists = inst.backend.cell_exists()
-                except Exception:
-                    exists = False
-                if not exists:
-                    raise Exception("Cell {} does not exist or is not running !"
-                                    .format(inst.cell))
-            return f(inst, *args, **kwargs)
-
-        formatted_args = inspect.formatargspec(*argspec)
-        fndef = 'lambda %s: _wrap%s' % (
-            formatted_args.lstrip('(').rstrip(')'), formatted_args)
-        fake_fn = eval(fndef, {'_wrap': _wrap})
-        return functools.wraps(f)(fake_fn)
+    @decorator.decorator
+    def check_cell_exists(f, *args, **kwargs):
+        self = args[0]
+        # if the cell parameter is defined, check it
+        if self.cell != None:
+            try:
+                exists = self.backend.cell_exists()
+            except Exception:
+                exists = False
+            if not exists:
+                raise Exception("Cell {} does not exist or is not running !"
+                                .format(self.cell))
+        return f(*args, **kwargs)
 
     def run(self, **kwargs):
         method = getattr(self, 'run_%s' % self.command)
