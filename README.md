@@ -35,6 +35,19 @@ It currently consists of Zookeeper, Docker, Mesos and Marathon.
 Details, caveats, TODOs in the [aws deployment section](deploy/aws/README.md).
 Currently only AWS is supported by the CLI.
 
+## Run using docker
+    You can find a pre-built docker container in the corporate artifactory account.
+    You can run the container passing it any cell commands. AWS auth can be passed in
+    through environment variables. For example:
+    ```
+    docker run -it \
+      -e "AWS_DEFAULT_REGION=us-west-1" \
+      -e "AWS_ACCESS_KEY_ID=XXXXXXXXXXXXXXXX" \
+      -e "AWS_SECRET_ACCESS_KEY=YYYYYYYYYYYYYYYYYYYYYYYY" \
+      docker-cell-os.dr.corp.adobe.com/cellos list
+    ```
+
+    You can build your own container by checking out the source code and running `docker build -t cellos .`.
 
 ## Install
 
