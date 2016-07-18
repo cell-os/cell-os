@@ -12,4 +12,4 @@ dcoscli==0.3.6
 pystache>=0.5.4
 PyYaml>=3.11
 subprocess32>=3.2.7
-
+decorator>=4.0.10
