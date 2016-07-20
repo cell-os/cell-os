@@ -220,6 +220,9 @@ saasbase_secret_access_key = t.add_parameter(Parameter(
 t.add_condition(
     "HasIamInstanceProfile", Not(Equals(Ref(iam_instance_profile), ""))
 )
+t.add_condition(
+    "HasLbs", Not(Equals(Join("", Ref(load_balancer_names)), ""))
+)
 
 body = t.add_resource(asn.AutoScalingGroup(
     "Body",
@@ -232,7 +235,7 @@ body = t.add_resource(asn.AutoScalingGroup(
     MinSize="0",
     MaxSize="1000",
     VPCZoneIdentifier=[Ref(subnet)],
-    LoadBalancerNames=Ref(load_balancer_names),
+    LoadBalancerNames=If("HasLbs", Ref(load_balancer_names), []),
     TerminationPolicies=["NewestInstance", "ClosestToNextInstanceHour"]
 ))
 

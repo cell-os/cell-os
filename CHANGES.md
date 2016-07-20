@@ -1,3 +1,38 @@
+## Release 1.3.0
+
+### Private + NAT / Public subnet separation
+
+**Issues:**
+* CELL-44 - Isolate all subnets where instances are running as private
+* CELL-95 - Create bastion host for administrative ssh access
+* CELL-255 - Add the capability to route Mesos/Marathon workloads through NAT 
+    instances
+* CELL-509 - Control the cell egress (NAT) IP so cells can be whitelisted
+
+All nodes except membrane and bastion (see below) are in the private subnet.
+
+**Infrastructure changes:**
+* Introduced bastion / jump host auto scaling group (size 1 t2.micro) to enable 
+SSH access. 
+* Introduced NAT Gateway to enable egress internet access to private subnet 
+nodes
+* Separated bastion from proxy as bastion has only port 22 access and proxy 
+    needs a wider range. The proxy is the first stateless-body node.
+
+**New methods:**
+* backend.version() - used to aid backwards compatibility decisions
+* backend.proxy() - used to retrieve the proxy node
+* backend.bastion() - used to retrieve the bastion node
+* backend.nat_egress_ip() -  retrieve SNAT (egress) IP
+
+**New configs**
+`config/cell.yaml`:
+* `nat_egress_ip: eipalloc-ff27c5cd`
+
+**TODO: (before committing)**
+* revisit security settings and remove unnecessary stuff provided that we no 
+longer expose nodes other than GW
+
 ## Release 1.2.1-SNAPSHOT -
 
 ### Breaking changes

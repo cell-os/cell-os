@@ -1,4 +1,8 @@
 ---
+# IP Allocation / Reservation ID
+# Leave empty to autogenerate the IP reservation
+nat_egress_ip: ''
+
 membrane:
   modules:
     - 00-docker
@@ -28,3 +32,6 @@ stateless-body:
     - 02-mesos
     - 10-marathon
     - 99-cell
+
+bastion:
+  modules: []

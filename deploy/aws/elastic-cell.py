@@ -20,7 +20,7 @@ import troposphere.iam as iam
 import troposphere.route53 as route53
 import yaml
 from tropopause import *
-from troposphere import Equals, If
+from troposphere import Equals, If, Condition
 from troposphere import FindInMap, GetAtt, Join, Output
 from troposphere import Parameter, Ref, Tags, Template
 from troposphere.ec2 import VPCEndpoint
@@ -40,7 +40,8 @@ net_whitelist = json.loads(open(options.net_whitelist, "rb+").read())
 modules = {}
 with open(os.path.join(pkg_dir, "../config/cell.yaml"), 'r') as stream:
     cell = yaml.load(stream)
-    for role in ['nucleus', 'membrane', 'stateless-body', 'stateful-body']:
+    for role in ['nucleus', 'membrane', 'stateless-body', 'stateful-body',
+                 'bastion']:
         modules[role] = ",".join(cell[role]['modules'])
 
 t = Template()
@@ -84,6 +85,21 @@ NucleusSize = t.add_parameter(Parameter(
     Description="Number of nodes in the cell nucleus",
 ))
 
+BastionSize = t.add_parameter(Parameter(
+    "BastionSize",
+    Default="1",
+    Type="Number",
+    Description="Number of nodes in the cell bastion",
+))
+
+EipAllocation = t.add_parameter(Parameter(
+    "EipAllocation",
+    Default="",
+    Type="String",
+    Description="The AllocationId of the VPC Elastic IP (eg. eipalloc-5723d3e)."
+                " If empty, we'll just allocate a new EIP.",
+))
+
 # TODO: decide whether we want to make these parameters
 cell_domain_prefix = "gw."
 cell_domain_suffix = ".metal-cell.adobe.io"
@@ -106,6 +122,15 @@ accepted_instance_types = [
     "hi1.4xlarge",
     "cc2.8xlarge"
 ]
+
+BastionInstanceType = t.add_parameter(Parameter(
+    "BastionInstanceType",
+    Default="t2.micro",
+    ConstraintDescription="must be a valid, HVM-compatible EC2 instance type.",
+    Type="String",
+    Description="Bastion EC2 instance type",
+    AllowedValues=accepted_instance_types,
+))
 
 NucleusInstanceType = t.add_parameter(Parameter(
     "NucleusInstanceType",
@@ -254,7 +279,7 @@ HostedZone = t.add_resource(route53.HostedZone(
     Name=Join("", cell_domain()),
     VPCs=[
         route53.HostedZoneVPCs(
-            VPCId=Ref("VPC"),
+            VPCId=Ref(VPC),
             VPCRegion=Ref("AWS::Region")
         )
     ]
@@ -276,13 +301,37 @@ DHCP = t.add_resource(ec2.DHCPOptions(
 VPCDHCPOptionsAssociation = t.add_resource(ec2.VPCDHCPOptionsAssociation(
     'DHCPAssoc',
     DhcpOptionsId=Ref("DHCP"),
-    VpcId=Ref("VPC")
+    VpcId=Ref(VPC)
 ))
 
-Subnet = t.add_resource(ec2.Subnet(
-    "Subnet",
-    VpcId=Ref("VPC"),
+public_subnet = t.add_resource(ec2.Subnet(
+    "PublicSubnet",
+    VpcId=Ref(VPC),
     CidrBlock="10.0.0.0/24",
+    Tags=Tags(
+        Application=Ref("AWS::StackId"),
+    ),
+))
+
+
+# Use the provided EIP allocation if defined
+t.add_condition("no_eip_allocation", Equals(Ref(EipAllocation), ""))
+# Note that we may end up having an unused EIP in that case.
+# TODO only reserve EIP if no_eip_allocation
+nat_eip = t.add_resource(ec2.EIP("NatEip"))
+nat_gw = t.add_resource(ec2.NatGateway(
+    "NatGateway",
+    # Don't replace with Ref(nat_eip) as it will throw:
+    #   "Elastic IP address could not be associated with this NAT gateway"
+    # See https://forums.aws.amazon.com/thread.jspa?messageID=710312
+    AllocationId=If("no_eip_allocation", GetAtt(nat_eip, 'AllocationId'),
+                    Ref(EipAllocation), ),
+    SubnetId=Ref(public_subnet),
+))
+
+public_route_table = t.add_resource(ec2.RouteTable(
+    "PublicRouteTable",
+    VpcId=Ref(VPC),
     Tags=Tags(
         Application=Ref("AWS::StackId"),
     ),
@@ -301,7 +350,33 @@ AttachGateway = t.add_resource(ec2.VPCGatewayAttachment(
     InternetGatewayId=Ref("InternetGateway")
 ))
 
-RouteTable = t.add_resource(ec2.RouteTable(
+default_public_route = t.add_resource(ec2.Route(
+    "Route",
+    GatewayId=Ref(InternetGateway),
+    DestinationCidrBlock="0.0.0.0/0",
+    RouteTableId=Ref(public_route_table),
+    DependsOn="AttachGateway",
+))
+
+public_subnet_route_table_association = t.add_resource(ec2.SubnetRouteTableAssociation(
+    "SubnetRouteTableAssociation",
+    SubnetId=Ref(public_subnet),
+    RouteTableId=Ref(public_route_table),
+))
+
+
+private_subnet = t.add_resource(ec2.Subnet(
+    "PrivateSubnet",
+    VpcId=Ref(VPC),
+    # Ensure our public and private subnets are collocated in the same AZ
+    AvailabilityZone=GetAtt(public_subnet, 'AvailabilityZone'),
+    CidrBlock="10.0.1.0/24",
+    Tags=Tags(
+        Application=Ref("AWS::StackId"),
+    ),
+))
+
+private_route_table = t.add_resource(ec2.RouteTable(
     "RouteTable",
     VpcId=Ref(VPC),
     Tags=Tags(
@@ -309,18 +384,18 @@ RouteTable = t.add_resource(ec2.RouteTable(
     ),
 ))
 
-Route = t.add_resource(ec2.Route(
-    "Route",
-    GatewayId=Ref(InternetGateway),
+default_private_route = t.add_resource(ec2.Route(
+    "DefaultPrivateRoute",
+    NatGatewayId=Ref(nat_gw),
     DestinationCidrBlock="0.0.0.0/0",
-    RouteTableId=Ref("RouteTable"),
-    DependsOn="AttachGateway",
+    RouteTableId=Ref(private_route_table),
+
 ))
 
-SubnetRouteTableAssociation = t.add_resource(ec2.SubnetRouteTableAssociation(
-    "SubnetRouteTableAssociation",
-    SubnetId=Ref(Subnet),
-    RouteTableId=Ref("RouteTable"),
+private_subnet_route_table_association = t.add_resource(ec2.SubnetRouteTableAssociation(
+    "PrivateSubnetRouteTableAssociation",
+    SubnetId=Ref(private_subnet),
+    RouteTableId=Ref(private_route_table),
 ))
 
 def s3_policy(name, roles, paths, mode="ro"):
@@ -674,6 +749,14 @@ ingress BodySecurityGroup tcp 50000:50100
     description="All nucleus nodes. Grants access to Exhibitor, ZK ports from LB and Body SG, respectively"
 ))
 
+BastionSecurityGroup = t.add_resource(security_group(
+    'BastionSecurityGroup',
+    "",
+    VPC,
+    description="Bastion nodes have access to all other nodes over SSH"
+))
+
+
 ExternalWhitelistSecurityGroup = t.add_resource(security_group(
     'ExternalWhitelistSecurityGroup',
     pystache.render("""
@@ -703,6 +786,8 @@ ingress 0.0.0.0/0 tcp 443:443
 
 # format: name  type  source  dest tcp  port-range
 vpc_security_group_rules = vpc_security_rules("""\
+BastionToNucleus ingress BastionSecurityGroup NucleusSecurityGroup tcp 22:22
+BastionToBody ingress BastionSecurityGroup BodySecurityGroup tcp 22:22
 BodyToLbIngress ingress BodySecurityGroup LbSecurityGroup tcp 0:65535
 BodyToBodyIngress ingress BodySecurityGroup BodySecurityGroup -1 0:65535
 NucleusToLbIngress ingress NucleusSecurityGroup LbSecurityGroup tcp 80:80
@@ -721,7 +806,8 @@ def create_load_balancer(t, name, instance_port, target,
         CrossZone="true",
         Scheme="internal" if internal else "internet-facing",
         SecurityGroups=security_groups,
-        Subnets=[Ref(Subnet)],
+        # Note that if multiple subnets defined, they must be in separate AZs.
+        Subnets=[Ref(private_subnet) if internal else Ref(public_subnet)],
         Listeners=[{
             "InstancePort": str(instance_port),
             "LoadBalancerPort": "80",
@@ -786,7 +872,11 @@ InternalMembraneDNSRecord = t.add_resource(route53.RecordSetType(
 
 WaitHandle = t.add_resource(cfn.WaitConditionHandle("WaitHandle",))
 
-def create_cellos_substack(t, name=None, role=None, cell_modules=None, tags=[], security_groups=[], load_balancers=[], instance_profile=None, instance_type=None):
+def create_cellos_substack(t, name=None, role=None, cell_modules=None, tags=[],
+                           security_groups=[], load_balancers=[],
+                           instance_profile=None, instance_type=None,
+                           subnet=Ref(private_subnet),
+                           associate_public_ip=False):
     params = {
         "Role": role,
         "Tags": tags,
@@ -798,7 +888,7 @@ def create_cellos_substack(t, name=None, role=None, cell_modules=None, tags=[], 
         "MesosElb": GetAtt("MesosElb", "DNSName"),
         "GatewayElb": GetAtt("GatewayElb", "DNSName"),
         "InternalGatewayElb": GetAtt("IGatewayElb", "DNSName"),
-        "AssociatePublicIpAddress": "true",
+        "AssociatePublicIpAddress": "false", # overridden below
         "GroupSize": Ref(name + "Size"),
         "ImageId": FindInMap("RegionMap", Ref("AWS::Region"), "AMI"),
         "CellName": Ref("CellName"),
@@ -806,15 +896,17 @@ def create_cellos_substack(t, name=None, role=None, cell_modules=None, tags=[], 
         "Repository": Ref("Repository"),
         "CellOsVersionBundle": Ref("CellOsVersionBundle"),
         "InstanceType": instance_type,
-        "Subnet": Ref("Subnet"),
+        "Subnet": subnet,
         "KeyName": Ref("KeyName"),
         "SaasBaseSecretAccessKey": Ref("SaasBaseSecretAccessKey"),
         "SaasBaseAccessKeyId": Ref("SaasBaseAccessKeyId"),
         "ParentStackName": Ref("AWS::StackName"),
         "WaitHandle": Ref("WaitHandle"),
     }
-    if instance_profile != None:
+    if instance_profile is not None:
         params["IamInstanceProfile"] = Ref(instance_profile)
+    if associate_public_ip:
+        params["AssociatePublicIpAddress"] = "true"
 
     substack_template_url = Join("", ["https://s3.amazonaws.com/", Ref("BucketName"), "/", "cell-os--", Ref("CellName"), "/", Ref("BodyStackTemplate")])
     # check if the template url is overridden (e.g. with a release one)
@@ -830,6 +922,23 @@ def create_cellos_substack(t, name=None, role=None, cell_modules=None, tags=[], 
     ))
 
 # TODO (clehene) cell_modules should come from cluster.yaml (equivalent) mapping of role -> [modules] (CELL-302)
+
+create_cellos_substack(
+    t,
+    name="Bastion",
+    role="bastion",
+    cell_modules=modules["bastion"],
+    tags="bastion",
+    instance_profile="NucleusInstanceProfile",
+    security_groups=[
+        Ref(BastionSecurityGroup),
+        Ref(ExternalWhitelistSecurityGroup)
+    ],
+    instance_type=Ref(BastionInstanceType),
+    subnet=Ref(public_subnet),
+    associate_public_ip=True
+)
+
 create_cellos_substack(
     t,
     name="Nucleus",
@@ -861,7 +970,9 @@ create_cellos_substack(
         Ref("GatewayElb"),
         Ref("IGatewayElb")
     ],
-    instance_type=Ref("MembraneInstanceType")
+    instance_type=Ref("MembraneInstanceType"),
+    subnet=Ref(public_subnet),
+    associate_public_ip=True
 )
 
 create_cellos_substack(
@@ -892,10 +1003,6 @@ create_cellos_substack(
     security_groups=[
         Ref(BodySecurityGroup),
         Ref(ExternalWhitelistSecurityGroup)
-    ],
-    load_balancers=[
-        Ref("MesosElb"),
-        Ref("MarathonElb")
     ],
     instance_type=Ref("StatefulBodyInstanceType")
 )
