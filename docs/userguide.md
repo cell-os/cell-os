@@ -267,7 +267,7 @@ When you deploy a service in a cell it will get a canonical URL like
 
     <service>.<scheduler>.<gateway>.<cell>.<domain>
 
-A service can be deployed in multiple cells. For instance consider service 
+A service can be deployed in multiple cells. For instance consider service
 'foo' deployed in cells `c1-us-west-1` and `c2-us-east-1`:
 
     http://foo.marathon.c1-us-west-1.gw.cell.xyz
@@ -297,8 +297,8 @@ an extra network hop, which can add additional latency, bandwidth and cost.
 
 ### Anycast BGP(advanced)
 
-By using Anycast you can advertise a VIP (virtual IP) and serve it from 
-multiple locations. Using BGP requires a more elaborated networking 
+By using Anycast you can advertise a VIP (virtual IP) and serve it from
+multiple locations. Using BGP requires a more elaborated networking
 architecture or using servics such as Cloudflare or UltraDNS.
 
 
@@ -332,6 +332,8 @@ networks which can access a cell.
 ```
 
 ## SSH
+
+SSH acccess happens through a bastion host.
 
 When creating the cell a dedicated keypair and a local private `.pem` are
 generated. The private key is placed in:
@@ -408,6 +410,25 @@ See the CLI advanced section on [.generated](userguide.md#generated) for
 more information.
 
 # Access from your cell
+
+## Egress IPs
+
+Cell nodes will access the Internet through a SNAT gateway. The egress IP can
+be retrieved through `backend.nat_egress_ip()`.
+
+Nodes in the membrane are publicly exposed by default, so each node will have
+its own IP.
+
+Optionally, if the egress IP can be reserved in advance, it can be configured
+at cell creation through the `nat_egress_ip` property:
+
+`cell-os/deploy/config/cell.yaml`:
+```yaml
+---
+nat_egress_ip: eipalloc-ff27c5cd
+
+```
+
 
 ## Aceessing docker private registries with Marathon
 

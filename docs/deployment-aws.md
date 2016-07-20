@@ -5,31 +5,40 @@ necessary AWS infrastructure for the cell-os base.
 
 # cell-os infrastructure diagram
 ```
-+------------------------------------------------------------------------------------+
-|   +----------------------------------------------------------------------------+   |
-|   |          80                80               80               80            |   |
-|   |   +-------------+    +-------------+   +-------------+   +-------------+   |   |
-|   |   |    ZK ELB   |    |  Mesos ELB  |   | Marathon ELB|   | Gateway ELB |   |   |
-|   |   +------+------+    +------+------+   +------+------+   +------+------+   |   |
-|   |          |                  |                 |                 |          |   |
-|   |          |         +-----------------------------------------------------+ |   |
-|   |          |         |        |                 |                 ^        | |   |
-|   |   +------+------+  | +------+------+   +------+------+   +------+------+ | |   |
-|   |   | <--|   |--> |  | | <--|   |--> |   | <--|   |--> |   | <--|   |--> | | |   |
-|   |   +-------------+  | +-------------+   +-------------+   +-------------+ | |   |
-|   |     Nucleus SG     |    Stateless         Stateful          Membrane SG  | |   |
-|   |     HDFS NN/QJM    |    Body SG           Body SG                        | |   |
-|   |                    |                      HDFS DN                        | |   |
-|   |                    +-----------------------------------------------------+ |   |
-|   |                               Mesos Agents                                 |   |
-|   +----------------------------------------------------------------------------+   |
-|     Subnet 1   10.0.0.0/24                                                         |
-+------------------------------------------------------------------------------------+
-       us-west-2-cell-1 VPC   vpc-62c65107 (10.0.0.0/16)
++------------------------------------------------------------------------------+
+|          80               80               80               80               |
+|   +-------------+   +-------------+   +-------------+   +-------------+      |
+|   |    ZK ELB   |   |  Mesos ELB  |   | Marathon ELB|   | Gateway ELB |      |
+|   +------+------+   +------+------+   +------+------+   +------+------+      |
+|          |                 |                 |                 |             |
+| +-----------------------------------------------------+ +-------------------+|
+| |        |                 |                 |        | |      |            ||
+| |        |        +-------------------------------------------------------+ ||
+| |        |        |        |                 |        | |      |          | ||
+| | +------+------+ | +------+------+   +------+------+ | | +-------------+ | ||
+| | | <--|   |--> | | | <--|   |--> |   | <--|   |--> | | | | <--|   |--> | | ||
+| | +-------------+ | +-------------+   +-------------+ | | +-------------+ | ||
+| |  Nucleus SG     |    Stateless        Stateful      | | |  Membrane SG  | ||
+| |  HDFS NN/QJM    |    Body SG          Body SG       | |                 | ||
+| |                 |                     HDFS DN       | |                 | ||
+| |                 +-------------------------------------------------------+ ||
+| |                            Mesos Agents             | |                   ||
+| |                                                     | | +-------------+   ||
+| |                                                     | | | <--|   |--> |   ||
+| |                                                     | | +-------------+   ||
+| |                                                     | |    Bastion SG     ||
+| |                                                     | |                   ||
+| | Private                                             | | Public            ||
+| | Subnet  10.0.0.0/24                                 | | Subnet 10.0.1.0/24||
+| +-----------------------------------------------------+ +-------------------+|
++------------------------------------------------------------------------------+
+     us+west+2+cell+1  PC   vpc+62c65107 (10.0.0.0/16)         
+
 ```
 
-The default cell size is a 3-node nucleus and 1-node stateless body, 1-node stateful body,
-1 - node membrane, each in separate scaling groups (i.e. can be scaled up independently).  
+The default cell size is a 3-node nucleus and 1-node stateless body, 1-node 
+stateful body, 1-node membrane, 1-node bastion each in separate scaling groups 
+(i.e. can be scaled up independently).  
 
 The cell-os-base consists of Zookeeper / Exhibitor, Mesos, Marathon.
 cell-os-1.1 extended the base with HDFS (consisting of QJM, NN running in Nucleus and 
@@ -45,15 +54,23 @@ to generate the AWS CF templates.
 
 ## Internals: How it works
 
-There's a main CF stack that sets up the VPC along the rest of the infrastructure pieces
-and a 4 nested stacks for individual scaling groups which are created by the main stack.
+There's a main CF stack that sets up the VPC along the rest of the 
+infrastructure pieces and a multiple nested stacks for individual scaling 
+groups which are created by the main stack.
 
 ### Main stack: VPC, Subnets, ELBs, Internet Gateway, Routes, Security Groups, etc.
 
-This sets up the VPC along with the Subnets, Scaling Groups, routes and security around.
+Sets up the infrastructure and creates separate scaling groups for each subdivision
+of the cell using nested stacks.
 
-This sets up the infrastructure and creates separate scaling groups for each subdivision
-of the cell using nested stacks.  
+The network is separated in two subnets - a private and a public one, both in
+the same AZ.
+
+There's an Internet Gateway and a NAT Gateway.
+The private net default route goes to NAT Gateway and the public one to the 
+Internet Gateway.  
+
+All nodes except membrane nodes and the bastion are in the private subnet.
 
 Each cell subdivision is created by passing the role, tags, cell modules and
 configurations to the nested stack.
@@ -104,6 +121,10 @@ datanodes or Kafka brokers)
 The membrane is publicly exposed (all other groups should be private) and hence may have
 special security requirements. 
 The cell gateway and load balancing services will run in the membrane. 
+
+#### Bastion
+
+The bastion (aka jump host) is used to enable external SSH access into the cell.
 
 ## AMI
 

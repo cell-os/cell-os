@@ -4,6 +4,8 @@ import sh
 import sys
 import traceback
 
+import yaml
+
 if os.name == 'posix' and sys.version_info[0] < 3:
     pass
 else:
@@ -13,14 +15,17 @@ import boto3
 import boto3.session
 import jmespath
 
+
 def first(*args):
     for item in args:
         if item is not None:
             return item
     return None
 
+
 class KeyException(Exception):
     pass
+
 
 class AwsBackend(object):
     name = "aws"
@@ -38,6 +43,12 @@ class AwsBackend(object):
         self.ec2 = self.session.client('ec2')
         self.elb = self.session.client('elb')
         self.asg = self.session.client('autoscaling')
+
+        pkg_dir = os.path.dirname(os.path.abspath(__file__))
+        with open(os.path.join(pkg_dir, '../config/cell.yaml'), 'r') as stream:
+            cell = yaml.load(stream)
+            ip_allocation = cell['nat_egress_ip']
+            self.eip_allocation = ip_allocation if ip_allocation else ''
 
     @property
     def region(self):
@@ -211,8 +222,20 @@ class AwsBackend(object):
         print "UPLOADED {} to s3://{}/{}".format(path, self.bucket, remote_path)
 
     def bastion(self):
-        result = self.instances(role='stateless-body',
-                                format="PublicIpAddress")
+        role = 'bastion' if self.version() > "1.2.0" else 'stateless-body'
+        result = self.instances(role=role, format="PublicIpAddress,Tags")
+        if result:
+            return result[0][0]
+
+    def proxy(self):
+        """
+            The node that should be used a SOCKS proxy.
+            Bastion should be limited to SSH (port 22) access only so proxying
+            should through bastion and then to a node that has enough access to
+            act as a proxy.
+        :return: the IP of the proxy
+        """
+        result = self.instances(role='stateless-body', format="PrivateIpAddress")
         return result[0][0] if result else None
 
     def instances(self, role=None, format="PublicIpAddress, PrivateIpAddress, InstanceId, ImageId, State.Name"):
@@ -274,7 +297,13 @@ class AwsBackend(object):
                     'ParameterKey': 'Repository',
                     'ParameterValue': self.base.repository,
                 },
+
             ]
+        if len(self.eip_allocation) > 0:
+            parameters.append({
+                    'ParameterKey': 'EipAllocation',
+                    'ParameterValue': self.eip_allocation,
+                })
         template_url = "https://s3.amazonaws.com/{}/{}/elastic-cell.json".format(self.bucket, self.base.full_cell)
         print "{} {}".format(action.upper(), self.stack)
         if action == "create":
@@ -385,13 +414,47 @@ class AwsBackend(object):
             events.append([str(e) for e in event])
         return events
 
+    def nat_egress_ip(self):
+        """
+        Get the NAT-ed instances originating IP.
+        Useful for whitelisting
+        :return: the IP as string
+        """
+        vpc_id = self.__get_vpc_id()
+        filters = [{'Name': 'vpc-id', 'Values': [vpc_id]}]
+        gateways = self.ec2.describe_nat_gateways(Filters=filters)
+        ip = jmespath.search("NatGateways[0].NatGatewayAddresses[0].PublicIp",
+                             gateways)
+        return ip
+
+    def __get_vpc_id(self):
+        # TODO cache
+        filters = [{ 'Name': 'tag:name', 'Values': [self.base.cell]}]
+        vpcs = self.ec2.describe_vpcs(Filters=filters)
+        return jmespath.search("Vpcs[0].VpcId", vpcs)
+
+
+    def version(self):
+        """
+        Method may make calls over network
+        :return: CellOS version string
+        """
+        # TODO (clehene) this can be cached
+        all_stacks = self.list_all()
+        this_stack = filter(lambda x: x[0] == self.base.cell, all_stacks)
+        if len(this_stack) == 1:
+            return this_stack[0][3]
+        else:
+            raise RuntimeError("Expecting 1 stack. Got: {} ".format(this_stack))
+
     def list_all(self):
         stacks = [stack for stack in jmespath.search(
             "Stacks["
             "? (Tags[? Key=='name'] && Tags[? Key=='version'] )"
             "][ StackId, StackName, StackStatus, Tags[? Key=='version'].Value | [0], CreationTime]",
             self.cfn.meta.client.describe_stacks()
-        ) if not re.match(r".*(MembraneStack|NucleusStack|StatefulBodyStack|StatelessBodyStack).*", stack[0])]
+        ) if not re.match(r".*(MembraneStack|NucleusStack|StatefulBodyStack|"
+                          r"StatelessBodyStack|BastionStack).*", stack[0])]
         # extract region from stack id arn:aws:cloudformation:us-west-1:482993447592:stack/c1/1af7..
         stacks = [[stack[1], stack[0].split(":")[3]] + stack[2:] for stack in stacks]
         return stacks

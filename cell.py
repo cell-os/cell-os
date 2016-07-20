@@ -458,6 +458,7 @@ class Cell(object):
             print tabulate("stateless-body", tmp.instances.stateless)
             print tabulate("stateful-body", tmp.instances.stateful)
             print tabulate("membrane", tmp.instances.membrane)
+            print tabulate("bastion", tmp.instances.membrane)
 
             print "[bucket]"
             # for f in self.s3.Bucket(self.bucket).objects.filter(Prefix="{}".format(self.full_cell)):
@@ -465,7 +466,7 @@ class Cell(object):
 
             status_page={"status_page": tmp.statuspage}
             print tabulate("Status Page", status_page)
-
+            print tabulate("Egress IP", [self.backend.nat_egress_ip()]),
             print tabulate("Load Balancers", tmp.load_balancers)
 
             print tabulate("Local configuration files", [
@@ -531,6 +532,11 @@ backend: {backend}
             bastion = self.backend.bastion()
         else:
             raise RuntimeError("bastion not available yet")
+        if self.backend.proxy() is not None:
+            proxy = self.backend.proxy()
+        else:
+            raise RuntimeError("proxy not available yet")
+
         with open(ssh_config, "wb+") as f:
             f.write("""\
 IdentitiesOnly yes
@@ -539,19 +545,15 @@ IdentityFile {key}
 StrictHostKeyChecking no
 User {user}
 
-Host proxy-cell-{cell}
-  Hostname {host}
-  DynamicForward {port}
-
 Host {ip_wildcard}
-  ProxyCommand ssh -i {key} {user}@{host} -W %h:%p
+  ProxyCommand ssh -i {key} {user}@{bastion} -W %h:%p
 
             """.format(
                 timeout=self.ssh_timeout,
                 cell=self.cell,
-                host=bastion,
+                proxy=proxy,
+                bastion=bastion,
                 key=self.tmp(self.key_file),
-                port=self.proxy_port,
                 # FIXME (clehene) ip_wildccard should be based on subnet
                 ip_wildcard="10.*",
                 # FIXME (clehene) user should come from config
@@ -767,8 +769,8 @@ Host {ip_wildcard}
     @check_cell_exists
     def run_ssh(self, command=None):
         self.ensure_config()
-        instances = flatten(self.backend.instances(self.arguments["<role>"],
-                                                   format="PublicIpAddress"))
+        instances = flatten(self.backend.instances(
+            self.arguments["<role>"], format=self.get_ssh_ip_type()))
         index = int(self.arguments["<index>"])
         if index is None or index == "":
             index = 1
@@ -784,6 +786,17 @@ Host {ip_wildcard}
             subprocess.call(self.ssh_cmd(ip, extra_opts="-t", command=command), shell=True)
         else:
             subprocess.call(self.ssh_cmd(ip), shell=True)
+
+    def get_ssh_ip_type(self):
+        """
+        Helper method to deal with backwards compatiblity
+        Note that this is used for the format argument of the instances method
+         which is only used for AWS.
+        """
+        if self.backend.version() > "1.2.0":
+            return "PrivateIpAddress"
+        else:
+            return "PublicIpAddress"
 
     @check_cell_exists
     def run_cmd(self):
@@ -828,7 +841,8 @@ Host {ip_wildcard}
             roles = [self.arguments["<role>"]]
         instances = []
         for role in roles:
-            instances_for_role = self.backend.instances(role=role, format="PublicIpAddress")
+            instances_for_role = self.backend.instances(
+                role=role,format=self.get_ssh_ip_type())
             if instances_for_role is not None:
                 instances.extend(instances_for_role)
         instances = flatten(instances)
@@ -899,14 +913,18 @@ windows:
         except Exception:
             pass
 
-        cmd = self.ssh_cmd("proxy-cell-{}".format(self.cell), extra_opts="-f -N",
-                           command="&>{}".format(self.tmp("proxy.log")))
+        logfile = self.tmp("proxy.log")
+        proxy = self.backend.proxy()
+        cmd = self.ssh_cmd(proxy,
+                           extra_opts="-f -N -D{}".format(self.proxy_port),
+                           command="&>{}".format(logfile))
+        print cmd
         try:
             subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT)
             print "Proxy running on localhost:{}".format(self.proxy_port)
             print "ssh config loaded from {}".format(self.tmp(""))
         except subprocess.CalledProcessError as err:
-            print "Failed to create proxy"
+            print "Failed to create proxy. See log at {}".format(logfile)
             print err.output
 
 
