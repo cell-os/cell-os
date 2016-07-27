@@ -318,7 +318,11 @@ public_subnet = t.add_resource(ec2.Subnet(
 t.add_condition("no_eip_allocation", Equals(Ref(EipAllocation), ""))
 # Note that we may end up having an unused EIP in that case.
 # TODO only reserve EIP if no_eip_allocation
-nat_eip = t.add_resource(ec2.EIP("NatEip"))
+nat_eip = t.add_resource(ec2.EIP(
+    "NatEip",
+    Domain="vpc"
+))
+
 nat_gw = t.add_resource(ec2.NatGateway(
     "NatGateway",
     # Don't replace with Ref(nat_eip) as it will throw:
