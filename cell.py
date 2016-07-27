@@ -460,12 +460,8 @@ class Cell(object):
             print tabulate("membrane", tmp.instances.membrane)
             print tabulate("bastion", tmp.instances.membrane)
 
-            print "[bucket]"
-            # for f in self.s3.Bucket(self.bucket).objects.filter(Prefix="{}".format(self.full_cell)):
-            #     print f.key
-
             status_page={"status_page": tmp.statuspage}
-            print tabulate("Status Page", status_page)
+            print tabulate("Cell Infra Provisioning Status Page", status_page)
             print tabulate("Egress IP", [self.backend.nat_egress_ip()]),
             print tabulate("Load Balancers", tmp.load_balancers)
 
@@ -476,7 +472,7 @@ class Cell(object):
                 ["DCOS config", self.tmp("dcos.toml")],
                 ["DCOS cache", self.tmp("dcos_tmp")],
             ])
-            print tabulate("Gateway", [
+            print tabulate("Core Services", [
                 ["zookeeper", tmp.gateway.zookeeper],
                 ["mesos", tmp.gateway.mesos],
                 ["marathon", tmp.gateway.marathon],
