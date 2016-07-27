@@ -425,6 +425,7 @@ section.
 
 # Configuration
 
+## CLI
 For all cli options and configurations run `./cell --help`.  
 `~/.cellos/config` can be used for general cli settings (e.g. default region).  
 
@@ -436,9 +437,23 @@ The typical configuration override order is:
 
 Hence, the cli arguments have the highest priority.  
 
+## Cell deployment configuration
+The deployment configuration is loaded from `cell-os/deploy/config/cell.yaml`:
+E.g.
+```yaml
+
+---
+membrane:
+  modules:
+    - 00-docker
+    - 02-mesos
+    - 99-cell
+```
+
 Cell level caches, metadata and configurations are stored in `.generated`.
 See the CLI advanced section on [.generated](userguide.md#generated) for
 more information.
+
 
 # Access from your cell
 
