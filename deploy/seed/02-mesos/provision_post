@@ -17,6 +17,7 @@ mesos::master::env_var:
   MESOS_ip_discovery_command: /usr/local/bin/get_ip
   MESOS_acls: "file:///etc/mesos/acls"
   MESOS_credentials: "file:///etc/mesos/master-credentials"
+  MESOS_hostname: $(hostname -f)
 mesos::master::credentials:
   - principal: principal-1-placeholder
     secret: secret-1-placeholder
@@ -36,6 +37,7 @@ mesos::master::acls:
       users:
         type: ANY
 mesos::slave::env_var:
+  MESOS_hostname: $(hostname -f)
   MESOS_work_dir: /var/lib/mesos/slave
   MESOS_attributes: "role:${cell_role}"
   MESOS_resources: "ports(*):${mesos_port_range}"
