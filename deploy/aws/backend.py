@@ -33,11 +33,15 @@ class AwsBackend(object):
     def __init__(self, config, base):
         self.config = config
         self.base = base
-        self.session = boto3.session.Session(
-            region_name=self.region,
-            aws_access_key_id=self.config.aws_access_key_id,
-            aws_secret_access_key=self.config.aws_secret_access_key
-        )
+        session_args = {
+            "region_name": self.region,
+            "aws_access_key_id": self.aws_access_key_id,
+            "aws_secret_access_key": self.aws_secret_access_key
+        }
+        if self.aws_session_token is not None:
+            session_args["aws_session_token"] = self.aws_session_token
+
+        self.session = boto3.session.Session(**session_args)
         self.cfn = self.session.resource('cloudformation')
         self.s3 = self.session.resource('s3')
         self.ec2 = self.session.client('ec2')
@@ -52,11 +56,19 @@ class AwsBackend(object):
 
     @property
     def region(self):
-        return first(
-            os.getenv('AWS_DEFAULT_REGION'),
-            self.config.region,
-            'us-west-1'
-        )
+        return first(os.getenv('AWS_DEFAULT_REGION'), self.config.region, 'us-west-1')
+
+    @property
+    def aws_access_key_id(self):
+        return first(os.getenv('AWS_ACCESS_KEY_ID'), self.config.aws_access_key_id)
+
+    @property
+    def aws_secret_access_key(self):
+        return first(os.getenv('AWS_SECRET_ACCESS_KEY'), self.config.aws_secret_access_key)
+
+    @property
+    def aws_session_token(self):
+        return first(os.getenv('AWS_SESSION_TOKEN'), self.config.aws_session_token)
 
     @property
     def existing_bucket(self):
