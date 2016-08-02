@@ -584,10 +584,30 @@ Host {ip_wildcard}
         """
         Creates a DCOS cli configuration file
         """
-        dcos_config = self.tmp("dcos.toml")
-        if os.path.exists(dcos_config):
-            return
-        with open(dcos_config, "wb+") as f:
+        with open('cell-os-base.yaml', 'r') as bundle_stream:
+            version_bundle = yaml.load(bundle_stream)
+            universe_version =  version_bundle['cell-os-universe::version']
+
+        repo_url = self.repository.replace('s3://', 'https://s3.amazonaws.com/')
+        cell_universe_url = '{0}/cell-os/cell-os-universe-{1}.zip'\
+            .format(repo_url, universe_version)
+        dcos_config_file = self.tmp('dcos.toml')
+
+        try:
+            with open(dcos_config_file, 'r') as dcos_config_stream:
+                dcos_config = toml.loads(dcos_config_stream.read())
+                sources = dcos_config['package']['sources']
+        except Exception:
+            sources = [cell_universe_url]
+            print('generating {config_file} with default sources {default_src}'
+              .format(config_file=dcos_config_file, default_src=sources))
+
+        # Override cell-os-universe source with the bundle version
+        for index, repo in enumerate(sources):
+            if 'cell-os/cell-os-universe' in repo:
+                sources[index] = cell_universe_url
+                break
+        with open(dcos_config_file, "wb+") as f:
             f.write("""\
     [core]
     mesos_master_url = "{mesos}"
@@ -597,14 +617,15 @@ Host {ip_wildcard}
     [marathon]
     url = "{marathon}"
     [package]
-    sources = [ "https://s3.amazonaws.com/saasbase-repo/cell-os/cell-os-universe-{version}.zip"]
+    sources = [{sources}]
     cache = "{tmp}/dcos_tmp"
                 """.format(
                     mesos=self.backend.gateway("mesos"),
                     marathon=self.backend.gateway("marathon"),
                     version=self.version,
                     tmp=self.tmp(""),
-                    dns=self.backend.dns_name
+                    dns=self.backend.dns_name,
+                    sources=",".join('"{0}"'.format(x) for x in sources)
                 )
             )
             f.flush()
