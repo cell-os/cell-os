@@ -584,7 +584,7 @@ Host {ip_wildcard}
         """
         Creates a DCOS cli configuration file
         """
-        with open('cell-os-base.yaml', 'r') as bundle_stream:
+        with open(os.path.join(DIR, 'cell-os-base.yaml'), 'r') as bundle_stream:
             version_bundle = yaml.load(bundle_stream)
             universe_version =  version_bundle['cell-os-universe::version']
 
@@ -892,7 +892,7 @@ windows:
       layout: tiled
       panes:
         {{#instances}}
-        - {{priv_ip_addr}}:
+        - {{ip_addr}}:
           - {{ssh_cmd}}
           - clear
         {{/instances}}
@@ -904,14 +904,16 @@ windows:
         }
 
         for role in sorted(roles):
+            print("ROLE: {}".format(role))
+            print(self.backend.instances(role=role, format=self.get_ssh_ip_type()))
             cfg['roles'].append({
                 'name': role,
                 'instances': [
-                    {'priv_ip_addr': instance[0],
-                     'pub_ip_addr': instance[1],
-                     'ssh_cmd': self.ssh_cmd(instance[1])
+                    {
+                        'ip_addr': instance[0],
+                        'ssh_cmd': self.ssh_cmd(instance[0]),
                     }
-                    for instance in self.backend.instances(role=role, format="PrivateIpAddress, PublicIpAddress")[0]
+                    for instance in self.backend.instances(role=role, format=self.get_ssh_ip_type())
                 ]
             })
 
