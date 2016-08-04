@@ -1,6 +1,8 @@
 FROM alpine:3.4
 
-COPY . /cellos/
+ENV LANG C.UTF-8
+ENV JAVA_HOME /usr/lib/jvm/java-1.8-openjdk/jre
+ENV PATH $PATH:/usr/lib/jvm/java-1.8-openjdk/jre/bin:/usr/lib/jvm/java-1.8-openjdk/bin
 
 RUN apk add --no-cache \
               build-base \
@@ -8,8 +10,11 @@ RUN apk add --no-cache \
               python \
               python-dev \
               py-pip \
-  && pip install --upgrade pip \
-  && pip install -r /cellos/requirements.txt
+              openjdk8-jre \
+  && pip install --upgrade pip
+
+COPY . /cellos/
+RUN pip install -r /cellos/requirements.txt
 
 WORKDIR /cellos
 ENTRYPOINT ["/cellos/cell"]
