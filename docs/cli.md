@@ -21,10 +21,10 @@
       -e "AWS_DEFAULT_REGION=us-west-1" \
       -e "AWS_ACCESS_KEY_ID=XXXXXXXXXXXXXXXX" \
       -e "AWS_SECRET_ACCESS_KEY=YYYYYYYYYYYYYYYYYYYYYYYY" \
-      -v /tmp/generated/:/cellos/.generated
-      -v /tmp/aws:/root/.aws
-      -v /tmp/cellos:/root/.cellos
-      -v /tmp/dcos:/root/.dcos
+      -v /tmp/generated/:/cellos/.generated \
+      -v /tmp/aws:/root/.aws \
+      -v /tmp/cellos:/root/.cellos \
+      -v /tmp/dcos:/root/.dcos \
       docker-cell-os.dr.corp.adobe.com/cellos
 ```
 
