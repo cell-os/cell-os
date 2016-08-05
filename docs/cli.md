@@ -1,10 +1,71 @@
-# CLI
+<!-- TOC depthFrom:1 depthTo:6 withLinks:1 updateOnSave:1 orderedList:0 -->
 
+	- [Installation](#installation)
+		- [Docker](#docker)
+		- [Classic](#classic)
+	- [Environment](#environment)
+	- [Usage](#usage)
+	- [dcos-cli integration](#dcos-cli-integration)
+	- [Advanced: Accessing the cell's internal services over HTTP](#advanced-accessing-the-cells-internal-services-over-http)
+	- [Advanced](#advanced)
+- [`.generated` directory](#generated-directory)
+
+<!-- /TOC -->
 ## Installation
-The CLI is a convenience wrapper around the [AWS CLI](http://aws.amazon.com/cli/)
 
-    pip install awscli
-    aws configure
+### Docker
+**BETA**
+
+```
+    docker run -it \
+      -e "AWS_DEFAULT_REGION=us-west-1" \
+      -e "AWS_ACCESS_KEY_ID=XXXXXXXXXXXXXXXX" \
+      -e "AWS_SECRET_ACCESS_KEY=YYYYYYYYYYYYYYYYYYYYYYYY" \
+      -v /tmp/generated/:/cellos/.generated
+      -v /tmp/aws:/root/.aws
+      -v /tmp/cellos:/root/.cellos
+      -v /tmp/dcos:/root/.dcos
+      docker-cell-os.dr.corp.adobe.com/cellos
+```
+
+> **Pro tip:** you can set an alias like `alias cell='docker run -it -e ...'`
+
+> **Note**:
+On OSX / Windows if your host sleeps, time may get out of sync and cause AWS API
+ problems. Restarting Docker will fix this.
+ [Details](https://forums.docker.com/t/syncing-clock-with-host/10432)
+
+### Classic
+
+ #### **Step 0**: Activate virtualenv
+
+     virtualenv env
+     source env/bin/activate
+
+ #### **Step 0**: Configure [AWS CLI](http://aws.amazon.com/cli/)
+ The cell CLI tool is using a bunch of Python packages, that talk to AWS:
+
+     aws configure
+
+ > NOTE  
+ You will need an [acccess key id and secret access key](http://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSGettingStartedGuide/AWSCredentials.html) for this.
+ Contact your account manager if you don't have one.
+
+ #### **Step 1**: Running from source
+
+ Install `requirements.txt` dependencies
+
+     cd git-repo/cell-os
+     pip install -r requirements.txt
+     ./cell
+
+ #### **Step 1**: pip package (new feature*)
+
+     pip install --upgrade git+ssh://git.corp.adobe.com/metal-cell/cell-os.git
+     cell --help
+
+  \* We've recently added the pip functionality and has so far worked well. If you have any issues
+ please report them promptly.
 
 ## Environment
 
