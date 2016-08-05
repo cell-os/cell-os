@@ -1,16 +1,17 @@
 <!-- TOC depthFrom:1 depthTo:6 withLinks:1 updateOnSave:1 orderedList:0 -->
 
-	- [Installation](#installation)
-		- [Docker](#docker)
-		- [Classic](#classic)
-	- [Environment](#environment)
-	- [Usage](#usage)
-	- [dcos-cli integration](#dcos-cli-integration)
-	- [Advanced: Accessing the cell's internal services over HTTP](#advanced-accessing-the-cells-internal-services-over-http)
-	- [Advanced](#advanced)
-- [`.generated` directory](#generated-directory)
+ - [Installation](#installation)
+  - [Docker](#docker)
+  - [Classic](#classic)
+ - [Environment](#environment)
+ - [Usage](#usage)
+ - [dcos-cli integration](#dcos-cli-integration)
+ - [Advanced: Accessing the cell's internal services over HTTP](#advanced-accessing-the-cells-internal-services-over-http)
+ - [Advanced](#advanced)
+ - [`.generated` directory](#generated-directory)
 
 <!-- /TOC -->
+
 ## Installation
 
 ### Docker
