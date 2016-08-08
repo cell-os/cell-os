@@ -127,9 +127,6 @@ if [[ $target_device ]]; then
   cat >> /opt/cell/cluster/cluster.yaml <<-EOT
 docker::install_from_source: false
 docker::use_upstream_package_source: true
-docker::repo_opt:
-  - --disablerepo=*
-  - --enablerepo=docker
 docker::storage_driver: devicemapper
 docker::dm_thinpooldev: /dev/mapper/docker-thinpool
 docker::dm_use_deferred_removal: true
