@@ -32,7 +32,7 @@ HDFS and the api-gateway.
     ./cell scale cell-1 body 200
     ./cell ssh cell-1 body
 
-Details, caveats, TODOs in the [aws deployment section](deploy/aws/README.md).
+Details, caveats, TODOs in the [aws deployment section](docs/deployment-aws.md).
 Currently only AWS is supported by the CLI.
 
 ## Run using docker
