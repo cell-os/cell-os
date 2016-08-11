@@ -447,6 +447,12 @@ class Cell(object):
         else:
             print "Aborted deleting cell"
 
+        print("""
+        NOTE: The cell stack is deleting asynchronously. To check progress:
+            ./cell log {}
+            ./cell list
+        """.format(self.cell))
+
     @check_cell_exists
     def run_list(self):
         if self.cell is None:
