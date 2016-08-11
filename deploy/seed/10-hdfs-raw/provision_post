@@ -27,12 +27,27 @@ hadoop_data_nodes: []
 EOT
 
 module_name="10-hdfs-raw"
+
+function wait_for_process() {
+  local process_name=$1
+  local max_attempts=$2
+  local attempt=0
+  while [ ! $(pgrep -f $1) ]; do
+    sleep 1
+    printf .
+    attempt=$(($attempt + 1))
+    if [[ $attempt -gt $max_attempts ]]; then
+      exit 1
+    fi
+  done
+}
+
 if [[ -f /opt/cell/etc/roles/nucleus ]]; then
   /usr/local/bin/provision puppet base,hadoop_2_namenode,hadoop_2,hadoop_2_journalnode
 
   export host=$(hostname -f)
   service hadoop-hdfs-journalnode start
-  sleep 10
+  wait_for_process JournalNode 10
   aws s3api put-object --bucket ${cell_bucket_name} --key ${full_cell_name}/shared/setup/${aws_parent_stack_name}/zk/$host
   if [[ $host == $nn1_host ]]; then
     aws_wait "aws s3api list-objects --bucket ${cell_bucket_name} --prefix ${full_cell_name}/shared/setup/${aws_parent_stack_name}/zk/" ".Contents | length" "3"
@@ -52,6 +67,8 @@ if [[ -f /opt/cell/etc/roles/nucleus ]]; then
     su --login hadoop -c "/home/hadoop/hadoop/bin/hdfs zkfc -formatZK -nonInteractive"
     systemctl start hadoop-hdfs-zkfc
     systemctl start hadoop-hdfs-namenode
+    wait_for_process DFSZKFailoverController 10
+    wait_for_process NameNode 10
     aws s3api put-object --bucket ${cell_bucket_name} --key ${full_cell_name}/shared/setup/${aws_parent_stack_name}/nn1
   fi
 
@@ -61,7 +78,8 @@ if [[ -f /opt/cell/etc/roles/nucleus ]]; then
     su --login hadoop -c "/home/hadoop/hadoop/bin/hdfs namenode -bootstrapStandby -nonInteractive"
     systemctl start hadoop-hdfs-zkfc
     systemctl start hadoop-hdfs-namenode
-    sleep 10
+    wait_for_process DFSZKFailoverController 10
+    wait_for_process NameNode 10
     aws s3api put-object --bucket ${cell_bucket_name} --key ${full_cell_name}/shared/setup/${aws_parent_stack_name}/nn2
   fi
 elif [[ -f /opt/cell/etc/roles/stateful-body ]]; then
