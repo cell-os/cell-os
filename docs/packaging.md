@@ -402,7 +402,11 @@ as a template.
 
 dcos cli truncates the details of the actual error message.
 
-You can generate the marathon json payload 
+Enable debugging:
+
+    ./cell dcos c1 --log-level=DEBUG package install --yes marathon
+
+You can generate the marathon json payload :
 
     ./cell dcos c1 package describe --app --render YOUR_MODULE_NAME
 
