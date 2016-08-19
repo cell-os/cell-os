@@ -37,6 +37,7 @@ function wait_for_process() {
     printf .
     attempt=$(($attempt + 1))
     if [[ $attempt -gt $max_attempts ]]; then
+      echo "Timed out while waiting for ${process_name}"
       exit 1
     fi
   done
