@@ -32,6 +32,7 @@ function _M.new(o)
     local o = o or {}
     -- ngx.apiGateway.config is defined in api_gateway_init.lua
     if (ngx.apiGateway ~= nil and ngx.apiGateway.config ~= nil) then
+        -- TODO (clehene) pass paramters instead of setting variables?
         o.marathon_endpoint = ngx.apiGateway.config.getMarathonEndpoint()
     end
     return setmetatable(o, mt)
