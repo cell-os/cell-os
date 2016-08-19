@@ -638,9 +638,8 @@ Host {ip_wildcard}
             f.flush()
 
     def prepare_dcos_package_install(self, args):
-        is_install = len(args) >= 2 and (
-        args[0] == 'package' and args[1] == 'install')
-        if not is_install:
+
+        if args[0] != 'package' or 'install' not in args:
             return args
 
         # if we have an dcos package install command, check to see if we have
