@@ -68,7 +68,7 @@ def mesos_state_to_upstream_defs(mesos_state_json):
             try:
                 lsi = len(task["statuses"]) - 1
                 ip = task["statuses"][lsi]["container_status"]\
-                    ["network_infos"][0]["ip_address"]
+                    ["network_infos"][0]["ip_addresses"][0]["ip_address"]
                 # Mesos tasks are tagged with a discovery tag
                 # http://mesos.apache.org/documentation/latest/app-framework-development-guide/
                 # However, this part of the task info is optional, so we are
