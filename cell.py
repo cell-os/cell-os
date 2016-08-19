@@ -72,6 +72,8 @@ import textwrap
 import time
 import traceback
 
+import colorama
+from termcolor import colored
 if os.name == 'posix' and sys.version_info[0] < 3:
     import subprocess32 as subprocess
 else:
@@ -957,6 +959,7 @@ windows:
 
 
 def main(work_dir=None):
+    colorama.init()
     global DIR, TMPDIR, log
     DIR = os.path.dirname(os.path.realpath(__file__))
     with open(os.path.join(DIR, 'config', 'logging.yaml'), 'r') as config:
@@ -992,17 +995,16 @@ def main(work_dir=None):
         arguments = docopt(__doc__, version=version)
 
     if arguments["<cell-name>"] and len(arguments["<cell-name>"]) >= 22:
-        print """\
-<cell-name> argument must be < 22 chars long, exiting...
-It is used to build other resource names (e.g. ELB name is 32 chars max)
-"""
+        print(colored("<cell-name> argument must be < 22 chars long.\n"
+                      "It is used to build other resource names (e.g. ELB name "
+                      "is 32 chars max)", 'red'))
         sys.exit(1)
     cell = Cell(arguments, version)
     try:
         cell.run(dcos=rest_args)
     except Exception as e:
-        print "{}: {}".format(cell.command, e)
         traceback.print_exc(file=sys.stdout)
+        print(colored("{}: {}".format(cell.command, e), 'red'))
         sys.exit(1)
 
 if __name__ == '__main__':
