@@ -57,6 +57,8 @@ Slack https://adobe.slack.com/messages/metal-cell/
 import ConfigParser
 import curses
 import datetime
+import logging
+import logging.config
 import decorator
 import imp
 import inspect
@@ -738,12 +740,12 @@ Host {ip_wildcard}
     def run_dcos(self, **kwargs):
         self.ensure_config()
         dcos_args = kwargs["dcos"]
-        print dcos_args
+        log.debug("dcos command args {}".format(dcos_args))
         os.environ["DCOS_CONFIG"] = self.tmp("dcos.toml")
         dcos_args = self.prepare_dcos_package_install(dcos_args)
 
         command = " ".join(["dcos"] + dcos_args)
-        print "Running {}...".format(command)
+        log.debug("Running {}...".format(command))
 
         # FIXME - because of some weird interactions (passing through the shell
         # twice), we can't use the subprocess.call([list]) form, it doesn't
@@ -955,8 +957,13 @@ windows:
 
 
 def main(work_dir=None):
-    global DIR, TMPDIR
+    global DIR, TMPDIR, log
     DIR = os.path.dirname(os.path.realpath(__file__))
+    with open(os.path.join(DIR, 'config', 'logging.yaml'), 'r') as config:
+        logging.config.dictConfig(yaml.load(config))
+
+    log = logging.getLogger('cell-cli')
+
     if work_dir is None:
         work_dir = os.path.expanduser('~/.cellos')
         import pkg_resources

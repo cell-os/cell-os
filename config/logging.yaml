@@ -1,0 +1,31 @@
+version: 1
+formatters:
+  default:
+    format: '%(asctime)s %(levelname)-8s %(name)s %(filename)s(%(lineno)d) %(message)s'
+handlers:
+  console:
+    class: logging.StreamHandler
+    level: INFO
+    formatter: default
+    stream: ext://sys.stdout
+  file:
+    level: DEBUG
+    class : logging.handlers.RotatingFileHandler
+    formatter: default
+    filename: .generated/cellos.log
+    maxBytes: 4194304
+    backupCount: 3
+loggers:
+  cell-cli:
+    level: DEBUG
+    handlers: [console]
+    propagate: no
+#  botocore:
+#    level: INFO
+#  boto3:
+#    level: INFO
+  sh:
+    level: WARN
+root:
+  level: DEBUG
+  handlers: [file, console]
