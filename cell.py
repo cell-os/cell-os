@@ -74,7 +74,11 @@ import traceback
 
 import colorama
 import dcos.package
+import pystache
 
+from pystache.context import KeyNotFoundError
+from pystache.renderer import Renderer
+from pystache.defaults import DECODE_ERRORS
 from termcolor import colored
 if os.name == 'posix' and sys.version_info[0] < 3:
     import subprocess32 as subprocess
@@ -82,7 +86,6 @@ else:
     import subprocess
 
 from docopt import docopt
-import pystache
 import toml
 import yaml
 
@@ -692,11 +695,18 @@ Host {ip_wildcard}
 
         print "Found supported package {}, rendering options file".format(package)
         options_file = self.tmp("{}.json".format(package))
+
+        cell_yaml = yaml.load(readify(self.tmp("config.yaml")))
+        renderer = Renderer(missing_tags=DECODE_ERRORS)
+        template = readify(opts_template)
+        try:
+            rendered_options = renderer.render(template, cell_yaml)
+        except KeyNotFoundError as e:
+            input = json.dumps(cell_yaml, indent=2)
+            raise Exception("Failed to render template {} \n using \n{}\n{}"
+                            .format(template, input, e))
+
         with open(options_file, "wb+") as outf:
-            rendered_options = pystache.render(
-                readify(opts_template),
-                yaml.load(readify(self.tmp("config.yaml")))
-            )
             outf.write(rendered_options)
             outf.flush()
 
@@ -716,6 +726,7 @@ Host {ip_wildcard}
             args.insert(-1, "--options=" + self.tmp("{}.json".format(package)))
 
         # display the contents of the config file in its final form
+        print("Options file content:")
         with open(options_file, "r") as inf:
             print(inf.read())
 
