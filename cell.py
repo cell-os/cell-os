@@ -73,6 +73,8 @@ import time
 import traceback
 
 import colorama
+import dcos.package
+
 from termcolor import colored
 if os.name == 'posix' and sys.version_info[0] < 3:
     import subprocess32 as subprocess
@@ -649,11 +651,12 @@ Host {ip_wildcard}
 
         # DCOS can describe a package configuration schema, with default values
         # Take it and recreate an actual configuration out of it
-        pkg_config = json.loads(
-            subprocess.check_output(
-                "dcos package describe --config {}".format(package), shell=True
-            )
-        )
+
+        pkg = dcos.package.resolve_package(package)
+        if pkg is None:
+            raise ValueError('package "{}" not found. Check spelling or update '
+                             'package sources.'.format(package))
+        pkg_config = pkg.config_json(pkg.latest_package_revision())
 
         def config_remapper(src):
             """
