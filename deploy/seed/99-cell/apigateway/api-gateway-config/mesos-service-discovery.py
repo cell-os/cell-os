@@ -1,8 +1,6 @@
 import json
 import sys
-import re
 import logging
-from traceback import format_exc
 
 logging.basicConfig(
     filename='/var/log/api-gateway/mesos-service-discovery.log',
@@ -13,7 +11,7 @@ SERVER_FAIL_TIMEOUT_SECONDS = 10
 UPSTREAM_KEEP_ALIVE = 16
 
 """
-This file creates a list of Api Gateway / Openresty upstreams from the list
+Create a list of Api Gateway / Openresty upstreams from the list
 of tasks in running Mesos frameworks.
 Mesos frameworks are started in Marathon, but we might want to create load
 balancer pools directly over the Mesos framework tasks;
