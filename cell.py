@@ -546,6 +546,7 @@ IdentitiesOnly yes
 ConnectTimeout {timeout}
 IdentityFile {key}
 StrictHostKeyChecking no
+UserKnownHostsFile /dev/null
 User {user}
 
 Host {ip_wildcard}
