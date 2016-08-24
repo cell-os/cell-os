@@ -962,8 +962,6 @@ def main(work_dir=None):
     colorama.init()
     global DIR, TMPDIR, log
     DIR = os.path.dirname(os.path.realpath(__file__))
-    with open(os.path.join(DIR, 'config', 'logging.yaml'), 'r') as config:
-        logging.config.dictConfig(yaml.load(config))
 
     log = logging.getLogger('cell-cli')
 
@@ -976,6 +974,11 @@ def main(work_dir=None):
 
     TMPDIR = os.path.join(work_dir, ".generated")
     mkdir_p(TMPDIR)
+
+    # Logs are in .generated. Only load logs after this is created
+    with open(os.path.join(DIR, 'config', 'logging.yaml'), 'r') as config:
+        logging.config.dictConfig(yaml.load(config))
+
     # docopt hack to allow arbitrary arguments to docopt
     # necessary to call dcos subcommand
     if len(sys.argv) > 1 and sys.argv[1] == 'dcos':
