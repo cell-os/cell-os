@@ -17,7 +17,8 @@ You can get `hdfs-site.xml` (and `core-site.xml`):
 
 #### Using the HDFS WebHDFS REST endpoint
 
-We configure HDFS to also start the WebHDFS rest endpoint for easier access to HDFS through HTTP
+We configure HDFS to also start the WebHDFS rest endpoint for easier access to 
+HDFS through HTTP.
 
 **Resources**
 * [Official documentation](https://hadoop.apache.org/docs/current/hadoop-project-dist/hadoop-hdfs/WebHDFS.html)
@@ -63,15 +64,24 @@ three
 
 Cell-OS can use DCOS packages. 
 
-* DCOS packages are basically Mesos/Marathon workloads available in a [public repository](https://github.com/mesosphere/universe/)
+* DCOS packages are basically Mesos/Marathon workloads available in a 
+[public repository](https://github.com/mesosphere/universe/)
 * Operator has a [dcos-cli tool](https://github.com/mesosphere/dcos-cli/)
-* We provide our [own package repository](http://git.corp.adobe.com/metal-cell/cell-universe) (the tool can use more than one)
+* We provide our 
+[own package repository](http://git.corp.adobe.com/metal-cell/cell-universe) 
+(the tool can use more than one)
 
-Some DCOS packages rely on some magic parameters being set by the DCOS environment (this part will get better as the open-source version will get fleshed out).  
+Some DCOS packages rely on some magic parameters being set by the DCOS 
+environment (this part will get better as the open-source version will get 
+fleshed out).  
 
-Because of this, we need to have a customization layer for DCOS packages where we inject Cell-OS parameters (Basically, Zookeeper quorum, Mesos and Marathon URLs).
+Because of this, we need to have a customization layer for DCOS packages where 
+we inject Cell-OS parameters (Basically, Zookeeper quorum, Mesos and Marathon 
+URLs).
 
-This customization layer is embedded in the default values in the `config.json`. The cell-os DCOS wrapper takes these values and generates a template file which we then render json options of.
+This customization layer is embedded in the default values in the `config.json`.
+The cell-os DCOS wrapper takes these values and generates a template file which 
+we then render json options of.
 
 ```json
 ...
@@ -88,8 +98,10 @@ When running the Cell-OS DCOS wrapper( `./cell dcos...`), we:
 * check for the package being installed
 * if we have a customization file for it, we
     * render the configuration file for the specific cell
-    * modify the DCOS command to add the options that have our customizations: `./cell dcos package install X --options ....`
-* if we don't, we run the command as specified; some packages might work, some not
+    * modify the DCOS command to add the options that have our customizations: 
+    `./cell dcos package install X --options ....`
+* if we don't, we run the command as specified; some packages might work, some
+ not
 * we are working on a subset of available packages
 
 ## Core CellOS Services
@@ -192,7 +204,9 @@ curl -v -X DELETE http://hbase-rest.gw.c1.metal-cell.adobe.io/tsdb/schema
 
 ### Kafka
 
-Using the [mesos-kafka scheduler](https://github.com/mesos/kafka). For additional operations please consult the [upstream documentation](https://github.com/mesos/kafka#starting-and-using-1-broker)
+Using the [mesos-kafka scheduler](https://github.com/mesos/kafka). For 
+additional operations please consult the 
+[upstream documentation](https://github.com/mesos/kafka#starting-and-using-1-broker)
 
 ```bash
  
@@ -205,9 +219,11 @@ Using the [mesos-kafka scheduler](https://github.com/mesos/kafka). For additiona
 ```
 
 > NOTE  
-It takes a few seconds after installing the package until the Kafka scheduler becomes available in the load balancer.
-Running the following (`broker add`) too early may yield an HTTP 502 error.
-This is a known issue, but a harmless one. You can just retry or check the status of the kafka scheduler (see the dcos-cli documentation on how to query marathon from the CLI)
+It takes a few seconds after installing the package until the Kafka scheduler 
+becomes available in the load balancer. Running the following (`broker add`) 
+too early may yield an HTTP 502 error. This is a known issue, but a harmless 
+one. You can just retry or check the status of the kafka scheduler (see the 
+dcos-cli documentation on how to query marathon from the CLI).
 
 ```bash
 # Add a broker
@@ -215,8 +231,10 @@ This is a known issue, but a harmless one. You can just retry or check the statu
 ```
 * `--options` - note that we're passing the mount point when we add the broker. 
    * We'll later pick this behind the scenes 
-* `--constraints` - we want persistent workloads to go only to the stateful part of the cell (stateful-body)
-   * also we want to run one broker per node per cluster (nodes from multiple cluster may end up on the same node)
+* `--constraints` - we want persistent workloads to go only to the stateful part
+ of the cell (stateful-body)
+   * also we want to run one broker per node per cluster (nodes from multiple 
+   cluster may end up on the same node)
 
 ```bash
 # Start Broker !!!
@@ -247,9 +265,12 @@ curl http://opentsdb.gw.${cell_name}.metal-cell.adobe.io/api/version
 Navigating to http://hbase-master.gw.YOUR_CELL_NAME.metal-cell.adobe.io/ should show a few `tsdb*` tables. 
 
 > NOTE  
-You should now be able to point tcollectors to `opentsdb.gw.${cell_name}.metal-cell.adobe.io` to push data.
+You should now be able to point tcollectors to 
+`opentsdb.gw.${cell_name}.metal-cell.adobe.io` to push data.
 Note that this will route all that traffic through the gateway, though. 
-We'll likely provide a `/config` endpoint to retrieve the list of tsdb nodes, alternatively you can retrieve them through Marathon. However, note that these may change at runtime.
+We'll likely provide a `/config` endpoint to retrieve the list of tsdb nodes, 
+alternatively you can retrieve them through Marathon. However, note that these
+ may change at runtime.
 
 # Creating New Packages 
 
