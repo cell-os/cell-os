@@ -644,7 +644,7 @@ Host {ip_wildcard}
 
     def prepare_dcos_package_install(self, args):
 
-        if args[0] != 'package' or 'install' not in args:
+        if len(args) == 0 or args[0] != 'package' or 'install' not in args:
             return args
 
         # if we have an dcos package install command, check to see if we have
@@ -1014,4 +1014,3 @@ if __name__ == '__main__':
     # running in dev mode,
     # set the current directory work dir
     main(os.path.dirname(os.path.realpath(__file__)))
-
