@@ -569,28 +569,10 @@ Host {ip_wildcard}
             ))
             f.flush()
 
-    def ensure_migrated(self):
-        """
-        1.2.0 to 1.2.1 breaking ssh key change
-        FIXME: delete this in 1.3.0 timeframe, after ensuring clients migrate
-        """
-        for key_dir in [os.path.expanduser("~/.ssh/"), os.getenv("KEYPATH")]:
-            if key_dir != None:
-                old_key_file = os.path.join(key_dir, "{}.pem".format(self.full_cell))
-                new_key_file = self.tmp("{}.pem".format(self.full_cell))
-                if os.path.exists(old_key_file) and not os.path.exists(new_key_file):
-                    print "WARN: Migrating key file from {} to {}".format(
-                        old_key_file,
-                        new_key_file
-                    )
-                    shutil.move(old_key_file, new_key_file)
-                    os.chmod(new_key_file, 0400)
-
     def ensure_config(self):
         self.ensure_cell_config()
         self.ensure_dcos_config()
         self.ensure_ssh_config()
-        self.ensure_migrated()
 
     def ensure_dcos_config(self):
         """
