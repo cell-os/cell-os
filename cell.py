@@ -734,7 +734,10 @@ Host {ip_wildcard}
         # FIXME - because of some weird interactions (passing through the shell
         # twice), we can't use the subprocess.call([list]) form, it doesn't
         # work, and we have to quote the args for complex params
-        exit(subprocess.call(" ".join(["dcos"] + ['"' + arg + '"' for arg in dcos_args]), shell=True))
+        return subprocess.call(
+            " ".join(["dcos"] + ['"' + arg + '"' for arg in dcos_args]),
+            shell=True
+        )
 
     @check_cell_exists
     def run_scale(self):
@@ -939,54 +942,69 @@ windows:
             print "Failed to create proxy. See log at {}".format(logfile)
             print err.output
 
+def docopt_sub_args_hack(all_args, version):
+    # docopt hack to allow arbitrary arguments to docopt
+    # necessary to call dcos subcommand
+    if len(all_args) > 1 and all_args[1] == 'dcos':
+        args_to_pass = all_args[1:3]
+        dcos_args = all_args[3:]
+        idx = 0
+        while idx < len(dcos_args):
+            arg = dcos_args[idx]
+            if arg == "--backend" or arg == "--cell_config":
+                args_to_pass.append(dcos_args.pop(idx))
+                args_to_pass.append(dcos_args.pop(idx))
+            else:
+                idx = idx + 1
+        cell_args = docopt(__doc__, argv=args_to_pass, version=version)
+    else:
+        dcos_args = []
+        cell_args = docopt(__doc__, argv=all_args[1:], version=version)
+    return cell_args, dcos_args
 
-def main(work_dir=None):
-    colorama.init()
-    global DIR, TMPDIR, log
+def setup_dirs(work_dir):
+    global DIR, TMPDIR
     DIR = os.path.dirname(os.path.realpath(__file__))
+    TMPDIR = os.path.join(work_dir, ".generated")
+    mkdir_p(TMPDIR)
 
+def setup_logging(work_dir):
+    global DIR, TMPDIR, log
+    # Logs are in .generated. Only load logs after this is created
+    with open(os.path.join(DIR, 'config', 'logging.yaml'), 'r') as config:
+        log_dict = yaml.load(config)
+        log_path = log_dict["handlers"]["file"]["filename"]
+        log_dict["handlers"]["file"]["filename"] = os.path.join(
+            TMPDIR,
+            os.path.basename(log_path)
+        )
+        logging.config.dictConfig(log_dict)
     log = logging.getLogger('cell-cli')
 
+def get_version(work_dir = None):
     if work_dir is None:
         work_dir = os.path.expanduser('~/.cellos')
         import pkg_resources
         version = pkg_resources.get_distribution("cellos").version
     else:
         version = readify(DIR + '/VERSION').strip()
+    return version
 
-    TMPDIR = os.path.join(work_dir, ".generated")
-    mkdir_p(TMPDIR)
+def main(all_args, work_dir=None):
+    colorama.init()
+    setup_dirs(work_dir)
+    setup_logging(work_dir)
+    version = get_version(work_dir)
+    cell_args, dcos_args = docopt_sub_args_hack(all_args, version)
 
-    # Logs are in .generated. Only load logs after this is created
-    with open(os.path.join(DIR, 'config', 'logging.yaml'), 'r') as config:
-        logging.config.dictConfig(yaml.load(config))
-
-    # docopt hack to allow arbitrary arguments to docopt
-    # necessary to call dcos subcommand
-    if len(sys.argv) > 1 and sys.argv[1] == 'dcos':
-        args_to_pass = sys.argv[1:3]
-        rest_args = sys.argv[3:]
-        idx = 0
-        while idx < len(rest_args):
-            arg = rest_args[idx]
-            if arg == "--backend" or arg == "--cell_config":
-                args_to_pass.append(rest_args.pop(idx))
-                args_to_pass.append(rest_args.pop(idx))
-            else:
-                idx = idx + 1
-        arguments = docopt(__doc__, argv=args_to_pass, version=version)
-    else:
-        rest_args = []
-        arguments = docopt(__doc__, version=version)
-
-    if arguments["<cell-name>"] and len(arguments["<cell-name>"]) >= 22:
+    if cell_args["<cell-name>"] and len(cell_args["<cell-name>"]) >= 22:
         print(colored("<cell-name> argument must be < 22 chars long.\n"
                       "It is used to build other resource names (e.g. ELB name "
                       "is 32 chars max)", 'red'))
         sys.exit(1)
-    cell = Cell(arguments, version)
+    cell = Cell(cell_args, version)
     try:
-        cell.run(dcos=rest_args)
+        cell.run(dcos=dcos_args)
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
         print(colored("{}: {}".format(cell.command, e), 'red'))
@@ -995,4 +1013,4 @@ def main(work_dir=None):
 if __name__ == '__main__':
     # running in dev mode,
     # set the current directory work dir
-    main(os.path.dirname(os.path.realpath(__file__)))
+    main(sys.argv, os.path.dirname(os.path.realpath(__file__)))
