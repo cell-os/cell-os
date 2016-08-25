@@ -1,12 +1,21 @@
 # restricts access only to IPs from the zone bellow
 # source: https://inside.corp.adobe.com/itech/kc/IT01374.html
-geo $http_x_forwarded_for $is_admin_zone_ip {
+# We are using the proxy_recursive and proxy settings
+# that means we are checking the value against the first IP address in XFF
+# which is not in the proxy list of CIDRs
+# http://nginx.org/en/docs/http/ngx_http_geo_module.html
+geo $is_admin_zone_ip {
+    proxy_recursive;
     default 0;
     # IETF private ip ranges
+    proxy 10.0.0.0/8;
+    proxy 172.16.0.0/12;
+    proxy 127.127.0.0/16;
+    proxy 127.0.0.1/32;
     10.0.0.0/8 1;
     172.16.0.0/12 1;
     127.127.0.0/16 1;
-    127.0.0.1 1;
+    127.0.0.1/32 1;
 
     {{#.}}
     {{addr}}/{{mask}} 1;
