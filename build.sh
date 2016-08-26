@@ -25,11 +25,11 @@ mkdir build
 
 cp cell-os-base.yaml build/cell-os-base-${VERSION}.yaml
 ./cell build build --template-url $1
-cp .generated/build/elastic-cell.json \
+cp ~/.cellos/generated/build/elastic-cell.json \
   build/elastic-cell-${VERSION}.json
-cp .generated/build/elastic-cell-scaling-group.json \
+cp ~/.cellos/generated/build/elastic-cell-scaling-group.json \
   build/elastic-cell-scaling-group-${VERSION}.json
-cp .generated/build/seed.tar.gz build/seed-${VERSION}.tar.gz
+cp ~/.cellos/generated/build/seed.tar.gz build/seed-${VERSION}.tar.gz
 cp cell build/cell
 cp VERSION build/
 

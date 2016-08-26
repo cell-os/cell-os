@@ -317,9 +317,9 @@ Get detailed command description with 'dcos <command> --help'.
 
 > **NOTE**  
 You can still use the dcos-cli directly.  
-The actual configuration resides in `<cellos-home>/.generated/<cell-name>`
+The actual configuration resides in `$HOME/.cellos/generated/<cell-name>`
 ```
-cat .generated/c1/dcos.toml
+cat ~/.cellos/generated/c1/dcos.toml
 [core]
 mesos_master_url = "http://mesos.gw.c1.metal-cell.adobe.io"
 reporting = false
@@ -329,9 +329,9 @@ cell_url = "http://{service}.gw.c1.metal-cell.adobe.io"
 url = "http://marathon.gw.c1.metal-cell.adobe.io"
 [package]
 sources = [ "https://s3.amazonaws.com/saasbase-repo/cell-os/cell-os-universe-1.2-SNAPSHOT.zip"]
-cache = "/Users/clehene/metal-cell/cell-os/.generated/c1//dcos_tmp"
+cache = "/Users/clehene/.cellos/generated/c1/dcos_tmp"
 ```
-The universe repositories caches are in `<cell-home>/.generated/<cell-name>/dcos_tmp`
+The universe repositories caches are in `~/.cellos/generated//<cell-name>/dcos_tmp`
 
 For more information on how to use the dcos-cli use the help or see the 
 [dcos-cli official documentation](https://docs.mesosphere.com/administration/introcli/cli/).
@@ -366,12 +366,12 @@ For example, you can use curl with `--proxy socks5h://localhost:1234` to access 
 
 ## Advanced
 
-# `.generated` directory
-The `.generated` contains local cell configurations and caches.
+# `~/.cellos/generated` directory
+The `~/.cellos/generated` contains local cell configurations and caches.
 
 The structure is
 ```
-.generated/
+~/.cellos/generated/
   <cell-1>
   <cell-2>
   ...

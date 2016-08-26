@@ -369,7 +369,7 @@ SSH acccess happens through a bastion host.
 When creating the cell a dedicated keypair and a local private `.pem` are
 generated. The private key is placed in:
 
-    .generated/<cell-name>/cell-os--<cell-name>.pem
+    ~/.cellos/generated/<cell-name>/cell-os--<cell-name>.pem
 
 Existing or new keys can be used (imported) by placing them in this location.
 You cannot access a cell without first importing the creator's key in this
@@ -450,8 +450,8 @@ membrane:
     - 99-cell
 ```
 
-Cell level caches, metadata and configurations are stored in `.generated`.
-See the CLI advanced section on [.generated](userguide.md#generated) for
+Cell level caches, metadata and configurations are stored in `~/.cellos/generated`.
+See the CLI advanced section on [~/.cellos/generated](userguide.md#generated) for
 more information.
 
 

@@ -40,6 +40,6 @@ Similar URLs should work fo for marathon, zookeeper, hdfs, etc.
 `./cell` commands should work, once you copy the `.pem` coresponding
 to the ec2 keypair us used in 
 
-    <cell-home>/.generated/<cell-name>/cell-os--<cell-name>.pem
+    $HOME/.cellos/generated/<cell-name>/cell-os--<cell-name>.pem
 
 

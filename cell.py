@@ -645,7 +645,7 @@ Host {ip_wildcard}
         # to work around for Mesos-DNS, we need to create an options file
         # for each DCOS package we install
         # this file is rendered into
-        # .generated/<cell-name>/<package>_dcos_options.json
+        # ~/.cellos/generated/<cell-name>/<package>_dcos_options.json
 
         # DCOS can describe a package configuration schema, with default values
         # Take it and recreate an actual configuration out of it
@@ -962,15 +962,25 @@ def docopt_sub_args_hack(all_args, version):
         cell_args = docopt(__doc__, argv=all_args[1:], version=version)
     return cell_args, dcos_args
 
-def setup_dirs(work_dir):
+def setup_dirs():
     global DIR, TMPDIR
     DIR = os.path.dirname(os.path.realpath(__file__))
-    TMPDIR = os.path.join(work_dir, ".generated")
+    TMPDIR = os.path.expanduser("~/.cellos/generated")
+    # TODO: migration 1.2.x - 1.3.0, move the temporary data folder to user
+    # home
+    # Delete this in the 1.3.x - 1.4.x timeframe
+    def migrate_tmp_dir(old, new):
+        if os.path.isdir(old):
+            if os.path.isdir(new): shutil.rmtree(new)
+            shutil.copytree(old, new)
+            shutil.rmtree(old)
+    OLDTMPDIR = os.path.join(DIR, ".generated")
+    migrate_tmp_dir(OLDTMPDIR, TMPDIR)
     mkdir_p(TMPDIR)
 
-def setup_logging(work_dir):
+def setup_logging():
     global DIR, TMPDIR, log
-    # Logs are in .generated. Only load logs after this is created
+    # Logs are in ~/.cellos/generated. Only load logs after this is created
     with open(os.path.join(DIR, 'config', 'logging.yaml'), 'r') as config:
         log_dict = yaml.load(config)
         log_path = log_dict["handlers"]["file"]["filename"]
@@ -981,20 +991,14 @@ def setup_logging(work_dir):
         logging.config.dictConfig(log_dict)
     log = logging.getLogger('cell-cli')
 
-def get_version(work_dir = None):
-    if work_dir is None:
-        work_dir = os.path.expanduser('~/.cellos')
-        import pkg_resources
-        version = pkg_resources.get_distribution("cellos").version
-    else:
-        version = readify(DIR + '/VERSION').strip()
-    return version
+def get_version():
+    return readify(DIR + '/VERSION').strip()
 
-def main(all_args, work_dir=None):
+def main(all_args):
     colorama.init()
-    setup_dirs(work_dir)
-    setup_logging(work_dir)
-    version = get_version(work_dir)
+    setup_dirs()
+    setup_logging()
+    version = get_version()
     cell_args, dcos_args = docopt_sub_args_hack(all_args, version)
 
     if cell_args["<cell-name>"] and len(cell_args["<cell-name>"]) >= 22:
@@ -1013,4 +1017,4 @@ def main(all_args, work_dir=None):
 if __name__ == '__main__':
     # running in dev mode,
     # set the current directory work dir
-    main(sys.argv, os.path.dirname(os.path.realpath(__file__)))
+    main(sys.argv)
