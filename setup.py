@@ -33,7 +33,7 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            'cell=cell:main',
+            'cell=cell:entrypoint',
         ],
     }
 )

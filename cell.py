@@ -1014,6 +1014,9 @@ def main(all_args):
         print(colored("{}: {}".format(cell.command, e), 'red'))
         sys.exit(1)
 
+def entrypoint():
+    main(sys.argv)
+
 if __name__ == '__main__':
     # running in dev mode,
     # set the current directory work dir
