@@ -395,7 +395,7 @@ errors.
 Make sure you have all 3 slashes in the scheme: `file:///`.  
 Make sure to put the root of the repo path.  
 If you add garbage to the repo list you can clean it up by editing
-`.generated/<cell-name>/dcos.toml`
+`~/.cellos/generated/<cell-name>/dcos.toml`
 
 Run package update
 
