@@ -8,3 +8,4 @@ deploy/aws/build
 patches
 env
 virtualenv
+MANIFEST
