@@ -366,9 +366,9 @@ class Cell(object):
     def run(self, **kwargs):
         method = getattr(self, 'run_%s' % self.command)
         if inspect.getargspec(method).keywords is not None:
-            return method(**kwargs)
+            method(**kwargs)
         else:
-            return method()
+            method()
 
     def build_seed_config(self):
         def parse_nets_json(json_text):
@@ -734,14 +734,10 @@ Host {ip_wildcard}
         # FIXME - because of some weird interactions (passing through the shell
         # twice), we can't use the subprocess.call([list]) form, it doesn't
         # work, and we have to quote the args for complex params
-        proc = subprocess.Popen(
+        return subprocess.call(
             " ".join(["dcos"] + ['"' + arg + '"' for arg in dcos_args]),
-            shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+            shell=True
         )
-        out, err = proc.communicate()
-        print out
-        print err
-        return proc.returncode, out, err
 
     @check_cell_exists
     def run_scale(self):
