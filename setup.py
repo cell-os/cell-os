@@ -13,7 +13,7 @@ version = open(os.path.join(here, 'VERSION')).readlines()[0].strip()
 def get_all_files(data_dir):
     data_files = [[os.path.join(root, f) for f in files]
                 for root, dirs, files in os.walk(data_dir)]
-    data_files = [item.replace(data_dir, '') for l in data_files for item in l]
+    data_files = [item.replace(data_dir, '').lstrip('/') for l in data_files for item in l]
     return data_files
 
 setup(
