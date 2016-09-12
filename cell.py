@@ -629,10 +629,11 @@ Host {ip_wildcard}
             )
             f.flush()
 
-    def prepare_dcos_package_install(self, args):
+    def prepare_dcos_package_install(self, _args):
+        args = list(_args)
 
         if len(args) == 0 or args[0] != 'package' or 'install' not in args:
-            return args
+            return args, None, None
 
         # if we have an dcos package install command, check to see if we have
         # an options file - supported package
@@ -640,11 +641,11 @@ Host {ip_wildcard}
         if package[0:2] == "--":
             # can't find package, return
             print "Unsupported package or bad command: {}".format(" ".join(args))
-            return args
+            return args, None, None
 
         if "--cli" in args and not "--app" in args:
             print "Not using options for cli install"
-            return args
+            return args, None, None
 
         # prepare dcos packages
         # to work around for Mesos-DNS, we need to create an options file
@@ -654,7 +655,6 @@ Host {ip_wildcard}
 
         # DCOS can describe a package configuration schema, with default values
         # Take it and recreate an actual configuration out of it
-
         pkg = dcos.package.resolve_package(package)
         if pkg is None:
             raise ValueError('package "{}" not found. Check spelling or update '
@@ -682,56 +682,41 @@ Host {ip_wildcard}
                                             ".gw.{{cell}}.metal-cell.adobe.io")
             return dest
 
-        opts_template = None
         template = config_remapper(pkg_config)
-        if len(template) > 0:
-            opts_template = self.tmp("{}.json.template".format(package))
-            with open(opts_template, "wb+") as tf:
-                tf.write(json.dumps(template, indent=4))
-
-        if opts_template == None or not os.path.exists(opts_template):
-            print "Unsupported package or bad command: {}".format(str(package))
-            return args
-
-        print "Found supported package {}, rendering options file".format(package)
-        options_file = self.tmp("{}.json".format(package))
-
-        cell_yaml = yaml.load(readify(self.tmp("config.yaml")))
+        cell_config_yaml = yaml.load(readify(self.tmp("config.yaml")))
         renderer = Renderer(missing_tags=DECODE_ERRORS)
-        template = readify(opts_template)
         try:
-            rendered_options = renderer.render(template, cell_yaml)
+            package_cell_options = json.loads(renderer.render(
+                json.dumps(template, indent=2), 
+                cell_config_yaml
+            ))
         except KeyNotFoundError as e:
-            input = json.dumps(cell_yaml, indent=2)
+            input = json.dumps(cell_config_yaml, indent=2)
             raise Exception("Failed to render template {} \n using \n{}\n{}"
                             .format(template, input, e))
-
-        with open(options_file, "wb+") as outf:
-            outf.write(rendered_options)
-            outf.flush()
+        options_file = self.tmp("{}.json".format(package))
 
         # try to append options to the command
-        has_options = '--options' in args
-        if has_options:
+        if '--options' in args:
             print "Command already contains --options, merging options file !!!"
-            cell_json = json.loads(readify(options_file))
             opts_file_index = args.index("--options") + 1
-            user_json = json.loads(readify(args[opts_file_index]))
-            aggregated_json = deep_merge(dict(cell_json), user_json)
-            with open(options_file, "wb+") as outf:
-                outf.write(json.dumps(aggregated_json, indent=4))
+            user_options = json.loads(readify(args[opts_file_index]))
+            aggregated_options = deep_merge(
+                dict(package_cell_options), user_options)
             args[opts_file_index] = options_file
         else:
             print "Adding package install options"
-            args.insert(-1, "--options=" + self.tmp("{}.json".format(package)))
+            aggregated_options = package_cell_options
+            args.insert(-1, "--options=" + options_file)
+
+        with open(options_file, "wb+") as outf:
+            outf.write(json.dumps(aggregated_options, indent=4))
+            outf.flush()
 
         # display the contents of the config file in its final form
-        print("Options file content:")
-        with open(options_file, "r") as inf:
-            print(inf.read())
-
-        return args
-
+        print("Options file content: \n{}".format(
+            json.dumps(aggregated_options, indent=4)))
+        return args, aggregated_options, options_file
 
     # we wrap the dcos command with the gateway configuration
     @check_cell_exists
@@ -740,7 +725,8 @@ Host {ip_wildcard}
         dcos_args = kwargs["dcos"]
         log.debug("dcos command args {}".format(dcos_args))
         os.environ["DCOS_CONFIG"] = self.tmp("dcos.toml")
-        dcos_args = self.prepare_dcos_package_install(dcos_args)
+        dcos_args, options, options_file = \
+            self.prepare_dcos_package_install(dcos_args)
 
         command = " ".join(["dcos"] + dcos_args)
         log.debug("Running {}...".format(command))
