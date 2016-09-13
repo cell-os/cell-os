@@ -26,6 +26,7 @@
 		- [HTTP access to S3 folder](#http-access-to-s3-folder)
 	- [Docker private registries in Marathon](#docker-private-registries-in-marathon)
 - [Configuration](#configuration)
+  - [Configuration file](#configuration-file)
 - [Access from your cell](#access-from-your-cell)
 	- [Aceessing docker private registries with Marathon](#aceessing-docker-private-registries-with-marathon)
 
@@ -436,6 +437,38 @@ The typical configuration override order is:
 3. argument
 
 Hence, the cli arguments have the highest priority.  
+
+## Configuration file
+
+This configuration file needs to exist before you can use cell commands. 
+
+The format is [Python ConfigParser format](https://docs.python.org/2/library/configparser.html), which is very similar to Windows INI files. 
+
+You can specify one or more sections, each containing variables pertaining to the AWS account, region, etc:
+
+```
+[default]
+aws_access_key_id=XXXXX
+aws_secret_access_key=XXXXXXXXX
+region=us-east-1
+saasbase_access_key_id=XXX
+saasbase_secret_access_key=XXXXX
+
+[prod1]
+aws_....
+```
+
+The default configuration section is named "default". To pick up values from another section, you can pass a `--cell_config prod1` option to the cell CLI command
+
+### Configuration file options
+
+- `proxy_port`: the proxy port to use for ssh proxy access to internal services
+- `saasbase_access_key_id` / `saasbase_secret_access_key`: the access / secret key to download Cell provisioning files from the repository
+- `repository`: repository to download the provisioning files from
+- `net_whitelist_url`: an url that points to a net whitelist JSON containing the whitelisted subnets which can access cell services
+- `ssh_user`: used for ssh connection to cell machines
+- `ssh_timeout`
+- `ssh_options`
 
 ## Cell deployment configuration
 The deployment configuration is loaded from `cell-os/deploy/config/cell.yaml`:
