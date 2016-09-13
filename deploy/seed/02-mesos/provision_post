@@ -56,6 +56,11 @@ EOT
 # TODO remove after CELL-368
 mkdir -p /var/lib/mesos
 
+# FIXME: Workaround for MESOS-3711
+# When running workloads which need to connect to HDFS, the workloads will fail if ran in a Docker container that specifies an USER statement
+# the Hadoop user needs to exist on all machines
+adduser hadoop
+
 if [[ -f /opt/cell/etc/roles/stateless-body ]]; then
   provision puppet "base::tuning,mesos,mesos::slave,mesos::master"
 elif [[ -f /opt/cell/etc/roles/stateful-body || -f /opt/cell/etc/roles/membrane ]]; then
