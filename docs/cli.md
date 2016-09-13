@@ -3,6 +3,7 @@
  - [Installation](#installation)
   - [Docker](#docker)
   - [Classic](#classic)
+ - [Configuration file](#configuration-file)
  - [Environment](#environment)
  - [Usage](#usage)
  - [dcos-cli integration](#dcos-cli-integration)
@@ -67,6 +68,8 @@ On OSX / Windows if your host sleeps, time may get out of sync and cause AWS API
 
   \* We've recently added the pip functionality and has so far worked well. If you have any issues
  please report them promptly.
+
+## Configuration file - please see the [userguide](userguide.md#configuration-file)
 
 ## Environment
 
@@ -370,6 +373,7 @@ For example, you can use curl with `--proxy socks5h://localhost:1234` to access 
 The `~/.cellos/generated` contains local cell configurations and caches.
 
 The structure is
+
 ```
 ~/.cellos/generated/
   <cell-1>
