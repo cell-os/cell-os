@@ -25,6 +25,7 @@
 	- [S3](#s3)
 		- [HTTP access to S3 folder](#http-access-to-s3-folder)
 	- [Docker private registries in Marathon](#docker-private-registries-in-marathon)
+	- [Access to your cell from another machine](#access-to-your-cell-from-another-machine)
 - [Configuration](#configuration)
   - [Configuration file](#configuration-file)
 - [Access from your cell](#access-from-your-cell)
@@ -423,6 +424,22 @@ https://mesosphere.github.io/marathon/docs/native-docker-private-registry.html
 
 Once you packaged them you can upload and use them as described in the S3 HTTP
 section.
+
+## Access to your cell from another machine
+
+The cell cli can "recreate" local cache files that it need to be fully functional on an existing cell (that was not created on the same machine). 
+
+The supported usecase is when a product/team shares a bigger cell and they want to share control (for operational purposes). 
+
+When a `cell create foo` command is ran, an unique SSH pem key is generated, and saved in the `~/.cellos/generated/FOO/cell-os--FOO.pem` file. 
+
+On another machine, get this key (from a secret store for example), create the directory and save the file there: 
+
+```
+    mkdir -p ~/.cellos/generated/FOO
+    touch ~/.cellos/generated/FOO/cell-os--FOO.pem
+```
+
 
 # Configuration
 
