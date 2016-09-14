@@ -1,0 +1,5 @@
+#!/bin/bash
+#transforms yaml file (stdin) to json(stdout)
+set -o pipefail
+
+python -c 'import sys, yaml, json; json.dump(yaml.load(sys.stdin), sys.stdout, indent=4)' | cat "$@"

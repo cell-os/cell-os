@@ -1,0 +1,5 @@
+#!/bin/bash
+#displays the central shared location path
+source /etc/profile.d/cellos.sh
+path=$1
+[[ "${cell_backend}" == "aws" ]] && echo -n "s3://${cell_bucket_name}/${full_cell_name}${path}"

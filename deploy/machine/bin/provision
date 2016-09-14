@@ -1,0 +1,29 @@
+#!/bin/bash
+# executes a provision command with retries on failure
+source /etc/profile.d/cellos.sh
+
+provision_with_retry() {
+  local roles=${1?"usage provision_with_retry <roles> [retries]"}
+  local module_name=${2:${roles}}
+  local max_attempts=${3:-5}
+  local attempt=0
+  local status=-1
+  until [[ $status == 0 ]]; do
+    bash /usr/local/bin/saasbase_installer -v -d /opt/cell -m /opt/cell/cluster/puppet/modules run-puppet /opt/cell/cluster --roles $roles
+    status=$?
+    attempt=$(($attempt + 1))
+    if [[ $attempt -gt $max_attempts ]]; then
+      exit 1
+    fi
+    if [[ $status != 0 ]]; then
+      echo "Retry ${1} provisioning step: exit code $status, attempt $attempt / $max_attempts"
+      report_status "${module_name} retry"
+    fi
+  done
+}
+
+if [[ $1 == "puppet" ]]; then
+  shift
+  AWS_ACCESS_KEY_ID="${SAASBASE_ACCESS_KEY_ID}" AWS_SECRET_ACCESS_KEY="${SAASBASE_SECRET_ACCESS_KEY}" \
+  provision_with_retry $@
+fi

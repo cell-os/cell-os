@@ -1,5 +1,4 @@
 #!/bin/bash
-# TODO add a header describing the overall idea and plan of improvement (proper cloud-init, etc.)
 # default images mount the first ephemeral disk to /mnt
 # this is from cloud-init config that comes with the cloud-init.rpm
 umount /mnt
@@ -7,6 +6,10 @@ umount /mnt
 echo "UTC" > /etc/timezone
 ln -sf /usr/share/zoneinfo/UTC /etc/localtime
 setenforce 0
+
+yum install -y curl wget ruby ruby-devel kpartx parted cifs-utils
+wget https://github.com/stedolan/jq/releases/download/jq-1.5/jq-linux64 -O /usr/local/bin/jq
+chmod +x /usr/local/bin/jq
 
 # install mustache gem for easy templating
 gem install mustache
@@ -17,6 +20,21 @@ python get-pip.py
 pip install --upgrade "certifi==2015.04.28" "pip==8.1.0" "awscli==1.9.21" "pystache==0.5.4" "pyyaml"
 
 source /etc/profile.d/cellos.sh
+
+AWS_ACCESS_KEY_ID="${SAASBASE_ACCESS_KEY_ID}" AWS_SECRET_ACCESS_KEY="${SAASBASE_SECRET_ACCESS_KEY}" aws s3 cp ${repository}/cell-os/seed-${cellos_version}.tar.gz /opt/cell
+# attempt to download seed from local bucket as well
+[[ "${cell_backend}" == "aws" ]] && aws s3 cp s3://${cell_bucket_name}/${full_cell_name}/shared/cell-os/seed.tar.gz /opt/cell
+# unarchive files
+mkdir -p /opt/cell/seed
+pushd /opt/cell
+rm -rf seed
+[[ -f seed-${cellos_version}.tar.gz ]] && tar zxf seed-${cellos_version}.tar.gz
+[[ -f seed.tar.gz ]] && tar zxf seed.tar.gz
+rm -rf seed*.tar.gz
+cp -a /opt/cell/seed/bin/* /usr/local/bin
+chmod +x /usr/local/bin/*
+popd
+
 # export vars
 echo "export number_of_disks=$(/usr/local/bin/detect-and-mount-disks)" >> /etc/profile.d/cellos.sh
 source /etc/profile.d/cellos.sh

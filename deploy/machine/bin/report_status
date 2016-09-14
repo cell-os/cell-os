@@ -1,0 +1,14 @@
+#!/bin/bash
+#copies an updated status file in a central location
+source /etc/profile.d/cellos.sh
+mkdir -p /opt/cell/status
+
+message=$@
+ts=$(date +"%s")
+status_file=/opt/cell/status/${instance_id}.json
+
+echo -e "${message} ${ts}" | tee -a $status_file
+
+filetool --put $status_file /shared/status/${instance_id} \
+    --metadata-directive REPLACE --cache-control max-age=0,public \
+    --expires 2000-01-01T00:00:00Z &>/dev/null

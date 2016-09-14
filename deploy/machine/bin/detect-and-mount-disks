@@ -1,0 +1,34 @@
+#!/bin/bash
+#detects and mounts /dev/sdx disks on an instance
+source /etc/profile.d/cellos.sh
+if [[ "${cell_backend}" == "aws" ]]; then
+deviceslist=('/dev/xvdb' '/dev/xvdc' '/dev/xvdd' '/dev/xvde' '/dev/xvdf' '/dev/xvdg' '/dev/xvdh' '/dev/xvdi' '/dev/xvdj' '/dev/xvdk' '/dev/xvdl' '/dev/xvdm' '/dev/xvdn' '/dev/xvdo' '/dev/xvdp' '/dev/xvdq' '/dev/xvdr' '/dev/xvds' '/dev/xvdt' '/dev/xvdu' '/dev/xvdv' '/dev/xvdw' '/dev/xvdx' '/dev/xvdy' '/dev/xvdz')
+for device in ${deviceslist[@]}; do
+    if ([ -b $device ]) then
+        actual_devices=( "${actual_devices[@]}" $device )
+    fi
+done
+
+n=0
+for device in "${actual_devices[@]}"; do
+    n=`expr $n + 1`
+    if [ ! -b ${device}1 ]; then
+        echo "Creating partition on ${device}" >&2
+        parted -s -a optimal $device mklabel gpt -- mkpart primary xfs 1 -1 >&2
+        partprobe $device >&2 || true
+        mkfs.xfs ${device}1 >&2 || true
+    fi
+    if mountpoint -q -- "/mnt/data_${n}"; then
+        echo "/mnt/data_${n} is already mounted" >&2
+    else
+        echo "/mnt/data_${n} is not a mountpoint" >&2
+        mkdir -p -m 755 /mnt/data_${n} >&2
+        mount ${device}1 /mnt/data_${n} >&2 || true
+        echo "${device}1 /mnt/data_${n} xfs rw,relatime,attr2,inode64,noquota,nofail 0 0" >> /etc/fstab
+    fi
+
+    mkdir -p -m 755 /mnt/data_${n}/{hadoop_data,kafka_data}
+    chown -R hadoop:hadoop /mnt/data_${n}/{hadoop_data,kafka_data}
+done
+echo $n
+fi
