@@ -46,10 +46,12 @@ def make_multi_part_user_data(cloud_config, user_data):
         (cloud_config, "cloud-config", "cloud-config"),
         (user_data, "x-shellscript", "user-data.sh")
     ]:
-        content = f[0]
+        if f[0] is None:
+            continue
+        content = readify(f[0])
         mime_type = f[1]
         attachment = f[2]
-        message = MIMEText(readify(content), mime_type, "utf-8")
+        message = MIMEText(content, mime_type, "utf-8")
         message.add_header("Content-Disposition",
                            "attachment; filename={}".format(attachment))
         combined_message.attach(message)
@@ -357,7 +359,7 @@ export aws_wait_handle="{{aws_wait_handle}}"
     IamInstanceProfile=If("HasIamInstanceProfile", Ref(iam_instance_profile), Ref("AWS::NoValue")),
     AssociatePublicIpAddress=Ref(associate_public_ip_address),
     InstanceType=Ref(instance_type),
-    UserData=make_multi_part_user_data(DIR + "/../machine/cloud-config", user_data)
+    UserData=make_multi_part_user_data(None, user_data)
 ))
 
 print(t.to_json(indent=2))

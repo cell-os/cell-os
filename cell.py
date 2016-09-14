@@ -403,6 +403,7 @@ class Cell(object):
     def build_seed(self):
         shutil.rmtree(self.tmp("seed"), ignore_errors=True)
         shutil.copytree(DIR + "/deploy/seed", self.tmp("seed"))
+        shutil.copytree(DIR + "/deploy/machine/bin", self.tmp("seed/bin"))
         self.build_seed_config()
         with sh.pushd(self.tmp("")):
             tar_zcf(["seed.tar.gz", "seed"])
@@ -687,7 +688,7 @@ Host {ip_wildcard}
         renderer = Renderer(missing_tags=DECODE_ERRORS)
         try:
             package_cell_options = json.loads(renderer.render(
-                json.dumps(template, indent=2), 
+                json.dumps(template, indent=2),
                 cell_config_yaml
             ))
         except KeyNotFoundError as e:

@@ -1,0 +1,4 @@
+#!/bin/bash
+source /etc/profile.d/cellos.sh
+[[ $cell_backend == "aws" ]] && cfn-signal -e 0 -r "Stack setup complete" "${aws_wait_handle}"
+exit 0

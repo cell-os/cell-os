@@ -1,0 +1,4 @@
+#!/bin/bash
+source /etc/profile.d/cellos.sh
+[[ "${cell_backend}" == "aws" ]] && cfn-signal -e 1 -r "$1" "$aws_wait_handle"
+exit 1

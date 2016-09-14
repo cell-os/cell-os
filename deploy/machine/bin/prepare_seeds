@@ -1,0 +1,23 @@
+#!/bin/bash
+#sets up the seed and provisioning folder (/opt/cell)
+#copies the seed profile, versions bundle from the central shared location
+source /etc/profile.d/cellos.sh
+mkdir -p /opt/cell/etc/roles /opt/cell/cluster/puppet/modules /opt/cell/puppet/profiles /opt/cell/seed
+download_cell_profile() {
+  AWS_ACCESS_KEY_ID="${SAASBASE_ACCESS_KEY_ID}" AWS_SECRET_ACCESS_KEY="${SAASBASE_SECRET_ACCESS_KEY}" aws s3 cp ${repository}/cell-os/${cellos_version}.yaml /opt/cell/puppet/profiles
+  # attempt to override the profile from the local bucket
+  filetool --get /shared/cell-os/${cellos_version}.yaml /opt/cell/puppet/profiles/
+  echo ${cellos_version} > /opt/cell/cluster/profile
+  touch /opt/cell/cluster/cluster.yaml
+}
+# download cell profile so we can get the saasbase installer version
+download_cell_profile
+touch /opt/cell/etc/roles/${cell_role}
+saasbase_version=$(cat /opt/cell/puppet/profiles/${cellos_version}.yaml | yaml2json | jq -r '.["saasbase_deployment::version"]')
+echo "export saasbase_version=${saasbase_version}" >> /etc/profile.d/cellos.sh
+# download sb installer
+curl -o /usr/local/bin/saasbase_installer https://s3.amazonaws.com/${repository:5}/saasbase_installer${saasbase_version}
+chmod +x /usr/local/bin/saasbase_installer
+
+AWS_ACCESS_KEY_ID="${SAASBASE_ACCESS_KEY_ID}" AWS_SECRET_ACCESS_KEY="${SAASBASE_SECRET_ACCESS_KEY}" bash /usr/local/bin/saasbase_installer -d /opt/cell fetch ${saasbase_version}
+download_cell_profile

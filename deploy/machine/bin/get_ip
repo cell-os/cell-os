@@ -1,0 +1,7 @@
+#!/bin/bash
+#gets the local machine ip
+source /etc/profile.d/cellos.sh
+
+if [[ "$cell_backend" == "aws" ]]; then
+  echo $(curl -fsSL http://169.254.169.254/latest/meta-data/local-ipv4)
+fi

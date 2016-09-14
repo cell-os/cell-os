@@ -1,0 +1,33 @@
+#!/bin/bash
+#implements operations on the central shared file location: get, put, sync, touch; transforms logical paths to physical paths 
+source /etc/profile.d/cellos.sh
+case "$1" in
+  --touch)
+    dest=$2
+    [[ "${cell_backend}" == "aws" ]] && aws s3api put-object --bucket ${cell_bucket_name} --key ${full_cell_name}${dest}
+  ;;
+  --sync)
+    src=$2
+    full_dest=$3
+    [[ "${cell_backend}" == "aws" ]] && aws s3 sync --delete "${src}" "${full_dest}"
+  ;;
+  --count)
+    path=$2
+    [[ "${cell_backend}" == "aws" ]] && aws s3api list-objects --bucket ${cell_bucket_name} --prefix ${full_cell_name}${path} | jq -r '.Contents | length'
+  ;;
+  --put)
+    shift; src=$1
+    shift; dest=$1
+    shift
+    [[ "${cell_backend}" == "aws" ]] && aws s3 cp ${src} s3://${cell_bucket_name}/${full_cell_name}${dest} "$@"
+  ;;
+  --get)
+    src=$2
+    dest=$3
+    [[ "${cell_backend}" == "aws" ]] && aws s3 cp s3://${cell_bucket_name}/${full_cell_name}${src} ${dest}
+  ;;
+  *)
+  echo "filetool [--sync|--touch] [src] [dest]"
+  exit 1
+  ;;
+esac
