@@ -6,7 +6,6 @@ if [[ -f /opt/cell/etc/roles/stateful-body || -f /opt/cell/etc/roles/stateless-b
     mesos_port_range="[4369-4369,8081-32000,80,443]"
 fi
 
-export zk=$(zk-list-nodes)
 cat >>/opt/cell/cluster/cluster.yaml <<-EOT
 mesos::zookeeper: zk://$zk/mesos
 mesos::repo: "mesosphere"
