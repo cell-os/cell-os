@@ -12,7 +12,7 @@ nn2_host: ${nn2_host}
 zk_quorum:
 EOT
 
-zk-list-nodes | sed 's/,/\n/g' | sed 's/:.*$//g' | sed 's/^/-  /' >> /opt/cell/cluster/cluster.yaml
+echo $zk | sed 's/,/\n/g' | sed 's/:.*$//g' | sed 's/^/-  /' >> /opt/cell/cluster/cluster.yaml
 
 cat >> /opt/cell/cluster/cluster.yaml <<-EOT
 hadoop.dfs.nameservice_id: "${cell_name}"

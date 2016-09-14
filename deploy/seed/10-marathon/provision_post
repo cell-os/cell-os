@@ -1,7 +1,6 @@
 #!/bin/bash
 
 module_name="10-marathon"
-export zk=$(zk-list-nodes)
 
 if [[ -f /opt/cell/etc/roles/stateless-body ]]; then
   cat >>/opt/cell/cluster/cluster.yaml <<-EOT

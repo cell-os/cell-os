@@ -1,0 +1,96 @@
+#!/usr/bin/env python
+"""
+Waits until a ZK Exhibitor cluster is ready
+"""
+
+from __future__ import print_function
+
+import os
+import requests
+import subprocess
+import sys
+import time
+from kazoo.client import KazooClient
+import logging
+logging.basicConfig(level=logging.ERROR)
+
+MIN_CLUSTER_SIZE = 3
+NUM_SUCCESS_ATTEMPTS = 10
+SLEEP_BETWEEN_ATTEMPTS = 0.5
+ZK_CONNECT_TIMEOUT = 0.5
+
+def get_base_url():
+    command = ['bash', '-c', 'source /etc/profile.d/cellos.sh && env']
+    proc = subprocess.Popen(command, stdout=subprocess.PIPE)
+    for line in proc.stdout:
+        (key, _, value) = line[:-1].partition("=")
+        os.environ[key] = value
+    proc.communicate()
+    return os.environ["zk_base_url"]
+
+def servers_to_str(servers, port):
+    return ",".join([s + ":" + str(port) for s in servers])
+
+def list_cluster(url):
+    """returns a tuple of ([servers], port, error)"""
+    try:
+        result = requests.get(
+            url + "/cluster/list",
+            headers={"Accept": "application/json"}
+        )
+        cluster = result.json()
+        return cluster["servers"], cluster["port"], False
+    except:
+        # not found
+        return [], 0, True
+
+
+def is_zk_node_up(server, port, timeout):
+    """Attempts to connect to the specified node and reports success """
+    client = KazooClient(hosts=server + ":" + str(port))
+    ev = client.start_async()
+    ev.wait(timeout=timeout)
+    is_up = client.connected
+    client.stop()
+    return is_up
+
+def wait_until_cluster_stable(base_url, min_size, num_success_attempts,
+                              sleep_time_s, zk_connect_timeout_s):
+    """
+    Blocks until multiple successive cluster listings render all servers up
+    and in the same order (varying order means Exhibitor is still shuffling
+    things around
+    :param base_url: Exhibitor base url
+    :param min_size: the minimum number of nodes that must be up
+    :param num_success_attempts: the number of consecutive successful attempts
+    :param sleep_time_s seconds to sleep between attempts
+    :param zk_connect_timeout_s zk connect timeout
+    :return: nothing is being returned
+    """
+    success_attempts = 0
+    servers_previous = []
+    while success_attempts < num_success_attempts:
+        servers, port, error = list_cluster(base_url)
+        if error or len(servers) < min_size:
+            continue
+        servers_status = [is_zk_node_up(server, port, zk_connect_timeout_s)
+                          for server in servers]
+        if len([s for s in servers_status if s is True]) >= min_size:
+            if servers_previous != servers:
+                success_attempts = 0
+                servers_previous = list(servers)
+            else:
+                success_attempts += 1
+        time.sleep(sleep_time_s)
+    print()
+
+
+def main():
+    base_url = get_base_url()
+    # always check
+    wait_until_cluster_stable(base_url, MIN_CLUSTER_SIZE,
+                                NUM_SUCCESS_ATTEMPTS, SLEEP_BETWEEN_ATTEMPTS,
+                                ZK_CONNECT_TIMEOUT)
+
+if __name__ == "__main__":
+    main()
