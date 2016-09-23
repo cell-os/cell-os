@@ -437,11 +437,13 @@ When a `cell create foo` command is ran, an unique SSH pem key is generated, and
 saved in the `~/.cellos/generated/FOO/cell-os--FOO.pem` file.
 
 On another machine, get this key (from a secret store for example), create the
-directory and save the file there:
+directory and save the file there; ensure the correct permissions are set for
+the key, before SSH-ing into servers:
 
 ```
     mkdir -p ~/.cellos/generated/FOO
     touch ~/.cellos/generated/FOO/cell-os--FOO.pem
+    chmod 0600 ~/.cellos/generated/FOO/cell-os--FOO.pem
 ```
 
 
