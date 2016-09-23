@@ -427,13 +427,17 @@ section.
 
 ## Access to your cell from another machine
 
-The cell cli can "recreate" local cache files that it need to be fully functional on an existing cell (that was not created on the same machine). 
+The cell cli can "recreate" local cache files that it need to be fully functional
+on an existing cell (that was not created on the same machine).
 
-The supported usecase is when a product/team shares a bigger cell and they want to share control (for operational purposes). 
+The supported usecase is when a product/team shares a bigger cell and they want
+to share control (for operational purposes).
 
-When a `cell create foo` command is ran, an unique SSH pem key is generated, and saved in the `~/.cellos/generated/FOO/cell-os--FOO.pem` file. 
+When a `cell create foo` command is ran, an unique SSH pem key is generated, and
+saved in the `~/.cellos/generated/FOO/cell-os--FOO.pem` file.
 
-On another machine, get this key (from a secret store for example), create the directory and save the file there: 
+On another machine, get this key (from a secret store for example), create the
+directory and save the file there:
 
 ```
     mkdir -p ~/.cellos/generated/FOO
@@ -457,9 +461,9 @@ Hence, the cli arguments have the highest priority.
 
 ## Configuration file
 
-This configuration file needs to exist before you can use cell commands. 
+This configuration file needs to exist before you can use cell commands.
 
-The format is [Python ConfigParser format](https://docs.python.org/2/library/configparser.html), which is very similar to Windows INI files. 
+The format is [Python ConfigParser format](https://docs.python.org/2/library/configparser.html), which is very similar to Windows INI files.
 
 You can specify one or more sections, each containing variables pertaining to the AWS account, region, etc:
 
@@ -475,14 +479,17 @@ saasbase_secret_access_key=XXXXX
 aws_....
 ```
 
-The default configuration section is named "default". To pick up values from another section, you can pass a `--cell_config prod1` option to the cell CLI command
+The default configuration section is named "default". To pick up values from another
+section, you can pass a `--cell_config prod1` option to the cell CLI command
 
 ### Configuration file options
 
 - `proxy_port`: the proxy port to use for ssh proxy access to internal services
-- `saasbase_access_key_id` / `saasbase_secret_access_key`: the access / secret key to download Cell provisioning files from the repository
+- `saasbase_access_key_id` / `saasbase_secret_access_key`: the access / secret
+  key to download Cell provisioning files from the repository
 - `repository`: repository to download the provisioning files from
-- `net_whitelist_url`: an url that points to a net whitelist JSON containing the whitelisted subnets which can access cell services
+- `net_whitelist_url`: an url that points to a net whitelist JSON containing the
+  whitelisted subnets which can access cell services
 - `ssh_user`: used for ssh connection to cell machines
 - `ssh_timeout`
 - `ssh_options`
