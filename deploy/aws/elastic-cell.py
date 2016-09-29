@@ -515,7 +515,7 @@ t.add_resource(SharedStatusRWPolicy)
 # http://docs.aws.amazon.com/AmazonVPC/latest/UserGuide/vpc-endpoints.html
 VpcEndpointS3 = VPCEndpoint(
     "VpcEndpointS3",
-    RouteTableIds=[Ref("RouteTable")],
+    RouteTableIds=[Ref("RouteTable"), Ref("PublicRouteTable")],
     ServiceName=Join("", ["com.amazonaws.", Ref("AWS::Region"), ".s3"]),
     VpcId=Ref(VPC),
 )
