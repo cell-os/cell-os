@@ -294,7 +294,7 @@ The mesos configurations are in
 
 ### You need a SOCKS proxy to connect to the internal load balancers.
 
-    ./cell proxy cell-1 nucleus
+    ./cell proxy cell-1
 
 This opens a SOCKS proxy on localhost:1234 (configurable through `PROXY_PORT` env var)
 
@@ -306,7 +306,7 @@ The default IT Cloud CAMP AWS accounts are restricted from creating IAM Users an
 that we need to fallback on passing user's key/secret into the VM. This may work for dev setups but
 needs to be discussed with Security and IT.
 
-Note that you may get this capabilities by enabling KLAM  
+Note that you may get this capabilities by enabling KLAM and using 1h tokens.
 
 ### The bucket needs to be in the same region
 
@@ -339,31 +339,6 @@ Speed
 - [ ] Cache VM AMIs once successfully created and reuse them - need to figure out
       access rights to these AMIs (no CF API for AMIs)
 - [ ] Generate AMIs at build time with basic stuff on them (packages and Docker layers?)
-
-## Raw CF JSON vs Troposphere vs Terraform
-I wrote this directly in CF as it was simpler to get started (i.e. copy pasting from examples) but
-then I realized JSON is not that bad.  
-
-Troposphere is a nice Python wrapper that can generate a CF template.  
-Having python is nice, but I'm not sure it's necessarily simpler or with less code:  
-
-* This template has less than 500 lines
-* Raw JSON is declarative and Python is imperative (can make it much more unreadable than the JSON)
-* JSON supports hierarchies easily, while in Python object names need to be repeated for every
-property
-
-Terraform is declarative and also (presumably) works across several other cloud providers.  
-It comes with it's own DSL which does resemble familiar things but likely can't be managed
-programmatically.  
-
-## Related work
-
-Behance has some nice work similar to this using Troposphere and CoreOS instead of CentOS.
-Github repo here https://github.com/behance/mesos-cluster (note that it requires explicit
-access).  
-It would be worthwhile evaluating if we shouldn't try to have a common base which we can reuse.  
-The overall infrastructure (VPCs, scaling groups, load balancers, security groups, etc.) should
-look the same and could have some specifics layered on top.  
 
 
 ## Current node layout
