@@ -11,6 +11,7 @@ RUN apk add --no-cache \
               python-dev \
               py-pip \
               openjdk8-jre \
+              openssh-client \
   && pip install --upgrade pip
 
 COPY . /cellos/
