@@ -11,8 +11,8 @@ docker::version: 1.12.0-1.el7.centos
 java::version: 8u102
 # zookeeper exhibitor
 zookeeper::version: 3.4.6_1.5.6-1
-mesos::version: 1.0.0-2.0.89.centos701406
-marathon::version: v1.3.0-RC5
+mesos::version: 1.0.1-2.0.93.centos701406
+marathon::version: v1.3.2
 api-gateway::image: "cellos/apigateway:1.9.7.3-2"
 cell-os-universe::version: 1.2.1-SNAPSHOT
 
