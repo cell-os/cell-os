@@ -28,24 +28,53 @@ cellos/apigateway:1.9.7.3
 
 To attach to an existing gateway:
 
-SSH into one membrane node
+#### SSH into one membrane node
 
     ./cell ssh <cell> membrane 1
 
 
-Attach to gateway
+#### Attaching to a gateway container
 
     docker ps # to get the gw container id
     docker exec -it <container> bash
 
-Inside the container
+#### Inside the container
 
 * `/etc/api-gateway` - this is where the gw configuration is synced from `REMOTE_CONFIG` path
-* `/var/log/api-gateway/*` - gateway logs
 
-Reload
+#### Reload the gateway with the latest configuration
 
     api-gateway -s reload
+    
+> TIP: Before reloading the configuration make sure it is correct by running:
+    ```
+    api-gateway -t -p /usr/local/api-gateway/ -c /etc/api-gateway/api-gateway.conf
+    ```
+# Logging
+
+The API Gateway write logs in 2 places :
+* `access_log` goes to `stdout`
+* `error_log` goes to `stderr`
+
+This brings the following advantages: 
+* all the logs written by the API Gateway are accessible via the Mesos UI
+* `stdout` and `stderrr` logs can be rotated automatically by Mesos
+
+Logs could also be written inside `/mnt/mesos/sandbox/` folder and they would show up in the Mesos UI. This option should be used for debugging purposes only as these log files are not rotated automatically by Mesos. To debug a single location follow these steps: 
+
+1. inside that location block add 
+   `error_log /mnt/mesos/sandbox/foo_error.log debug` or 
+   `access_log /mnt/mesos/sandbox/foo_access.log platform;`
+2. update the configuration and reload the gateway
+3. go into the Mesos UI and view `foo_error.log` or `foo_access.log`. 
+
+A more concrete example with an API Gateawy location block:
+
+```nginx
+location /foo {
+  error_log /mnt/mesos/sandbox/foo_error.log debug;
+} 
+```
 
 # Marathon generated 
 `/etc/apigateway/environment.conf.d/api-gateway-upstreams.http.conf`
