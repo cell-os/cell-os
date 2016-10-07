@@ -1,17 +1,19 @@
 #!/usr/bin/env python
 """
-Waits until a ZK Exhibitor cluster is ready
+
+Waits until a ZK Exhibitor cluster is ready and prints out the zk uri
+host1:port1,host2:port2,host3:port3...
+
 """
 
 from __future__ import print_function
 
-import os
-import requests
-import subprocess
+import logging
 import sys
 import time
+
+import requests
 from kazoo.client import KazooClient
-import logging
 logging.basicConfig(level=logging.ERROR)
 
 MIN_CLUSTER_SIZE = 3
@@ -19,17 +21,10 @@ NUM_SUCCESS_ATTEMPTS = 10
 SLEEP_BETWEEN_ATTEMPTS = 0.5
 ZK_CONNECT_TIMEOUT = 0.5
 
-def get_base_url():
-    command = ['bash', '-c', 'source /etc/profile.d/cellos.sh && env']
-    proc = subprocess.Popen(command, stdout=subprocess.PIPE)
-    for line in proc.stdout:
-        (key, _, value) = line[:-1].partition("=")
-        os.environ[key] = value
-    proc.communicate()
-    return os.environ["zk_base_url"]
 
 def servers_to_str(servers, port):
     return ",".join([s + ":" + str(port) for s in servers])
+
 
 def list_cluster(url):
     """returns a tuple of ([servers], port, error)"""
@@ -54,8 +49,9 @@ def is_zk_node_up(server, port, timeout):
     client.stop()
     return is_up
 
-def wait_until_cluster_stable(base_url, min_size, num_success_attempts,
-                              sleep_time_s, zk_connect_timeout_s):
+
+def get_zk_nodes(base_url, min_size, num_success_attempts,
+                 sleep_time_s, zk_connect_timeout_s):
     """
     Blocks until multiple successive cluster listings render all servers up
     and in the same order (varying order means Exhibitor is still shuffling
@@ -82,15 +78,20 @@ def wait_until_cluster_stable(base_url, min_size, num_success_attempts,
             else:
                 success_attempts += 1
         time.sleep(sleep_time_s)
-    print()
+    return servers, port
 
 
 def main():
-    base_url = get_base_url()
-    # always check
-    wait_until_cluster_stable(base_url, MIN_CLUSTER_SIZE,
-                                NUM_SUCCESS_ATTEMPTS, SLEEP_BETWEEN_ATTEMPTS,
-                                ZK_CONNECT_TIMEOUT)
+    if len(sys.argv) != 2:
+        sys.stderr.write('Usage: zk-tool <exhibitor-uri>\n E.g. zk-tool '
+                         'http://zk-internal/exhibitor/v1')
+        exit(1)
+
+    base_url = sys.argv[1]
+    servers, port = get_zk_nodes(base_url, MIN_CLUSTER_SIZE,
+                                 NUM_SUCCESS_ATTEMPTS, SLEEP_BETWEEN_ATTEMPTS,
+                                 ZK_CONNECT_TIMEOUT)
+    sys.stdout.write(servers_to_str(servers, port))
 
 if __name__ == "__main__":
     main()

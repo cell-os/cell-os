@@ -69,8 +69,8 @@ do_provision provision
 
 # wait for zk
 report_status "zk_barrier start"
-export zk="$(machine_for_role nucleus 1 ip):2181,$(machine_for_role nucleus 2 ip):2181,$(machine_for_role nucleus 3 ip):2181"
-/usr/local/bin/zk-tool --check
+export zk="$(/usr/local/bin/zk-tool $zk_base_url)"
+
 grep -q "^export zk=" file &&  \
   sed -i "s/^export zk=.*$/export zk=${zk}/" /etc/profile.d/cellos.sh || \
   echo "export zk=${zk}" >> /etc/profile.d/cellos.sh
