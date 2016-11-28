@@ -600,7 +600,10 @@ NucleusEc2Policy = t.add_resource(iam.PolicyType(
         ]
     ),
     Roles=[
-        Ref("NucleusRole")
+        Ref("NucleusRole"),
+        Ref("StatefulBodyRole"),
+        Ref("StatelessBodyRole"),
+        Ref("MembraneRole")
     ]
 ))
 
