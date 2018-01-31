@@ -20,6 +20,7 @@ import troposphere.elasticloadbalancing as elb
 import troposphere.iam as iam
 import troposphere.route53 as route53
 import yaml
+import json
 from tropopause import *
 from troposphere import Equals, If, Condition
 from troposphere import FindInMap, GetAtt, Join, Output
@@ -745,7 +746,7 @@ ingress LbSecurityGroup tcp 5050:5050
 ingress LbSecurityGroup tcp 8080:8080
 ingress LbSecurityGroup tcp 8181:8181
     """,
-    VPC,
+    vpc_id=Ref(VPC),
     description="All nodes in body. Grants access to LbSecurityGroup"
 ))
 
@@ -760,14 +761,14 @@ ingress BodySecurityGroup tcp 8181:8181
 ingress BodySecurityGroup tcp 9000:9001
 ingress BodySecurityGroup tcp 50000:50100
     """,
-    VPC,
+    vpc_id=Ref(VPC),
     description="All nucleus nodes. Grants access to Exhibitor, ZK ports from LB and Body SG, respectively"
 ))
 
 BastionSecurityGroup = t.add_resource(security_group(
     'BastionSecurityGroup',
     "",
-    VPC,
+    vpc_id=Ref(VPC),
     description="Bastion nodes have access to all other nodes over SSH"
 ))
 
@@ -779,7 +780,7 @@ ExternalWhitelistSecurityGroup = t.add_resource(security_group(
 ingress {{addr}}/{{mask}} tcp 0:65535
 {{/entries}}
 """, {'entries': net_whitelist }),
-    VPC,
+    vpc_id=Ref(VPC),
     description="All nodes are part of it. Grants access to some Adobe CIDRs. Email to metal-cell@adobe.com"
 ))
 
@@ -789,13 +790,13 @@ LbSecurityGroup = t.add_resource(ec2.SecurityGroup(
     VpcId=Ref(VPC)
 ))
 
-PublicSecurityGroup = t.add_resource(security_group(
+PublicSecurityGroup = t.add_resource(e
     'PublicSecurityGroup',
     """
 ingress 0.0.0.0/0 tcp 80:80
 ingress 0.0.0.0/0 tcp 443:443
     """,
-    VPC,
+    vpc_id=Ref(VPC),
     description="Public access for all nodes in this group. Tread carefully."
 ))
 
